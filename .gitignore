@@ -1,0 +1,25 @@
+# Local secrets and machine-specific config
+.env
+.env.*
+config.local.json
+
+# Python runtime/cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.test_tmp/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editor/OS noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
