@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .client import SiYuanClient
+from .ignore import filter_documents, filter_notebooks, load_privacy_rules
 
 
 KB_CACHE_DIR = "kb_cache"
@@ -19,6 +20,7 @@ SELECT
 FROM blocks
 WHERE type = 'd'
 ORDER BY box, hpath
+LIMIT 100000
 """.strip()
 
 GUIDE_TEMPLATE = """# Personal Knowledge Base Guide
@@ -49,8 +51,12 @@ This file is the reading map for AI agents. Keep it short, explicit, and persona
 
 @dataclass(frozen=True)
 class RefreshResult:
+    total_notebook_count: int
+    total_document_count: int
     notebook_count: int
     document_count: int
+    hidden_notebook_count: int
+    hidden_document_count: int
     cache_dir: Path
 
 
@@ -60,8 +66,11 @@ def refresh_index(client: SiYuanClient, root: Path) -> RefreshResult:
     cache_dir.mkdir(parents=True, exist_ok=True)
     workspace_dir.mkdir(parents=True, exist_ok=True)
 
-    notebooks = client.list_notebooks()
-    docs = normalize_documents(client.query_sql(DOCS_SQL), notebooks)
+    all_notebooks = client.list_notebooks()
+    privacy = load_privacy_rules(root, include_temporary=False)
+    notebooks = filter_notebooks(all_notebooks, privacy)
+    all_docs = normalize_documents(client.query_sql(DOCS_SQL), all_notebooks)
+    docs = filter_documents(all_docs, privacy)
 
     write_json(cache_dir / "notebooks.json", notebooks)
     write_jsonl(cache_dir / "docs.jsonl", docs)
@@ -70,8 +79,12 @@ def refresh_index(client: SiYuanClient, root: Path) -> RefreshResult:
     ensure_text(workspace_dir / "README.md", render_workspace_readme())
 
     return RefreshResult(
+        total_notebook_count=len(all_notebooks),
+        total_document_count=len(all_docs),
         notebook_count=len(notebooks),
         document_count=len(docs),
+        hidden_notebook_count=len(all_notebooks) - len(notebooks),
+        hidden_document_count=len(all_docs) - len(docs),
         cache_dir=cache_dir,
     )
 

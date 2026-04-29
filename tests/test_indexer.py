@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import unittest
 from pathlib import Path
 
+from siyuan_kb.ignore import PrivacyRules, filter_documents
 from siyuan_kb.indexer import find_documents, normalize_documents, refresh_index, resolve_document
 
 
@@ -76,6 +78,56 @@ class IndexerTests(unittest.TestCase):
 
         self.assertEqual(status, "ambiguous")
         self.assertEqual(len(resolved), 2)
+
+    def test_subtree_ignore_hides_root_and_children(self):
+        rows = FakeClient().query_sql("") + [
+            {
+                "id": "20260429140000-child",
+                "box": "nb1",
+                "hpath": "/Projects/SiYuan Enhance/Child",
+                "path": "/20260429140000-child.sy",
+                "content": "Child",
+                "tag": "",
+            }
+        ]
+        docs = normalize_documents(rows, FakeClient().list_notebooks())
+
+        visible = filter_documents(
+            docs,
+            PrivacyRules(ignore=[{"scope": "subtree", "id": "20260429120000-abcdefg"}], allow=[]),
+        )
+        visible_ids = {doc["id"] for doc in visible}
+
+        self.assertNotIn("20260429120000-abcdefg", visible_ids)
+        self.assertNotIn("20260429140000-child", visible_ids)
+        self.assertIn("20260429130000-hijklmn", visible_ids)
+
+    def test_temporary_allow_restores_one_hidden_document(self):
+        docs = normalize_documents(FakeClient().query_sql(""), FakeClient().list_notebooks())
+
+        visible = filter_documents(
+            docs,
+            PrivacyRules(
+                ignore=[{"scope": "document", "id": "20260429120000-abcdefg"}],
+                allow=[{"scope": "document", "id": "20260429120000-abcdefg"}],
+            ),
+        )
+
+        self.assertIn("20260429120000-abcdefg", {doc["id"] for doc in visible})
+
+    def test_refresh_applies_local_ignore_file(self):
+        root = Path.cwd() / ".test_tmp" / "indexer_ignore"
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "siyuan.ignore.local.json").write_text(
+            json.dumps({"ignore": [{"scope": "document", "id": "20260429120000-abcdefg"}]}),
+            encoding="utf-8",
+        )
+
+        result = refresh_index(FakeClient(), root)
+        docs_jsonl = (root / "kb_cache" / "docs.jsonl").read_text(encoding="utf-8")
+
+        self.assertEqual(result.hidden_document_count, 1)
+        self.assertNotIn("20260429120000-abcdefg", docs_jsonl)
 
 
 if __name__ == "__main__":
