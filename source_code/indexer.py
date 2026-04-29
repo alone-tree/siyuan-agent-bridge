@@ -11,7 +11,7 @@ from .client import SiYuanClient
 from .ignore import filter_documents, filter_notebooks, load_privacy_rules
 
 
-KB_CACHE_DIR = "kb_cache"
+KNOWLEDGE_BASE_DIR = "knowledge_base"
 AI_WORKSPACE_DIR = "ai_workspace"
 
 DOCS_SQL = """
@@ -26,13 +26,13 @@ LIMIT 100000
 GUIDE_TEMPLATE = """# Personal Knowledge Base Guide
 
 This file is the reading map for AI agents. Keep it short, explicit, and personal.
-`python -m siyuan_kb refresh` will not overwrite this file after it exists.
+`python -m source_code refresh` will not overwrite this file after it exists.
 
 ## How To Read
 
 1. Read this guide first.
-2. Read `kb_cache/tree.md` to inspect the current SiYuan document structure.
-3. Use `python -m siyuan_kb read <doc-id>` when you need a specific document.
+2. Read `knowledge_base/tree.md` to inspect the current SiYuan document structure.
+3. Use `python -m source_code read <doc-id>` when you need a specific document.
 4. Put derived notes, task context, and drafts in `ai_workspace/`.
 
 ## Important Areas
@@ -61,7 +61,7 @@ class RefreshResult:
 
 
 def refresh_index(client: SiYuanClient, root: Path) -> RefreshResult:
-    cache_dir = root / KB_CACHE_DIR
+    cache_dir = root / KNOWLEDGE_BASE_DIR
     workspace_dir = root / AI_WORKSPACE_DIR
     cache_dir.mkdir(parents=True, exist_ok=True)
     workspace_dir.mkdir(parents=True, exist_ok=True)
@@ -154,7 +154,7 @@ def render_tree(notebooks: Iterable[dict[str, Any]], docs: Iterable[dict[str, An
         "",
         f"Generated: {datetime.now(timezone.utc).isoformat()}",
         "",
-        "Use `python -m siyuan_kb read <doc-id>` to read a document.",
+        "Use `python -m source_code read <doc-id>` to read a document.",
         "",
     ]
 
@@ -210,7 +210,7 @@ def _path_parts(doc: dict[str, Any]) -> list[str]:
 
 
 def load_docs(root: Path) -> list[dict[str, Any]]:
-    path = root / KB_CACHE_DIR / "docs.jsonl"
+    path = root / KNOWLEDGE_BASE_DIR / "docs.jsonl"
     if not path.exists():
         return []
     docs = []

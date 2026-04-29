@@ -12,7 +12,7 @@ Most of the time, you do not need to use the command line yourself.
 
 You mainly maintain these local files:
 
-- `kb_cache/guide.md`: the high-level reading guide for AI agents.
+- `knowledge_base/guide.md`: the high-level reading guide for AI agents.
 - `siyuan.ignore.local.json`: long-term privacy rules for hidden notebooks and documents, syncable through the repository.
 - `siyuan.allow.local.json`: temporary allow rules, syncable through the repository.
 - `ai_workspace/`: agent-generated analysis, context, drafts, and outputs.
@@ -37,7 +37,7 @@ This tool uses read-only API calls to:
 
 - scan notebooks and document structure;
 - remove anything matched by `siyuan.ignore.local.json`;
-- generate AI-readable index files such as `kb_cache/tree.md` and `kb_cache/docs.jsonl`.
+- generate AI-readable index files such as `knowledge_base/tree.md` and `knowledge_base/docs.jsonl`.
 
 The AI does not need to ingest every note at once. It reads the structure first, then opens specific documents only when needed.
 
@@ -99,7 +99,7 @@ or:
 Temporarily allow this notebook for 1 hour: <notebook name>
 ```
 
-The agent writes or reads a time-limited rule in `siyuan.allow.local.json`. It expires automatically and does not rewrite the long-lived `kb_cache/` index.
+The agent writes or reads a time-limited rule in `siyuan.allow.local.json`. It expires automatically and does not rewrite the long-lived `knowledge_base/` index.
 
 ## Project Structure
 
@@ -112,33 +112,33 @@ siyuan-enhance/
   config.local.json         # Local token, ignored by Git
   siyuan.ignore.local.json  # Long-term hide rules, syncable through Git
   siyuan.allow.local.json   # Temporary allow rules, syncable through Git
-  siyuan_kb/                # Python tool code
-  kb_cache/                 # Generated knowledge-base indexes
+  source_code/                # Python tool code
+  knowledge_base/           # Generated knowledge-base indexes
   ai_workspace/             # Agent workspace
   tests/                    # Tests
 ```
 
 Main generated files:
 
-- `kb_cache/guide.md`: human-maintained knowledge-base guide.
-- `kb_cache/tree.md`: AI-readable document tree.
-- `kb_cache/docs.jsonl`: document-level index.
-- `kb_cache/notebooks.json`: notebook index.
+- `knowledge_base/guide.md`: human-maintained knowledge-base guide.
+- `knowledge_base/tree.md`: AI-readable document tree.
+- `knowledge_base/docs.jsonl`: document-level index.
+- `knowledge_base/notebooks.json`: notebook index.
 
 Main code modules:
 
-- `siyuan_kb/client.py`: read-only SiYuan API client.
-- `siyuan_kb/indexer.py`: scanning and index generation.
-- `siyuan_kb/ignore.py`: privacy ignore and temporary allow rules.
-- `siyuan_kb/cli.py`: command-line entrypoint for agents/developers.
+- `source_code/client.py`: read-only SiYuan API client.
+- `source_code/indexer.py`: scanning and index generation.
+- `source_code/ignore.py`: privacy ignore and temporary allow rules.
+- `source_code/cli.py`: command-line entrypoint for agents/developers.
 
 ## Agent Workflow
 
 AI agents should:
 
 1. Read `AGENTS.md`.
-2. Read `kb_cache/guide.md`.
-3. Read `kb_cache/tree.md`.
+2. Read `knowledge_base/guide.md`.
+3. Read `knowledge_base/tree.md`.
 4. Read specific documents by document id when needed.
 5. Put derived work in `ai_workspace/`.
 6. Refresh the index if you say the ignore file changed.
@@ -152,6 +152,6 @@ This project is designed as a private project.
 - `config.local.json` is ignored by Git.
 - `siyuan.ignore.local.json` may be tracked to sync visibility rules across devices.
 - `siyuan.allow.local.json` may be tracked to sync temporary access rules across devices.
-- `kb_cache/` and `ai_workspace/` are not ignored because this repository is currently private.
+- `knowledge_base/` and `ai_workspace/` are not ignored because this repository is currently private.
 
 If this project is ever made public, review the privacy model first and remove personal note content and agent workspace material.

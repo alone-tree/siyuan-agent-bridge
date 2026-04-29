@@ -4,8 +4,8 @@ import json
 import unittest
 from pathlib import Path
 
-from siyuan_kb.ignore import PrivacyRules, filter_documents
-from siyuan_kb.indexer import find_documents, normalize_documents, refresh_index, resolve_document
+from source_code.ignore import PrivacyRules, filter_documents
+from source_code.indexer import find_documents, normalize_documents, refresh_index, resolve_document
 
 
 class FakeClient:
@@ -40,7 +40,7 @@ class IndexerTests(unittest.TestCase):
     def test_refresh_writes_indexes_and_preserves_existing_guide(self):
         root = Path.cwd() / ".test_tmp" / "indexer_refresh"
         root.mkdir(parents=True, exist_ok=True)
-        guide = root / "kb_cache" / "guide.md"
+        guide = root / "knowledge_base" / "guide.md"
         guide.parent.mkdir(exist_ok=True)
         guide.write_text("keep me\n", encoding="utf-8")
 
@@ -48,9 +48,9 @@ class IndexerTests(unittest.TestCase):
 
         self.assertEqual(result.document_count, 2)
         self.assertEqual(guide.read_text(encoding="utf-8"), "keep me\n")
-        self.assertTrue((root / "kb_cache" / "notebooks.json").exists())
-        self.assertTrue((root / "kb_cache" / "docs.jsonl").exists())
-        tree = (root / "kb_cache" / "tree.md").read_text(encoding="utf-8")
+        self.assertTrue((root / "knowledge_base" / "notebooks.json").exists())
+        self.assertTrue((root / "knowledge_base" / "docs.jsonl").exists())
+        tree = (root / "knowledge_base" / "tree.md").read_text(encoding="utf-8")
         self.assertIn("SiYuan Enhance", tree)
         self.assertIn("20260429120000-abcdefg", tree)
 
@@ -124,7 +124,7 @@ class IndexerTests(unittest.TestCase):
         )
 
         result = refresh_index(FakeClient(), root)
-        docs_jsonl = (root / "kb_cache" / "docs.jsonl").read_text(encoding="utf-8")
+        docs_jsonl = (root / "knowledge_base" / "docs.jsonl").read_text(encoding="utf-8")
 
         self.assertEqual(result.hidden_document_count, 1)
         self.assertNotIn("20260429120000-abcdefg", docs_jsonl)

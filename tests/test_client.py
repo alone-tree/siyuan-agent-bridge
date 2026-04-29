@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import unittest
 
-from siyuan_kb.client import SiYuanClient, SiYuanConnectionError
+from source_code.client import SiYuanClient, SiYuanConnectionError
 
 
 class FakeResponse:

@@ -22,8 +22,8 @@ from .ignore import (
     write_temporary_allow,
 )
 from .indexer import (
-    KB_CACHE_DIR,
     DOCS_SQL,
+    KNOWLEDGE_BASE_DIR,
     find_documents,
     load_docs,
     normalize_documents,
@@ -55,7 +55,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="python -m siyuan_kb",
+        prog="python -m source_code",
         description="Private read-only adapter for using SiYuan as an AI knowledge base.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
@@ -69,7 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
     refresh = sub.add_parser("refresh", help="Refresh local knowledge-base indexes.")
     refresh.set_defaults(func=cmd_refresh)
 
-    tree = sub.add_parser("tree", help="Print kb_cache/tree.md.")
+    tree = sub.add_parser("tree", help="Print knowledge_base/tree.md.")
     tree.set_defaults(func=cmd_tree)
 
     find = sub.add_parser("find", help="Find documents by title, path, notebook, tag, or id.")
@@ -180,9 +180,9 @@ def cmd_refresh(_args: argparse.Namespace, config: Config) -> int:
 
 
 def cmd_tree(_args: argparse.Namespace, config: Config) -> int:
-    path = config.root / KB_CACHE_DIR / "tree.md"
+    path = config.root / KNOWLEDGE_BASE_DIR / "tree.md"
     if not path.exists():
-        print("kb_cache/tree.md does not exist. Run `python -m siyuan_kb refresh` first.", file=sys.stderr)
+        print("knowledge_base/tree.md does not exist. Run `python -m source_code refresh` first.", file=sys.stderr)
         return 1
     print(path.read_text(encoding="utf-8"), end="")
     return 0
@@ -197,7 +197,7 @@ def cmd_find(args: argparse.Namespace, config: Config) -> int:
     else:
         docs = filter_documents(docs, privacy)
     if not docs:
-        print("No local index found. Run `python -m siyuan_kb refresh` first.", file=sys.stderr)
+        print("No local index found. Run `python -m source_code refresh` first.", file=sys.stderr)
         return 1
     matches = find_documents(docs, args.keyword, limit=max(args.limit, 1))
     if not matches:
@@ -240,7 +240,7 @@ def cmd_ignore_init(_args: argparse.Namespace, config: Config) -> int:
     state = "Created" if created else "Already exists"
     print(f"{state}: {local_path}")
     print(f"Example: {example_path}")
-    print("After editing ignore rules, run `python -m siyuan_kb refresh`.")
+    print("After editing ignore rules, run `python -m source_code refresh`.")
     return 0
 
 
@@ -288,7 +288,7 @@ def add_temporary_allow(scope: str, locator: str, minutes: int, reason: str, con
     existing.append(rule)
     write_temporary_allow(config.root, existing)
     print(f"Temporary allow added for {scope}. Expires in {minutes} minutes.")
-    print("This does not rewrite kb_cache. The item will be hidden again automatically after expiry.")
+    print("This does not rewrite knowledge_base. The item will be hidden again automatically after expiry.")
     return 0
 
 
