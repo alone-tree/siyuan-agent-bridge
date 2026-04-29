@@ -13,6 +13,7 @@ from .ignore import filter_documents, filter_notebooks, load_privacy_rules
 
 KNOWLEDGE_BASE_DIR = "knowledge_base"
 AI_WORKSPACE_DIR = "ai_workspace"
+NOTEBOOK_MAPS_DIR = "notebooks"
 
 DOCS_SQL = """
 SELECT
@@ -28,12 +29,14 @@ GUIDE_TEMPLATE = """# Personal Knowledge Base Guide
 This file is the reading map for AI agents. Keep it short, explicit, and personal.
 `python -m source_code refresh` will not overwrite this file after it exists.
 
-## How To Read
+## Startup Rules
 
 1. Read this guide first.
-2. Read `knowledge_base/tree.md` to inspect the current SiYuan document structure.
-3. Use `python -m source_code read <doc-id>` when you need a specific document.
-4. Put derived notes, task context, and drafts in `ai_workspace/`.
+2. Read `knowledge_base/overview.md` before reading broad document maps.
+3. Do not scan the whole tree just to understand the knowledge base.
+4. Read notebook maps only when a task points to that notebook or topic.
+5. Use `python -m source_code read <doc-id>` only when a specific document is worth reading deeply.
+6. Put derived notes, task context, and drafts in `ai_workspace/`.
 
 ## Important Areas
 
@@ -46,6 +49,23 @@ This file is the reading map for AI agents. Keep it short, explicit, and persona
 ## Recurring Workflows
 
 - TODO: Add where an AI agent should look for common tasks.
+"""
+
+OVERVIEW_TEMPLATE = """# SiYuan Knowledge Overview
+
+This file is the top-level map for AI agents. Keep it curated and concise.
+`python -m source_code start` will read this file but will not overwrite it.
+
+## How To Use
+
+- Use this overview to choose relevant notebooks or topics.
+- Read `knowledge_base/guide.md` for durable preferences and routing rules.
+- Read `knowledge_base/notebooks/<notebook-id>.md` only when that notebook is relevant.
+- Read full documents only when a specific document is worth deep reading.
+
+## Notebook Map
+
+- TODO: Add a curated overview of visible notebooks and when to use them.
 """
 
 
@@ -62,8 +82,10 @@ class RefreshResult:
 
 def refresh_index(client: SiYuanClient, root: Path) -> RefreshResult:
     cache_dir = root / KNOWLEDGE_BASE_DIR
+    notebook_maps_dir = cache_dir / NOTEBOOK_MAPS_DIR
     workspace_dir = root / AI_WORKSPACE_DIR
     cache_dir.mkdir(parents=True, exist_ok=True)
+    notebook_maps_dir.mkdir(parents=True, exist_ok=True)
     workspace_dir.mkdir(parents=True, exist_ok=True)
 
     all_notebooks = client.list_notebooks()
@@ -74,8 +96,10 @@ def refresh_index(client: SiYuanClient, root: Path) -> RefreshResult:
 
     write_json(cache_dir / "notebooks.json", notebooks)
     write_jsonl(cache_dir / "docs.jsonl", docs)
-    write_text(cache_dir / "tree.md", render_tree(notebooks, docs))
     ensure_text(cache_dir / "guide.md", GUIDE_TEMPLATE)
+    ensure_text(cache_dir / "overview.md", OVERVIEW_TEMPLATE)
+    ensure_notebook_maps(notebook_maps_dir, notebooks, docs)
+    write_text(cache_dir / "tree.md", render_tree(notebooks, docs))
     ensure_text(workspace_dir / "README.md", render_workspace_readme())
 
     return RefreshResult(
@@ -173,6 +197,143 @@ def render_tree(notebooks: Iterable[dict[str, Any]], docs: Iterable[dict[str, An
         lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+def render_overview(
+    notebooks: Iterable[dict[str, Any]],
+    docs: Iterable[dict[str, Any]],
+    all_notebooks: Iterable[dict[str, Any]] | None = None,
+    all_docs: Iterable[dict[str, Any]] | None = None,
+) -> str:
+    notebook_list = list(notebooks)
+    doc_list = list(docs)
+    all_notebook_count = len(list(all_notebooks)) if all_notebooks is not None else len(notebook_list)
+    all_doc_count = len(list(all_docs)) if all_docs is not None else len(doc_list)
+    docs_by_notebook = group_docs_by_notebook(doc_list)
+
+    lines = [
+        "# SiYuan Knowledge Overview",
+        "",
+        f"Generated: {datetime.now(timezone.utc).isoformat()}",
+        "",
+        "## Startup Protocol",
+        "",
+        "- Read `knowledge_base/guide.md` before using any broad map.",
+        "- Use this overview to choose a notebook or topic.",
+        "- Read `knowledge_base/notebooks/<notebook-id>.md` only for relevant notebooks.",
+        "- Use `siyuan_read_document` or `python -m source_code read <doc-id>` only for specific documents worth deep reading.",
+        "- Do not call SiYuan write APIs.",
+        "",
+        "## Visibility Summary",
+        "",
+        f"- Visible notebooks: {len(notebook_list)} / {all_notebook_count}",
+        f"- Visible documents: {len(doc_list)} / {all_doc_count}",
+        f"- Hidden documents: {max(all_doc_count - len(doc_list), 0)}",
+        "",
+        "## Visible Notebooks",
+        "",
+    ]
+
+    for notebook in notebook_list:
+        notebook_id = str(notebook.get("id", ""))
+        name = str(notebook.get("name") or notebook_id or "Unknown Notebook")
+        notebook_docs = docs_by_notebook.get(notebook_id, [])
+        lines.append(f"### {name}")
+        lines.append("")
+        lines.append(f"- Notebook ID: `{notebook_id}`")
+        lines.append(f"- Visible documents: {len(notebook_docs)}")
+        lines.append(f"- Map: `knowledge_base/notebooks/{notebook_id}.md`")
+        top_paths = summarize_top_paths(notebook_docs)
+        if top_paths:
+            lines.append(f"- Main paths: {', '.join(top_paths)}")
+        recent = summarize_recent_docs(notebook_docs, limit=3)
+        if recent:
+            lines.append("- Recent or representative documents:")
+            for doc in recent:
+                lines.append(f"  - {doc['title']} `{doc['id']}`")
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def ensure_notebook_maps(
+    notebook_maps_dir: Path,
+    notebooks: Iterable[dict[str, Any]],
+    docs: Iterable[dict[str, Any]],
+) -> None:
+    docs_by_notebook = group_docs_by_notebook(docs)
+    for notebook in notebooks:
+        notebook_id = str(notebook.get("id", ""))
+        if not notebook_id:
+            continue
+        path = notebook_maps_dir / f"{notebook_id}.md"
+        ensure_text(path, render_notebook_map(notebook, docs_by_notebook.get(notebook_id, [])))
+
+
+def render_notebook_map(notebook: dict[str, Any], docs: Iterable[dict[str, Any]]) -> str:
+    doc_list = sorted(
+        list(docs),
+        key=lambda item: (str(item.get("hpath", "")).casefold(), str(item.get("id", ""))),
+    )
+    notebook_id = str(notebook.get("id", ""))
+    name = str(notebook.get("name") or notebook_id or "Unknown Notebook")
+    lines = [
+        f"# Notebook Map: {name}",
+        "",
+        f"- Notebook ID: `{notebook_id}`",
+        f"- Visible documents: {len(doc_list)}",
+        "",
+        "Use this map to decide which documents deserve deep reading. Do not read every document by default.",
+        "",
+        "## Document Map",
+        "",
+    ]
+    for doc in doc_list:
+        hpath = str(doc.get("hpath") or doc.get("title") or "")
+        summary = document_summary(doc)
+        tags = doc.get("tags") or []
+        tag_text = f" tags:{', '.join(str(tag) for tag in tags)}" if tags else ""
+        lines.append(f"- `{doc['id']}` {hpath}")
+        if summary:
+            lines.append(f"  Summary: {summary}{tag_text}")
+        elif tag_text:
+            lines.append(f"  Summary:{tag_text}")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def group_docs_by_notebook(docs: Iterable[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for doc in docs:
+        grouped.setdefault(str(doc.get("notebook_id", "")), []).append(doc)
+    return grouped
+
+
+def summarize_top_paths(docs: Iterable[dict[str, Any]], limit: int = 5) -> list[str]:
+    counts: dict[str, int] = {}
+    for doc in docs:
+        parts = _path_parts(doc)
+        if parts:
+            counts[parts[0]] = counts.get(parts[0], 0) + 1
+    return [name for name, _count in sorted(counts.items(), key=lambda item: (-item[1], item[0].casefold()))[:limit]]
+
+
+def summarize_recent_docs(docs: Iterable[dict[str, Any]], limit: int = 3) -> list[dict[str, Any]]:
+    return sorted(
+        list(docs),
+        key=lambda item: (str(item.get("updated", "")), str(item.get("created", "")), str(item.get("id", ""))),
+        reverse=True,
+    )[:limit]
+
+
+def document_summary(doc: dict[str, Any]) -> str:
+    for key in ("memo", "alias"):
+        value = str(doc.get(key) or "").strip()
+        if value:
+            return value
+    parts = _path_parts(doc)
+    if len(parts) > 1:
+        return " / ".join(parts[:-1])
+    return ""
 
 
 def _render_notebook_tree(docs: list[dict[str, Any]]) -> list[str]:

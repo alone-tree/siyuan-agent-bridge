@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "siyuan-knowledge": {
+      "command": "python",
+      "args": [
+        "./scripts/run_mcp.py"
+      ]
+    }
+  }
+}

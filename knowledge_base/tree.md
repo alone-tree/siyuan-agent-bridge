@@ -1,6 +1,6 @@
 # SiYuan Knowledge Tree
 
-Generated: 2026-04-29T08:44:38.818625+00:00
+Generated: 2026-04-29T09:19:10.364869+00:00
 
 Use `python -m source_code read <doc-id>` to read a document.
 

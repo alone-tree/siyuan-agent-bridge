@@ -50,9 +50,15 @@ class IndexerTests(unittest.TestCase):
         self.assertEqual(guide.read_text(encoding="utf-8"), "keep me\n")
         self.assertTrue((root / "knowledge_base" / "notebooks.json").exists())
         self.assertTrue((root / "knowledge_base" / "docs.jsonl").exists())
+        self.assertTrue((root / "knowledge_base" / "overview.md").exists())
+        self.assertTrue((root / "knowledge_base" / "notebooks" / "nb1.md").exists())
         tree = (root / "knowledge_base" / "tree.md").read_text(encoding="utf-8")
         self.assertIn("SiYuan Enhance", tree)
         self.assertIn("20260429120000-abcdefg", tree)
+        overview = (root / "knowledge_base" / "overview.md").read_text(encoding="utf-8")
+        self.assertIn("SiYuan Knowledge Overview", overview)
+        notebook_map = (root / "knowledge_base" / "notebooks" / "nb1.md").read_text(encoding="utf-8")
+        self.assertIn("Document Map", notebook_map)
 
     def test_normalize_documents_extracts_tags(self):
         docs = normalize_documents(FakeClient().query_sql(""), FakeClient().list_notebooks())

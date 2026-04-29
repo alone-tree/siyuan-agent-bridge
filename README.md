@@ -25,6 +25,14 @@ Typical workflow:
 4. The AI agent refreshes the safe index.
 5. After that, the AI only sees the visible part of your note structure.
 
+When using another AI tool, tell it:
+
+```text
+Read D:\Github\siyuan-enhance\START_HERE.md first.
+If MCP tools are available, call siyuan_start first. It checks SiYuan and returns existing top-level guidance without refreshing indexes.
+If MCP is unavailable, run python -m source_code start in D:\Github\siyuan-enhance.
+```
+
 ## How It Works
 
 SiYuan stores notes locally and exposes a local HTTP API, usually at:
@@ -38,6 +46,8 @@ This tool uses read-only API calls to:
 - scan notebooks and document structure;
 - remove anything matched by `siyuan.ignore.local.json`;
 - generate AI-readable index files such as `knowledge_base/tree.md` and `knowledge_base/docs.jsonl`.
+- generate startup overview `knowledge_base/overview.md`.
+- generate per-notebook maps in `knowledge_base/notebooks/<notebook-id>.md`.
 
 The AI does not need to ingest every note at once. It reads the structure first, then opens specific documents only when needed.
 
@@ -121,9 +131,11 @@ siyuan-enhance/
 Main generated files:
 
 - `knowledge_base/guide.md`: human-maintained knowledge-base guide.
+- `knowledge_base/overview.md`: startup overview for AI agents.
 - `knowledge_base/tree.md`: AI-readable document tree.
 - `knowledge_base/docs.jsonl`: document-level index.
 - `knowledge_base/notebooks.json`: notebook index.
+- `knowledge_base/notebooks/`: per-notebook document maps.
 
 Main code modules:
 
@@ -136,12 +148,14 @@ Main code modules:
 
 AI agents should:
 
-1. Read `AGENTS.md`.
-2. Read `knowledge_base/guide.md`.
-3. Read `knowledge_base/tree.md`.
-4. Read specific documents by document id when needed.
-5. Put derived work in `ai_workspace/`.
-6. Refresh the index if you say the ignore file changed.
+1. Read `START_HERE.md`.
+2. Prefer MCP tool `siyuan_start`; it only checks connectivity and returns existing top-level indexes.
+3. If MCP is unavailable, run `python -m source_code start`.
+4. Use the startup packet and `knowledge_base/overview.md` to choose relevant notebooks.
+5. Read `knowledge_base/notebooks/<notebook-id>.md` only when relevant.
+6. Read specific documents by document id when needed.
+7. Put derived work in `ai_workspace/`.
+8. Refresh the index only if you say the ignore file changed, the index is missing, or it is clearly stale.
 
 Agents should not read `config.local.json`, `siyuan.ignore.local.json`, or `siyuan.allow.local.json` unless you explicitly ask.
 

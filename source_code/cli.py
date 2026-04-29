@@ -66,6 +66,9 @@ def build_parser() -> argparse.ArgumentParser:
     notebooks = sub.add_parser("notebooks", help="List SiYuan notebooks.")
     notebooks.set_defaults(func=cmd_notebooks)
 
+    start = sub.add_parser("start", help="Check SiYuan and print the AI startup packet without refreshing indexes.")
+    start.set_defaults(func=cmd_start)
+
     refresh = sub.add_parser("refresh", help="Refresh local knowledge-base indexes.")
     refresh.set_defaults(func=cmd_refresh)
 
@@ -169,13 +172,15 @@ def cmd_notebooks(_args: argparse.Namespace, config: Config) -> int:
 def cmd_refresh(_args: argparse.Namespace, config: Config) -> int:
     client = get_working_client(config)
     result = refresh_index(client, config.root)
-    print(
-        "Scanned "
-        f"{result.total_document_count} documents from {result.total_notebook_count} notebooks. "
-        f"Visible: {result.document_count} documents from {result.notebook_count} notebooks. "
-        f"Hidden: {result.hidden_document_count} documents from {result.hidden_notebook_count} notebooks."
-    )
+    print(format_refresh_summary(result))
     print(f"Cache: {result.cache_dir}")
+    return 0
+
+
+def cmd_start(_args: argparse.Namespace, config: Config) -> int:
+    client = get_working_client(config)
+    version = client.version()
+    print(render_start_packet(config.root, version))
     return 0
 
 
@@ -407,6 +412,78 @@ def print_rule_list(rules: list[dict[str, object]]) -> None:
 
 def describe_rule(rule: dict[str, object]) -> str:
     return str(rule.get("name") or rule.get("title") or rule.get("hpath") or rule.get("id") or rule.get("notebook_id") or "unknown")
+
+
+def format_refresh_summary(result: object) -> str:
+    return (
+        "Scanned "
+        f"{result.total_document_count} documents from {result.total_notebook_count} notebooks. "
+        f"Visible: {result.document_count} documents from {result.notebook_count} notebooks. "
+        f"Hidden: {result.hidden_document_count} documents from {result.hidden_notebook_count} notebooks."
+    )
+
+
+def render_start_packet(root: Path, version: str) -> str:
+    base = root / KNOWLEDGE_BASE_DIR
+    start_here = read_optional_text(root / "START_HERE.md")
+    guide = read_optional_text(base / "guide.md")
+    summary = format_existing_index_summary(root)
+    return "\n".join(
+        [
+            "# SiYuan Knowledge Startup Packet",
+            "",
+            f"SiYuan connection: OK, version {version}",
+            summary,
+            "",
+            "## Mandatory Workflow",
+            "",
+            "1. Use this startup packet first.",
+            "2. Follow `knowledge_base/guide.md` before opening broad maps.",
+            "3. Use `knowledge_base/overview.md` to choose relevant notebooks.",
+            "4. Read `knowledge_base/notebooks/<notebook-id>.md` only for relevant notebooks.",
+            "5. Read full documents only through `python -m source_code read <doc-id>` or the MCP `siyuan_read_document` tool.",
+            "6. Do not refresh or rebuild indexes unless the user asks or the index is clearly missing/stale.",
+            "7. Do not scan all files just to understand the notebook.",
+            "",
+            "## Top-Level Indexes To Read Next",
+            "",
+            "- `knowledge_base/guide.md`: curated routing rules and preferences.",
+            "- `knowledge_base/overview.md`: curated top-level notebook map.",
+            "- `knowledge_base/notebooks/`: per-notebook maps, read only when relevant.",
+            "- `knowledge_base/tree.md`: full tree, use only when overview/notebook maps are insufficient.",
+            "",
+            "## Start Here",
+            "",
+            start_here.strip() if start_here else "(START_HERE.md is missing)",
+            "",
+            "## Guide",
+            "",
+            guide.strip() if guide else "(guide.md is missing)",
+            "",
+        ]
+    )
+
+
+def format_existing_index_summary(root: Path) -> str:
+    base = root / KNOWLEDGE_BASE_DIR
+    notebooks_path = base / "notebooks.json"
+    docs_path = base / "docs.jsonl"
+    if not notebooks_path.exists() or not docs_path.exists():
+        return "Existing index: missing. Ask the user before running a full refresh unless they already requested it."
+    try:
+        import json
+
+        notebook_count = len(json.loads(notebooks_path.read_text(encoding="utf-8")))
+        document_count = sum(1 for line in docs_path.read_text(encoding="utf-8").splitlines() if line.strip())
+    except Exception:
+        return "Existing index: present but unreadable. Ask the user before rebuilding it."
+    return f"Existing index: {notebook_count} visible notebooks, {document_count} visible documents."
+
+
+def read_optional_text(path: Path) -> str:
+    if not path.exists():
+        return ""
+    return path.read_text(encoding="utf-8")
 
 
 def format_api_error(exc: SiYuanApiError) -> str:

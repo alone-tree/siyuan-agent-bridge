@@ -6,12 +6,14 @@ The owner usually does not use the command line directly. Treat CLI commands as 
 
 ## Reading Order
 
-1. Read `knowledge_base/guide.md` first.
-2. Read `knowledge_base/tree.md` to inspect the note structure.
-3. Use `python -m source_code find <keyword>` to locate candidate documents.
-4. Use `python -m source_code read <doc-id>` when full document Markdown is needed.
-5. Put derived analysis, task context, drafts, and outputs in `ai_workspace/`.
-6. If the owner says they changed the SiYuan ignore file, run `python -m source_code refresh` before reading indexes.
+1. Read `START_HERE.md` first.
+2. Use MCP tool `siyuan_start` when available; it checks SiYuan and returns existing top-level guidance.
+3. If MCP is unavailable, run `python -m source_code start`.
+4. Read the startup packet before opening broad maps.
+5. Use `knowledge_base/overview.md` to choose relevant notebooks.
+6. Use `knowledge_base/notebooks/<notebook-id>.md` only for relevant notebooks.
+7. Use `python -m source_code read <doc-id>` when full document Markdown is needed.
+8. Put derived analysis, task context, drafts, and outputs in `ai_workspace/`.
 
 ## Hard Rules
 
@@ -22,12 +24,15 @@ The owner usually does not use the command line directly. Treat CLI commands as 
 - Do not run `python -m source_code ignore allow ...` unless the user explicitly asks to temporarily open hidden notes.
 - Do not expose hidden notebook/document names from local privacy files unless the user explicitly asks.
 - Treat `knowledge_base/` and `ai_workspace/` as private personal data.
+- Do not scan all of `knowledge_base/tree.md` by default.
+- Do not refresh or rebuild indexes unless the user asks, the index is missing, or it is clearly stale.
 
 ## Useful Commands
 
 ```bash
 python -m source_code doctor
 python -m source_code notebooks
+python -m source_code start
 python -m source_code refresh
 python -m source_code tree
 python -m source_code find <keyword>
