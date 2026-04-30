@@ -1,0 +1,17 @@
+{
+  "name": "siyuan-index-builder",
+  "description": "Build and maintain a structured path-first navigation index for SiYuan knowledge base. Creates knowledge_base/index.md so AI agents can locate relevant documents without scanning every notebook map.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Private Local User"
+  },
+  "license": "UNLICENSED",
+  "keywords": [
+    "siyuan",
+    "index",
+    "navigation",
+    "knowledge-base"
+  ],
+  "category": "productivity",
+  "strict": false
+}
