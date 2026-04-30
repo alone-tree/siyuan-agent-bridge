@@ -10,6 +10,10 @@ REPO_ROOT = PLUGIN_ROOT.parents[1]
 
 os.chdir(REPO_ROOT)
 sys.path.insert(0, str(REPO_ROOT))
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from source_code.mcp_server import main
 

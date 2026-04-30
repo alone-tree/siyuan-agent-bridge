@@ -1,0 +1,17 @@
+{
+  "name": "siyuan-knowledge-skill",
+  "description": "Private local SiYuan knowledge-base workflow for reading the owner's notes through MCP tools or the local source_code CLI.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Private Local User"
+  },
+  "license": "UNLICENSED",
+  "keywords": [
+    "siyuan",
+    "knowledge-base",
+    "notes",
+    "mcp"
+  ],
+  "category": "productivity",
+  "strict": false
+}

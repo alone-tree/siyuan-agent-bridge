@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any, Callable
@@ -20,6 +21,8 @@ from .indexer import (
 
 SERVER_NAME = "siyuan-knowledge"
 SERVER_VERSION = "0.1.0"
+DEFAULT_CHUNK_CHARS = 10000
+MAX_CHUNK_CHARS = 30000
 
 
 def main() -> int:
@@ -77,6 +80,8 @@ class McpServer:
             "siyuan_list_documents": self.siyuan_list_documents,
             "siyuan_find_documents": self.siyuan_find_documents,
             "siyuan_read_document": self.siyuan_read_document,
+            "siyuan_describe_document_chunks": self.siyuan_describe_document_chunks,
+            "siyuan_read_document_chunk": self.siyuan_read_document_chunk,
             "siyuan_propose_guide_update": self.siyuan_propose_guide_update,
             "siyuan_apply_guide_update": self.siyuan_apply_guide_update,
         }
@@ -144,6 +149,77 @@ class McpServer:
         return "\n".join(lines)
 
     def siyuan_read_document(self, args: dict[str, Any]) -> str:
+        doc = self.resolve_visible_document(args)
+        markdown = self.export_document_markdown(str(doc["id"]))
+        max_chars = clamp_int(args.get("max_chars"), DEFAULT_CHUNK_CHARS, 2000, MAX_CHUNK_CHARS)
+        chunks = split_markdown_chunks(markdown, max_chars=max_chars)
+        if len(chunks) <= 1:
+            return markdown
+        first = chunks[0]
+        return "\n".join(
+            [
+                f"# Document Preview: {doc.get('hpath') or doc.get('title') or doc.get('id')}",
+                "",
+                f"Document ID: `{doc.get('id')}`",
+                f"Total length: {len(markdown)} characters",
+                f"Chunks: {len(chunks)} at about {max_chars} characters each",
+                "",
+                "This document is long, so only chunk 1 is returned here to avoid MCP/client truncation.",
+                "Use `siyuan_describe_document_chunks` to inspect the chunk map, then `siyuan_read_document_chunk` with `chunk_index` for the exact section you need.",
+                "",
+                "## Chunk 1",
+                "",
+                first,
+            ]
+        )
+
+    def siyuan_describe_document_chunks(self, args: dict[str, Any]) -> str:
+        doc = self.resolve_visible_document(args)
+        markdown = self.export_document_markdown(str(doc["id"]))
+        max_chars = clamp_int(args.get("max_chars"), DEFAULT_CHUNK_CHARS, 2000, MAX_CHUNK_CHARS)
+        chunks = split_markdown_chunks(markdown, max_chars=max_chars)
+        lines = [
+            f"# Document Chunk Map: {doc.get('hpath') or doc.get('title') or doc.get('id')}",
+            "",
+            f"Document ID: `{doc.get('id')}`",
+            f"Total length: {len(markdown)} characters",
+            f"Chunks: {len(chunks)}",
+            "",
+            "Use `siyuan_read_document_chunk` with a 1-based `chunk_index`.",
+            "",
+        ]
+        for index, chunk in enumerate(chunks, start=1):
+            heading = first_heading(chunk)
+            image_count = len(find_markdown_images(chunk))
+            image_text = f", images: {image_count}" if image_count else ""
+            lines.append(f"- Chunk {index}: {len(chunk)} chars{image_text} - {heading}")
+        return "\n".join(lines)
+
+    def siyuan_read_document_chunk(self, args: dict[str, Any]) -> str:
+        doc = self.resolve_visible_document(args)
+        markdown = self.export_document_markdown(str(doc["id"]))
+        max_chars = clamp_int(args.get("max_chars"), DEFAULT_CHUNK_CHARS, 2000, MAX_CHUNK_CHARS)
+        chunks = split_markdown_chunks(markdown, max_chars=max_chars)
+        chunk_index = int(args.get("chunk_index") or 1)
+        if chunk_index < 1 or chunk_index > len(chunks):
+            raise ValueError(f"chunk_index must be between 1 and {len(chunks)}")
+        chunk = chunks[chunk_index - 1]
+        images = find_markdown_images(chunk)
+        lines = [
+            f"# Document Chunk {chunk_index}/{len(chunks)}",
+            "",
+            f"Document ID: `{doc.get('id')}`",
+            f"Document: {doc.get('hpath') or doc.get('title') or doc.get('id')}",
+            f"Chunk length: {len(chunk)} characters",
+        ]
+        if images:
+            lines.append(f"Images in this chunk: {len(images)}")
+            for image in images[:20]:
+                lines.append(f"- {image}")
+        lines.extend(["", chunk])
+        return "\n".join(lines)
+
+    def resolve_visible_document(self, args: dict[str, Any]) -> dict[str, Any]:
         locator = str(args.get("document_id") or args.get("locator") or "").strip()
         if not locator:
             raise ValueError("document_id is required")
@@ -161,9 +237,12 @@ class McpServer:
                 status, matches = resolve_document(live_docs, locator)
         if status != "ok":
             raise ValueError("No matching visible document. It may be hidden, unindexed, or the locator is wrong.")
+        return matches[0]
+
+    def export_document_markdown(self, document_id: str) -> str:
         config = load_config(self.root)
         client = get_working_client(config)
-        return client.export_markdown(str(matches[0]["id"]))
+        return client.export_markdown(document_id)
 
     def siyuan_propose_guide_update(self, args: dict[str, Any]) -> str:
         title = str(args.get("title") or "Guide update proposal").strip()
@@ -248,10 +327,41 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_read_document",
-            "description": "Read one visible SiYuan document as Markdown by document id.",
+            "description": "Read a visible SiYuan document preview as Markdown. Long documents are chunked to avoid MCP/client truncation.",
             "inputSchema": {
                 "type": "object",
-                "properties": {"document_id": {"type": "string"}, "locator": {"type": "string"}},
+                "properties": {
+                    "document_id": {"type": "string"},
+                    "locator": {"type": "string"},
+                    "max_chars": {"type": "integer", "default": DEFAULT_CHUNK_CHARS},
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "siyuan_describe_document_chunks",
+            "description": "Return a chunk map for one visible SiYuan document so long documents can be read without truncation.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "string"},
+                    "locator": {"type": "string"},
+                    "max_chars": {"type": "integer", "default": DEFAULT_CHUNK_CHARS},
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "siyuan_read_document_chunk",
+            "description": "Read one numbered chunk from a visible SiYuan document, preserving local text and image references in context.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "string"},
+                    "locator": {"type": "string"},
+                    "chunk_index": {"type": "integer", "default": 1},
+                    "max_chars": {"type": "integer", "default": DEFAULT_CHUNK_CHARS},
+                },
                 "additionalProperties": False,
             },
         },
@@ -284,6 +394,72 @@ def tool_specs() -> list[dict[str, Any]]:
 
 def read_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def clamp_int(value: Any, default: int, minimum: int, maximum: int) -> int:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        number = default
+    return max(minimum, min(maximum, number))
+
+
+def split_markdown_chunks(markdown: str, *, max_chars: int = DEFAULT_CHUNK_CHARS) -> list[str]:
+    text = markdown.strip()
+    if not text:
+        return [""]
+    blocks = re.split(r"(\n{2,})", text)
+    units = []
+    for index in range(0, len(blocks), 2):
+        block = blocks[index]
+        sep = blocks[index + 1] if index + 1 < len(blocks) else ""
+        if block:
+            units.append(block + sep)
+
+    chunks: list[str] = []
+    current = ""
+    for unit in units:
+        if len(unit) > max_chars:
+            if current.strip():
+                chunks.append(current.strip())
+                current = ""
+            chunks.extend(split_large_unit(unit, max_chars))
+            continue
+        if current and len(current) + len(unit) > max_chars:
+            chunks.append(current.strip())
+            current = unit
+        else:
+            current += unit
+    if current.strip() or not chunks:
+        chunks.append(current.strip())
+    return chunks
+
+
+def split_large_unit(text: str, max_chars: int) -> list[str]:
+    lines = text.splitlines(keepends=True)
+    chunks: list[str] = []
+    current = ""
+    for line in lines:
+        if current and len(current) + len(line) > max_chars:
+            chunks.append(current.strip())
+            current = line
+        else:
+            current += line
+    if current.strip():
+        chunks.append(current.strip())
+    return chunks
+
+
+def first_heading(markdown: str) -> str:
+    for line in markdown.splitlines():
+        stripped = line.strip()
+        if stripped:
+            return stripped[:120]
+    return "(empty chunk)"
+
+
+def find_markdown_images(markdown: str) -> list[str]:
+    return re.findall(r"!\[[^\]]*\]\(([^)]+)\)", markdown)
 
 
 def make_result(request_id: Any, result: Any) -> dict[str, Any]:

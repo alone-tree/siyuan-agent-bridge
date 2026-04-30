@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "siyuan-knowledge": {
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "D:\\Github\\siyuan-enhance\\plugins\\siyuan-knowledge\\scripts\\run_mcp.py"
+      ],
+      "env": {
+        "PYTHONUTF8": "1"
+      }
+    }
+  }
+}

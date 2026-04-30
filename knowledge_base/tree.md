@@ -1,6 +1,6 @@
 # SiYuan Knowledge Tree
 
-Generated: 2026-04-29T09:19:10.364869+00:00
+Generated: 2026-04-30T06:04:42.082023+00:00
 
 Use `python -m source_code read <doc-id>` to read a document.
 
@@ -343,29 +343,6 @@ Use `python -m source_code read <doc-id>` to read a document.
   - 光芯片行业梳理 `20260109141251-82h8o0n` updated:20260109141316
   - 光连接与铜连接的使用场景差异 `20260109112955-8fzwks5` updated:20260109131115
   - 汇绿生态收购钧恒科技 `20260109135606-jzi7yxn` updated:20260109141020
-  - 第三方资料汇总 `20260109151105-s4of75z` updated:20260109152322
-    - AI Data Centers Ignite a Laser Shortage Wave; Nvidia’s Strategic Lock-In Reshapes the Global Laser Supply Chain, Says TrendForce `20251215141240-szbsuy4` updated:20251215141406
-    - AI算力&光模块行业专家交流纪要 `20251218090622-4y2lhmd` updated:20260109152540
-    - Over 20 Million 400G & 800G Datacom Optical Module Shipments Expected for 2024 - Cignal AI `20251215145013-hnx9kdh` updated:20260109152711
-    - Sales of optical transceivers will reach $23 billion in 2025 `20251219084417-phn04fi` updated:20260109152730
-    - 中际旭创3季报跟进 `20251215105314-fnbb0bu` updated:20260109152740
-    - 中际旭创各生产基地“产能／客户订单配额／ASP成本差”拆解报告备查 `20251215101244-pjpngtb` updated:20260109152753
-    - 中际旭创（300308）深度分析报告 `20251215101331-zpwpd2o` updated:20260109152813
-    - 光模块|800G／1.6T需求及产能、上游材料器件及海外客户情况 `20251215143613-49bfrdm` updated:20251215143613
-    - 光芯片专家交流纪要 `20251219170311-1ysskcg` updated:20260109152822
-    - 关于谷歌审厂、光纤、液冷、PCB、光模块、碳酸锂、锂电、机器人、商业航天、有色金属等一些信息整理 `20251219094530-hmc8f4n` updated:20251219094530
-    - 天孚、中际、源杰、长光华芯历史新高！后续如何？ `20251215100442-28m2ef8` updated:20260109152607
-    - 太猛了，都是大消息！ `20251215161210-bm4doj2` updated:20251222155123
-    - 我司承建的旭创科技（泰国）工厂三期2号厂房项目顺利封顶 - 中电二公司 `20251222111118-ika2ua0` updated:20251222111118
-    - 拆解上市公司丨第37期：新易盛 `20251215151522-rv1e9h7` updated:20260109152630
-    - 招银国际：Optical transceivers – sustained AI-drivenoutperformance ahead `20251215110512-6l8j1g6` updated:20251215110816
-    - 新易盛三季度报：亚马逊 Trainium3催生算力需求，300万只产能承接全球AI算力红利！ `20251215151352-tck79d8` updated:20251215151352
-    - 新易盛半年净利暴增355%，主要靠哪些客户？ `20251215153624-5dk8mnd` updated:20260109152652
-    - 新易盛战略分析报告 `20251215162436-lqgasnv` updated:20251215162517
-    - 新易盛，一个季度等于十年前8多个体量，历史上的十二个轴。。。 `20251215133631-ce7c8vm` updated:20260109152555
-    - 机柜里的“最后一米”：从光模块、AOC到高速铜缆 `20251226093426-uawf634` updated:20260109150939
-    - 英伟达豪掷200亿美金，谷歌TPU之父连夜投奔老黄！ `20251231102424-5960a6a` updated:20251231102424
-    - 进击的光模块双雄，第三季度业绩报告看投资价值 `20251215132457-53hkrch` updated:20260109152642
   - 网络架构与光模块用量 `20260109144733-x71gjl8` updated:20260109145124
   - 罗博特科重组ficonTEC `20260109133736-rfg9wgu` updated:20260109134825
 - 二、算力芯片 `20251215093236-qmpfbxu` updated:20260309140901
@@ -404,6 +381,7 @@ Use `python -m source_code read <doc-id>` to read a document.
   - 其他上游公司 `20251230094011-9e5besi` updated:20251230094018
     - 其他上游公司每日快讯 `20251230094117-66z4uho` updated:20260106134847
   - 硅光 `20251230093947-o3kl88g` updated:20251230093956
-- 存储芯片行业研究报告 `20260321225332-dnlw1kv` updated:20260403123908
-  - 存储芯片行业研究报告 `20260410151510-asfsc6w` updated:20260429145025
-- 每日新闻汇总 `20260106101341-tm2v3t5` updated:20260429093015
+- 旧存储芯片行业研究报告 `20260321225332-dnlw1kv` updated:20260430135427
+  - 存储芯片行业研究报告 `20260410151510-asfsc6w` updated:20260430135436
+- 每日新闻汇总 `20260106101341-tm2v3t5` updated:20260430093811
+- 汇总文档 `20260228102319-1eolzd2` updated:20260311092336
