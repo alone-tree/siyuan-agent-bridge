@@ -2,54 +2,95 @@
 
 [中文说明](README.zh-CN.md)
 
-SiYuan Enhance is a private, local-first adapter that lets external AI agents read your SiYuan notes as a structured personal knowledge base.
+SiYuan Enhance is a private, local-first adapter that lets external AI agents use your SiYuan notes as a structured personal knowledge base.
 
-It is not a SiYuan plugin, not a public project, and not a vector-search system. Your notes stay in SiYuan; this tool creates structured read-only indexes and gives AI agents a controlled way to inspect relevant notes.
+It is not a SiYuan plugin, not a public package, and not a vector-search system. Your notes stay in SiYuan. This project creates safe read-only indexes and exposes controlled CLI / MCP tools for AI agents.
 
-## Normal Human Workflow
+## Current Capabilities
 
-Most of the time, you do not need to use the command line yourself.
+- Scans SiYuan notebooks and the full document tree, including child documents.
+- Hides notebooks, single documents, or document subtrees through `siyuan.ignore.local.json`.
+- Temporarily opens hidden items through `siyuan.allow.local.json`.
+- Generates safe indexes, overview files, and notebook maps under `knowledge_base/`.
+- Provides MCP tools for Claude Code, Codex, OpenCode, and similar agents.
+- Chunks long documents. The default chunk size is 10,000 characters and can be adjusted with `max_chars`.
+- Preserves Markdown image references inside document chunks, so image-heavy notes keep surrounding text context.
+- Supports CC Switch skill import and MCP registration.
 
-You mainly maintain these local files:
+## Normal Workflow
 
-- `knowledge_base/guide.md`: the high-level reading guide for AI agents.
-- `siyuan.ignore.local.json`: long-term privacy rules for hidden notebooks and documents, syncable through the repository.
-- `siyuan.allow.local.json`: temporary allow rules, syncable through the repository.
-- `ai_workspace/`: agent-generated analysis, context, drafts, and outputs.
+Most of the time, the human user does not need to use the command line.
 
-Typical workflow:
+You mainly maintain:
 
-1. You write notes in SiYuan as usual.
-2. If something should be hidden, open `siyuan.ignore.local.json` and copy one of the templates into the `ignore` array.
-3. Tell the AI agent: “I changed the SiYuan ignore file; refresh the knowledge-base index.”
-4. The AI agent refreshes the safe index.
-5. After that, the AI only sees the visible part of your note structure.
+- `knowledge_base/guide.md`: the curated reading guide for AI agents.
+- `siyuan.ignore.local.json`: long-term hide rules.
+- `siyuan.allow.local.json`: temporary allow rules.
+- `ai_workspace/`: agent-generated analysis, task context, drafts, and outputs.
 
-When using another AI tool, tell it:
+Typical flow:
+
+1. Write notes in SiYuan as usual.
+2. Edit `siyuan.ignore.local.json` if some content should be hidden.
+3. Ask the AI agent to refresh the knowledge-base index.
+4. The agent calls `siyuan_refresh_index` or runs `python -m source_code refresh`.
+5. The AI only sees the visible safe index after refresh.
+
+## Agent Startup
+
+When MCP is available, the agent should call:
 
 ```text
-Read D:\Github\siyuan-enhance\START_HERE.md first.
-If MCP tools are available, call siyuan_start first. It checks SiYuan and returns existing top-level guidance without refreshing indexes.
-If MCP is unavailable, run python -m source_code start in D:\Github\siyuan-enhance.
+siyuan_start
 ```
 
-## How It Works
+This checks the local SiYuan service and returns the existing startup packet. It does not refresh indexes.
 
-SiYuan stores notes locally and exposes a local HTTP API, usually at:
+If MCP is unavailable, run this from the repository root:
+
+```bash
+python -m source_code start
+```
+
+## MCP Tools
+
+- `siyuan_start`: check SiYuan connectivity and return the startup packet.
+- `siyuan_refresh_index`: refresh safe indexes when the user asks, the index is missing, or it is clearly stale.
+- `siyuan_list_notebooks`: list visible notebooks from the safe index.
+- `siyuan_list_documents`: read an existing notebook map.
+- `siyuan_find_documents`: find visible documents by keyword.
+- `siyuan_read_document`: read a document preview; long documents return chunk guidance instead of the whole text.
+- `siyuan_describe_document_chunks`: return a chunk map for a long document.
+- `siyuan_read_document_chunk`: read one numbered chunk while preserving local text and image references.
+- `siyuan_propose_guide_update`: save a proposed guide update in `ai_workspace/`.
+- `siyuan_apply_guide_update`: update `knowledge_base/guide.md` only after explicit user approval.
+
+## Long Documents And Images
+
+Long documents are not returned in one large MCP response, because clients and model UIs may truncate the output.
+
+Default chunk size:
 
 ```text
-http://127.0.0.1:6806
+10,000 characters
 ```
 
-This tool uses read-only API calls to:
+Agents can pass `max_chars` to adjust the size. The current range is 2,000 to 30,000 characters.
 
-- scan notebooks and document structure;
-- remove anything matched by `siyuan.ignore.local.json`;
-- generate AI-readable index files such as `knowledge_base/tree.md` and `knowledge_base/docs.jsonl`.
-- generate startup overview `knowledge_base/overview.md`.
-- generate per-notebook maps in `knowledge_base/notebooks/<notebook-id>.md`.
+Recommended flow:
 
-The AI does not need to ingest every note at once. It reads the structure first, then opens specific documents only when needed.
+1. Call `siyuan_read_document` for a preview.
+2. If the document is long, call `siyuan_describe_document_chunks`.
+3. Choose relevant chunks from the chunk map.
+4. Call `siyuan_read_document_chunk` for those chunks.
+
+Image references remain in place, for example:
+
+```md
+![image](assets/image-xxx.png)
+```
+
+This keeps mixed text/image notes usable because the image stays near its surrounding explanation.
 
 ## Ignore Rules
 
@@ -59,9 +100,7 @@ Open:
 siyuan.ignore.local.json
 ```
 
-The file contains copyable templates. The program only reads the `ignore` array; other fields are documentation.
-
-Hide a notebook by name:
+Hide a notebook:
 
 ```json
 {
@@ -71,7 +110,7 @@ Hide a notebook by name:
 }
 ```
 
-Hide one document by id:
+Hide one document:
 
 ```json
 {
@@ -91,48 +130,62 @@ Hide one document and all child documents:
 }
 ```
 
-After editing the file, ask the AI agent to refresh the index. Previously visible documents that now match ignore rules are removed from the regenerated cache.
+After editing, ask the AI agent to refresh the index. Previously visible documents that now match ignore rules are removed from the regenerated `knowledge_base/` index.
 
-## Temporary Access
+## CC Switch
 
-Temporary access is mostly for AI agents.
-
-If you need to temporarily open hidden content, tell the agent something like:
+The latest skill zip is:
 
 ```text
-Temporarily allow this document for 30 minutes: <doc-id>
+dist/siyuan-knowledge-skill-latest.zip
 ```
 
-or:
+For MCP registration, use this custom stdio config:
+
+```json
+{
+  "type": "stdio",
+  "command": "python",
+  "args": [
+    "D:\\Github\\siyuan-enhance\\plugins\\siyuan-knowledge\\scripts\\run_mcp.py"
+  ],
+  "env": {
+    "PYTHONUTF8": "1"
+  }
+}
+```
+
+Reference files:
 
 ```text
-Temporarily allow this notebook for 1 hour: <notebook name>
+dist/siyuan-knowledge-mcp.json
+dist/siyuan-knowledge-mcp-deeplink.txt
 ```
-
-The agent writes or reads a time-limited rule in `siyuan.allow.local.json`. It expires automatically and does not rewrite the long-lived `knowledge_base/` index.
 
 ## Project Structure
 
 ```text
 siyuan-enhance/
-  AGENTS.md                 # Rules for AI agents
-  README.md                 # English documentation
-  README.zh-CN.md           # Chinese documentation
-  config.example.json       # Config example
-  config.local.json         # Local token, ignored by Git
-  siyuan.ignore.local.json  # Long-term hide rules, syncable through Git
-  siyuan.allow.local.json   # Temporary allow rules, syncable through Git
-  source_code/                # Python tool code
-  knowledge_base/           # Generated knowledge-base indexes
-  ai_workspace/             # Agent workspace
-  tests/                    # Tests
+  AGENTS.md                  # Rules for AI agents
+  START_HERE.md              # Agent entrypoint
+  README.md                  # English documentation
+  README.zh-CN.md            # Chinese documentation
+  config.example.json        # Config example
+  config.local.json          # Local token, ignored by Git
+  siyuan.ignore.local.json   # Long-term hide rules
+  siyuan.allow.local.json    # Temporary allow rules
+  source_code/               # Python tool code
+  plugins/siyuan-knowledge/  # Skill and MCP plugin materials
+  knowledge_base/            # Generated safe indexes
+  ai_workspace/              # Agent workspace
+  tests/                     # Tests
 ```
 
 Main generated files:
 
 - `knowledge_base/guide.md`: human-maintained knowledge-base guide.
-- `knowledge_base/overview.md`: startup overview for AI agents.
-- `knowledge_base/tree.md`: AI-readable document tree.
+- `knowledge_base/overview.md`: top-level overview.
+- `knowledge_base/tree.md`: full document tree. Agents should not scan it by default.
 - `knowledge_base/docs.jsonl`: document-level index.
 - `knowledge_base/notebooks.json`: notebook index.
 - `knowledge_base/notebooks/`: per-notebook document maps.
@@ -142,30 +195,16 @@ Main code modules:
 - `source_code/client.py`: read-only SiYuan API client.
 - `source_code/indexer.py`: scanning and index generation.
 - `source_code/ignore.py`: privacy ignore and temporary allow rules.
-- `source_code/cli.py`: command-line entrypoint for agents/developers.
-
-## Agent Workflow
-
-AI agents should:
-
-1. Read `START_HERE.md`.
-2. Prefer MCP tool `siyuan_start`; it only checks connectivity and returns existing top-level indexes.
-3. If MCP is unavailable, run `python -m source_code start`.
-4. Use the startup packet and `knowledge_base/overview.md` to choose relevant notebooks.
-5. Read `knowledge_base/notebooks/<notebook-id>.md` only when relevant.
-6. Read specific documents by document id when needed.
-7. Put derived work in `ai_workspace/`.
-8. Refresh the index only if you say the ignore file changed, the index is missing, or it is clearly stale.
-
-Agents should not read `config.local.json`, `siyuan.ignore.local.json`, or `siyuan.allow.local.json` unless you explicitly ask.
+- `source_code/cli.py`: CLI entrypoint.
+- `source_code/mcp_server.py`: MCP stdio server.
 
 ## Privacy Model
 
 This project is designed as a private project.
 
-- `config.local.json` is ignored by Git.
-- `siyuan.ignore.local.json` may be tracked to sync visibility rules across devices.
-- `siyuan.allow.local.json` may be tracked to sync temporary access rules across devices.
-- `knowledge_base/` and `ai_workspace/` are not ignored because this repository is currently private.
+- Do not commit tokens.
+- Do not publish `knowledge_base/` or `ai_workspace/` unless personal content has been cleaned.
+- Agents should not read `config.local.json`, `siyuan.ignore.local.json`, or `siyuan.allow.local.json` unless explicitly asked.
+- Agents must not modify SiYuan notes or call SiYuan write APIs.
 
-If this project is ever made public, review the privacy model first and remove personal note content and agent workspace material.
+If this project ever becomes public, redesign the privacy model and remove personal note indexes and workspace material first.
