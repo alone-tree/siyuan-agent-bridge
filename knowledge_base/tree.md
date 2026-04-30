@@ -1,6 +1,6 @@
 # SiYuan Knowledge Tree
 
-Generated: 2026-04-30T06:04:42.082023+00:00
+Generated: 2026-04-30T08:55:31.118604+00:00
 
 Use `python -m source_code read <doc-id>` to read a document.
 
@@ -251,26 +251,36 @@ Use `python -m source_code read <doc-id>` to read a document.
         - 2025Q3 Earnings Call Transcript en `20260130162258-vrqnske` updated:20260130162402
       - 2025Q4 Earnings Call Transcript `20260206104955-es92cp6` updated:20260206105655
         - 2025Q4 Earnings Call Transcript en `20260206093712-5apsvoo` updated:20260206105013
+      - 2026Q1 AMZN Earnings Call Transcript tr `20260430164821-9pv2rb8` updated:20260430164939
+        - EN 2026Q1 AMZN Earnings Call Transcript `20260430164835-i0qoim7` updated:20260430165014
   - [GOOG.O] 谷歌 Google `20251215093315-h32ynkj` updated:20260205165100
     - 谷歌每日快讯 `20251215171116-bhf5rll` updated:20260205110659
       - 2025 Q2 Earnings Call Alphabet `20251216103622-acqrtpj` updated:20251216105016
       - 2025 Q3 Earnings Call Alphabet - 2025 年Q3财报电话会议 `20251215171521-72y9yc3` updated:20251216103107
       - 2025 Q4 Earnings Call Alphabet `20260205105309-0ce7cks` updated:20260205105328
+      - 2026 Q1 Earnings Call Alphabet `20260430161304-5rjpcnw` updated:20260430161416
+        - EN 2026 Q1 Earnings Call Alphabet `20260430161404-nzwhirf` updated:20260430161456
   - [META.O] Meta `20251223155954-dshlfee` updated:20260205165547
     - Meta每日快讯 `20251224092236-p96f3f4` updated:20260106133352
-      - 2025Q2 Earnings Call `20260203110745-tq3yccg` updated:20260203110913
+      - 2025Q2 Earnings Call Meta tr `20260203110745-tq3yccg` updated:20260430164107
         - 2025Q2 Earnings Call en `20260203110929-sdo8xwc` updated:20260203110947
-      - 2025Q3 Earnings Call Transcript Meta Platforms (META) `20251223161747-zoymq2x` updated:20251223171401
-      - 2025Q4 Earnings Call tr `20260129141641-wuw2u9j` updated:20260129145947
+      - 2025Q3 Earnings Call Meta tr `20251223161747-zoymq2x` updated:20260430164102
+      - 2025Q4 Earnings Call Meta tr `20260129141641-wuw2u9j` updated:20260430164057
         - 2025Q4 en Earnings Call `20260129145842-zcywpnb` updated:20260129145904
-      - 2025Q4 Follow Up Call tr `20260129142018-542siay` updated:20260129145952
+      - 2025Q4 Follow Up Call Meta tr `20260129142018-542siay` updated:20260430164054
         - 2025Q4 en Follow Up Call `20260129145911-0c2gyv8` updated:20260129145933
+      - 2026Q1 Earnings Call Meta tr `20260430163211-6p0u4sv` updated:20260430164051
+        - EN 2026Q1 Earnings Call `20260430163317-awh9i06` updated:20260430163340
+      - 2026Q1 Follow Up Call Meta tr `20260430163927-xk34vc6` updated:20260430164046
+        - EN 2026Q1 Follow Up Call `20260430163952-c4xxsqo` updated:20260430164014
   - [MSFT.O] 微软 Microsoft `20251215093346-zmg761b` updated:20260205160042
     - 微软每日快讯 `20251216105049-ivhqgz3` updated:20260106133237
       - 25Q2 FY25Q4 Earnings Conference Call `20251216132447-6o20dx2` updated:20251216132516
       - 25Q3 FY26Q1 Earnings Conference Call `20251216110311-22xr22e` updated:20251216130712
-      - 25Q4 Earnings Conference Call tr `20260129122407-me8j0lz` updated:20260129170526
+      - 25Q4 FY26Q2 Earnings Conference Call tr `20260129122407-me8j0lz` updated:20260430161556
         - 25Q4 Earnings Conference Call en `20260129145503-0t3ot93` updated:20260129145959
+      - 26Q1 FY26Q3 Earnings Conference Call tr `20260430161716-jb2ikuq` updated:20260430161738
+        - EN 26Q1 FY26Q3 Earnings Conference Call `20260430161741-72td9u9` updated:20260430161802
   - [ORCL.N] Oracle 甲骨文 `20251224111114-l8tk5fp` updated:20260205161128
     - 甲骨文每日快讯 `20251224141630-rznobeq` updated:20260106133411
       - 2025Q2 ORCL Q4-2025 Earnings Call tr `20260203094713-rpu5vqu` updated:20260203094834
