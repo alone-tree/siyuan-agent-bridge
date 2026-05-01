@@ -47,6 +47,17 @@
     "id": "20260128205307-0p9xzik",
     "name": "故事",
     "icon": "",
+    "sort": 5,
+    "sortMode": 15,
+    "closed": false,
+    "newFlashcardCount": 0,
+    "dueFlashcardCount": 0,
+    "flashcardCount": 0
+  },
+  {
+    "id": "20251201092334-qyfhwwi",
+    "name": "碎片搜集",
+    "icon": "",
     "sort": 6,
     "sortMode": 15,
     "closed": false,
@@ -61,6 +72,28 @@
     "sort": 7,
     "sortMode": 15,
     "closed": true,
+    "newFlashcardCount": 0,
+    "dueFlashcardCount": 0,
+    "flashcardCount": 0
+  },
+  {
+    "id": "20251204095028-2aztrdb",
+    "name": "商业尝试",
+    "icon": "",
+    "sort": 7,
+    "sortMode": 15,
+    "closed": false,
+    "newFlashcardCount": 0,
+    "dueFlashcardCount": 0,
+    "flashcardCount": 0
+  },
+  {
+    "id": "20251212154043-0n11tla",
+    "name": "光模块行业研究",
+    "icon": "",
+    "sort": 8,
+    "sortMode": 15,
+    "closed": false,
     "newFlashcardCount": 0,
     "dueFlashcardCount": 0,
     "flashcardCount": 0
@@ -88,45 +121,23 @@
     "flashcardCount": 0
   },
   {
+    "id": "20260501151942-wjlifut",
+    "name": "测试思源工具专用",
+    "icon": "",
+    "sort": 9,
+    "sortMode": 15,
+    "closed": false,
+    "newFlashcardCount": 0,
+    "dueFlashcardCount": 0,
+    "flashcardCount": 0
+  },
+  {
     "id": "20251127225808-mvv7db0",
     "name": "文章收藏",
     "icon": "",
     "sort": 10,
     "sortMode": 10,
     "closed": true,
-    "newFlashcardCount": 0,
-    "dueFlashcardCount": 0,
-    "flashcardCount": 0
-  },
-  {
-    "id": "20251201092334-qyfhwwi",
-    "name": "碎片搜集",
-    "icon": "",
-    "sort": 11,
-    "sortMode": 15,
-    "closed": false,
-    "newFlashcardCount": 0,
-    "dueFlashcardCount": 0,
-    "flashcardCount": 0
-  },
-  {
-    "id": "20251204095028-2aztrdb",
-    "name": "商业尝试",
-    "icon": "",
-    "sort": 12,
-    "sortMode": 15,
-    "closed": false,
-    "newFlashcardCount": 0,
-    "dueFlashcardCount": 0,
-    "flashcardCount": 0
-  },
-  {
-    "id": "20251212154043-0n11tla",
-    "name": "光模块行业研究",
-    "icon": "",
-    "sort": 13,
-    "sortMode": 15,
-    "closed": false,
     "newFlashcardCount": 0,
     "dueFlashcardCount": 0,
     "flashcardCount": 0

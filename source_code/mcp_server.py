@@ -6,16 +6,22 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
-from .cli import get_working_client, load_live_docs, render_start_packet
+from .cli import get_working_client, load_live_docs
 from .client import SiYuanApiError, SiYuanConnectionError
 from .config import load_config
 from .ignore import filter_documents, load_privacy_rules
 from .indexer import (
     KNOWLEDGE_BASE_DIR,
+    build_notebook_overview,
+    compute_word_count,
+    extract_snippet,
     find_documents,
+    format_date,
     load_docs,
     refresh_index,
+    render_doc_tree,
     resolve_document,
+    search_content,
 )
 
 
@@ -80,8 +86,6 @@ class McpServer:
             "siyuan_list_documents": self.siyuan_list_documents,
             "siyuan_find_documents": self.siyuan_find_documents,
             "siyuan_read_document": self.siyuan_read_document,
-            "siyuan_describe_document_chunks": self.siyuan_describe_document_chunks,
-            "siyuan_read_document_chunk": self.siyuan_read_document_chunk,
             "siyuan_propose_guide_update": self.siyuan_propose_guide_update,
             "siyuan_apply_guide_update": self.siyuan_apply_guide_update,
         }
@@ -99,7 +103,37 @@ class McpServer:
     def siyuan_start(self, _args: dict[str, Any]) -> str:
         config = load_config(self.root)
         client = get_working_client(config)
-        return render_start_packet(self.root, client.version())
+        refresh_index(client, self.root)
+        version = client.version()
+        base = self.root / KNOWLEDGE_BASE_DIR
+        start_here = _read_optional(self.root / "START_HERE.md")
+        guide = _read_optional(base / "guide.md")
+        overview = build_notebook_overview(self.root)
+        return "\n".join([
+            "# SiYuan Knowledge Startup Packet",
+            "",
+            f"SiYuan connection: OK, version {version}",
+            "",
+            overview,
+            "",
+            "## Mandatory Workflow",
+            "",
+            "1. Use this startup packet first.",
+            "2. Follow `knowledge_base/guide.md` for durable preferences.",
+            "3. Use the notebook overview above to choose relevant notebooks.",
+            "4. Use `siyuan_list_documents` to see one notebook's document tree.",
+            "5. Read documents with `siyuan_read_document`.",
+            "6. Use `siyuan_refresh_index` mid-session only when the user explicitly asks to refresh.",
+            "",
+            "## Start Here",
+            "",
+            start_here.strip() if start_here else "(START_HERE.md is missing)",
+            "",
+            "## Guide",
+            "",
+            guide.strip() if guide else "(guide.md is missing — run `python -m source_code refresh`)",
+            "",
+        ])
 
     def siyuan_refresh_index(self, _args: dict[str, Any]) -> str:
         config = load_config(self.root)
@@ -119,7 +153,7 @@ class McpServer:
         for notebook in notebooks:
             lines.append(f"- `{notebook.get('id', '')}` {notebook.get('name', '')}")
         lines.append("")
-        lines.append("Read `knowledge_base/overview.md` before choosing notebook maps.")
+
         return "\n".join(lines)
 
     def siyuan_list_documents(self, args: dict[str, Any]) -> str:
@@ -129,95 +163,255 @@ class McpServer:
             notebook_id = self.resolve_notebook_id(notebook_name)
         if not notebook_id:
             raise ValueError("Provide notebook_id or notebook_name")
-        path = self.root / KNOWLEDGE_BASE_DIR / "notebooks" / f"{notebook_id}.md"
-        if not path.exists():
-            raise FileNotFoundError(f"No visible notebook map found for {notebook_id}")
-        return path.read_text(encoding="utf-8")
+        docs = [d for d in load_docs(self.root) if str(d.get("notebook_id", "")) == notebook_id]
+        if not docs:
+            raise FileNotFoundError(f"No visible documents found for notebook {notebook_id}")
+        docs.sort(key=lambda d: (str(d.get("hpath", "")).casefold(), str(d.get("id", ""))))
+        nb_name = self._notebook_name(notebook_id)
+        total_words = sum(d.get("word_count", 0) for d in docs)
+        lines = [
+            f"# {nb_name} (`{notebook_id}`) | {len(docs)} docs | {total_words:,} 字",
+            "",
+        ]
+        lines.extend(render_doc_tree(docs))
+        return "\n".join(lines)
+
+    def _notebook_name(self, notebook_id: str) -> str:
+        notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
+        for nb in notebooks:
+            if str(nb.get("id", "")) == notebook_id:
+                return str(nb.get("name", notebook_id))
+        return notebook_id
 
     def siyuan_find_documents(self, args: dict[str, Any]) -> str:
         keyword = str(args.get("keyword") or "").strip()
         if not keyword:
             raise ValueError("keyword is required")
-        limit = int(args.get("limit") or 20)
-        docs = filter_documents(load_docs(self.root), load_privacy_rules(self.root))
-        matches = find_documents(docs, keyword, limit=max(limit, 1))
-        if not matches:
-            return "No visible matching documents."
-        lines = ["# Matching Visible Documents", ""]
-        for doc in matches:
-            lines.append(f"- `{doc.get('id', '')}` {doc.get('notebook_name', '')} {doc.get('hpath', '')}")
+
+        mode = str(args.get("mode") or "keyword").strip().casefold()
+        if mode not in ("keyword", "query", "regex", "sql"):
+            raise ValueError("mode must be keyword, query, regex, or sql")
+
+        scope = str(args.get("scope") or "headings").strip().casefold()
+        if scope not in ("headings", "full"):
+            raise ValueError("scope must be headings or full")
+
+        limit = max(int(args.get("limit") or 20), 1)
+
+        notebooks_raw = args.get("notebooks")
+        notebooks: list[str] | None = None
+        if notebooks_raw and notebooks_raw != "ALL":
+            if isinstance(notebooks_raw, list):
+                notebooks = [str(n) for n in notebooks_raw if n]
+            elif isinstance(notebooks_raw, str) and notebooks_raw.strip().upper() != "ALL":
+                notebooks = [notebooks_raw.strip()]
+            if not notebooks:
+                notebooks = None
+
+        config = load_config(self.root)
+        client = get_working_client(config)
+        local_docs = load_docs(self.root)
+
+        if mode == "sql":
+            try:
+                rows = client.query_sql(keyword)
+            except SiYuanApiError as exc:
+                if "administrator" in str(exc).casefold() or "privilege" in str(exc).casefold():
+                    raise ValueError("SQL search requires SiYuan administrator privileges. Use mode=keyword, mode=query, or mode=regex instead.") from exc
+                raise
+            enriched = self._enrich_sql_results(rows, local_docs, notebooks)
+        else:
+            method_map = {"keyword": 0, "query": 1, "regex": 3}
+            api_method = method_map[mode]
+            data = search_content(
+                client,
+                keyword,
+                method=api_method,
+                scope=scope,
+                notebooks=notebooks,
+                limit=limit,
+            )
+            blocks: list[dict[str, Any]] = data.get("blocks", [])
+            keywords = [kw for kw in keyword.split() if kw]
+            enriched = self._enrich_search_blocks(blocks, local_docs, keywords, notebooks)
+
+        if not enriched:
+            return f"# Search: \"{keyword}\" ({scope}, {mode})\n\nNo matching visible documents."
+
+        grouped = self._group_by_notebook(enriched)
+
+        scope_label = "标题" if scope == "headings" else "全文"
+        lines = [f"# Search: \"{keyword}\" ({scope_label}, {mode}, {len(enriched)} matches in {len(grouped)} notebooks)", ""]
+
+        for nb_name in sorted(grouped, key=str.casefold):
+            items = grouped[nb_name]
+            lines.append(f"## {nb_name} ({len(items)} matches)")
+            for item in items[:limit]:
+                wc = item.get("word_count", 0)
+                date = format_date(str(item.get("updated", "")))
+                hpath = str(item.get("hpath") or "/")
+                doc_id = str(item.get("id") or "")
+                lines.append(f"- `{doc_id}` {hpath} {wc:,}字 {date}")
+                snippet = item.get("snippet", "")
+                if snippet:
+                    lines.append(f"  > {snippet}")
+            lines.append("")
+            limit -= len(items)
+            if limit <= 0:
+                break
+
         return "\n".join(lines)
+
+    def _enrich_search_blocks(
+        self,
+        blocks: list[dict[str, Any]],
+        local_docs: list[dict[str, Any]],
+        keywords: list[str],
+        notebook_filter: list[str] | None,
+    ) -> list[dict[str, Any]]:
+        doc_index: dict[str, dict[str, Any]] = {}
+        for doc in local_docs:
+            doc_index[str(doc.get("id", ""))] = doc
+
+        seen: set[str] = set()
+        results: list[dict[str, Any]] = []
+
+        for block in blocks:
+            block_type = str(block.get("type", ""))
+            if block_type == "d":
+                doc_id = str(block.get("id", ""))
+            else:
+                doc_id = str(block.get("root_id", ""))
+
+            if not doc_id or doc_id in seen:
+                continue
+
+            doc = doc_index.get(doc_id)
+            if doc is None:
+                continue
+
+            nb_id = str(doc.get("notebook_id", ""))
+            if notebook_filter and nb_id not in notebook_filter:
+                continue
+
+            seen.add(doc_id)
+
+            content = str(block.get("content") or block.get("markdown") or "")
+            snippet = extract_snippet(content, keywords)
+
+            results.append({
+                "id": doc_id,
+                "notebook_id": nb_id,
+                "notebook_name": str(doc.get("notebook_name", "")),
+                "hpath": str(doc.get("hpath", "")),
+                "word_count": doc.get("word_count", 0),
+                "updated": str(doc.get("updated", "")),
+                "snippet": snippet,
+            })
+
+        results.sort(key=lambda r: (r["notebook_name"].casefold(), r["hpath"].casefold()))
+        return results
+
+    def _enrich_sql_results(
+        self,
+        rows: list[dict[str, Any]],
+        local_docs: list[dict[str, Any]],
+        notebook_filter: list[str] | None,
+    ) -> list[dict[str, Any]]:
+        doc_index: dict[str, dict[str, Any]] = {}
+        for doc in local_docs:
+            doc_index[str(doc.get("id", ""))] = doc
+
+        seen: set[str] = set()
+        results: list[dict[str, Any]] = []
+
+        for row in rows:
+            block_type = str(row.get("type", ""))
+            if block_type == "d":
+                doc_id = str(row.get("id", ""))
+            else:
+                doc_id = str(row.get("root_id", ""))
+
+            if not doc_id or doc_id in seen:
+                continue
+
+            doc = doc_index.get(doc_id)
+            if doc is None:
+                continue
+
+            nb_id = str(doc.get("notebook_id", ""))
+            if notebook_filter and nb_id not in notebook_filter:
+                continue
+
+            seen.add(doc_id)
+            results.append({
+                "id": doc_id,
+                "notebook_id": nb_id,
+                "notebook_name": str(doc.get("notebook_name", "")),
+                "hpath": str(doc.get("hpath", "")),
+                "word_count": doc.get("word_count", 0),
+                "updated": str(doc.get("updated", "")),
+                "snippet": "",
+            })
+
+        results.sort(key=lambda r: (r["notebook_name"].casefold(), r["hpath"].casefold()))
+        return results
+
+    @staticmethod
+    def _group_by_notebook(results: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+        groups: dict[str, list[dict[str, Any]]] = {}
+        for item in results:
+            nb = str(item.get("notebook_name") or "Unknown")
+            groups.setdefault(nb, []).append(item)
+        return groups
 
     def siyuan_read_document(self, args: dict[str, Any]) -> str:
         doc = self.resolve_visible_document(args)
         markdown = self.export_document_markdown(str(doc["id"]))
         max_chars = clamp_int(args.get("max_chars"), DEFAULT_CHUNK_CHARS, 2000, MAX_CHUNK_CHARS)
+        chunk_param = int(args.get("chunk") or 0)
         chunks = split_markdown_chunks(markdown, max_chars=max_chars)
+
+        doc_path = str(doc.get("hpath") or doc.get("title") or doc.get("id"))
+        doc_id = str(doc.get("id"))
+        wc = doc.get("word_count", 0)
+        date = format_date(str(doc.get("updated", "")))
+
+        header_lines = [
+            f"# Document: {doc_path}",
+            f"Document ID: `{doc_id}`",
+            f"字数: {wc:,} | 更新: {date}",
+        ]
+        header = "\n".join(header_lines)
+
+        outline = build_outline(markdown, chunks, max_chars)
+
         if len(chunks) <= 1:
-            return markdown
-        first = chunks[0]
-        return "\n".join(
-            [
-                f"# Document Preview: {doc.get('hpath') or doc.get('title') or doc.get('id')}",
-                "",
-                f"Document ID: `{doc.get('id')}`",
-                f"Total length: {len(markdown)} characters",
-                f"Chunks: {len(chunks)} at about {max_chars} characters each",
-                "",
-                "This document is long, so only chunk 1 is returned here to avoid MCP/client truncation.",
-                "Use `siyuan_describe_document_chunks` to inspect the chunk map, then `siyuan_read_document_chunk` with `chunk_index` for the exact section you need.",
-                "",
-                "## Chunk 1",
-                "",
-                first,
-            ]
-        )
+            return "\n".join([header, "", outline, "", "---", "", markdown])
 
-    def siyuan_describe_document_chunks(self, args: dict[str, Any]) -> str:
-        doc = self.resolve_visible_document(args)
-        markdown = self.export_document_markdown(str(doc["id"]))
-        max_chars = clamp_int(args.get("max_chars"), DEFAULT_CHUNK_CHARS, 2000, MAX_CHUNK_CHARS)
-        chunks = split_markdown_chunks(markdown, max_chars=max_chars)
-        lines = [
-            f"# Document Chunk Map: {doc.get('hpath') or doc.get('title') or doc.get('id')}",
-            "",
-            f"Document ID: `{doc.get('id')}`",
-            f"Total length: {len(markdown)} characters",
-            f"Chunks: {len(chunks)}",
-            "",
-            "Use `siyuan_read_document_chunk` with a 1-based `chunk_index`.",
-            "",
-        ]
-        for index, chunk in enumerate(chunks, start=1):
-            heading = first_heading(chunk)
-            image_count = len(find_markdown_images(chunk))
-            image_text = f", images: {image_count}" if image_count else ""
-            lines.append(f"- Chunk {index}: {len(chunk)} chars{image_text} - {heading}")
-        return "\n".join(lines)
+        if chunk_param == 0:
+            chunk_index = 1
+        elif chunk_param < 1 or chunk_param > len(chunks):
+            raise ValueError(f"chunk must be between 1 and {len(chunks)}")
+        else:
+            chunk_index = chunk_param
 
-    def siyuan_read_document_chunk(self, args: dict[str, Any]) -> str:
-        doc = self.resolve_visible_document(args)
-        markdown = self.export_document_markdown(str(doc["id"]))
-        max_chars = clamp_int(args.get("max_chars"), DEFAULT_CHUNK_CHARS, 2000, MAX_CHUNK_CHARS)
-        chunks = split_markdown_chunks(markdown, max_chars=max_chars)
-        chunk_index = int(args.get("chunk_index") or 1)
-        if chunk_index < 1 or chunk_index > len(chunks):
-            raise ValueError(f"chunk_index must be between 1 and {len(chunks)}")
-        chunk = chunks[chunk_index - 1]
-        images = find_markdown_images(chunk)
-        lines = [
-            f"# Document Chunk {chunk_index}/{len(chunks)}",
+        chunk_content = chunks[chunk_index - 1]
+        chunk_wc = compute_word_count(chunk_content)
+
+        return "\n".join([
+            header,
             "",
-            f"Document ID: `{doc.get('id')}`",
-            f"Document: {doc.get('hpath') or doc.get('title') or doc.get('id')}",
-            f"Chunk length: {len(chunk)} characters",
-        ]
-        if images:
-            lines.append(f"Images in this chunk: {len(images)}")
-            for image in images[:20]:
-                lines.append(f"- {image}")
-        lines.extend(["", chunk])
-        return "\n".join(lines)
+            outline,
+            "",
+            "> 输入 `chunk=N` 跳转到指定 chunk。chunk 0 返回 chunk 1。",
+            "",
+            "---",
+            "",
+            f"## Chunk {chunk_index}/{len(chunks)} ({chunk_wc:,} 字)",
+            "",
+            chunk_content,
+        ])
 
     def resolve_visible_document(self, args: dict[str, Any]) -> dict[str, Any]:
         locator = str(args.get("document_id") or args.get("locator") or "").strip()
@@ -286,11 +480,17 @@ class McpServer:
         raise ValueError(f"No visible notebook matched: {notebook_name}")
 
 
+def _read_optional(path: Path) -> str:
+    if not path.exists():
+        return ""
+    return path.read_text(encoding="utf-8")
+
+
 def tool_specs() -> list[dict[str, Any]]:
     return [
         {
             "name": "siyuan_start",
-            "description": "Check SiYuan connectivity and return the mandatory startup packet with existing guide and overview. Does not refresh indexes.",
+            "description": "Refresh the safe index and return the mandatory startup packet with notebook overview table, START_HERE.md, and guide.md. Always call this first — it ensures the index is up to date.",
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
         {
@@ -305,7 +505,7 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_list_documents",
-            "description": "Return the existing document map for one visible notebook. Does not rescan SiYuan.",
+            "description": "Return the document tree for one visible notebook, generated dynamically from the safe index with word counts and update times.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -317,50 +517,29 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_find_documents",
-            "description": "Find visible documents by title, path, notebook, tag, or id using the safe index.",
+            "description": "Search the SiYuan knowledge base. Supports 4 modes: keyword (space-separated keywords, AND logic, default), query (FTS5 query syntax with AND/OR/NOT/phrase/prefix*), regex (Go RE2 regex, no backreferences/lookarounds), sql (direct SQL, requires admin). Scope: headings (document titles + headings, default) or full (all block text).",
             "inputSchema": {
                 "type": "object",
-                "properties": {"keyword": {"type": "string"}, "limit": {"type": "integer", "default": 20}},
+                "properties": {
+                    "keyword": {"type": "string", "description": "Search query. For keyword mode: space-separated terms (AND logic). For query mode: FTS5 syntax. For regex mode: Go RE2 regex. For sql mode: raw SQL statement."},
+                    "mode": {"type": "string", "enum": ["keyword", "query", "regex", "sql"], "default": "keyword", "description": "Search mode. Must be explicit."},
+                    "scope": {"type": "string", "enum": ["headings", "full"], "default": "headings", "description": "headings = document titles and outline headings only. full = all block content."},
+                    "notebooks": {"description": "Notebook ID or list of IDs to scope the search. 'ALL' (default) searches all notebooks."},
+                    "limit": {"type": "integer", "default": 20, "description": "Maximum results."},
+                },
                 "required": ["keyword"],
                 "additionalProperties": False,
             },
         },
         {
             "name": "siyuan_read_document",
-            "description": "Read a visible SiYuan document preview as Markdown. Long documents are chunked to avoid MCP/client truncation.",
+            "description": "Read a visible SiYuan document as Markdown. Always returns the document outline (heading to chunk mapping). Short documents (≤max_chars) return the full text. Long documents return the outline plus one chunk; use chunk=0 for the first chunk or chunk=N to jump to a specific chunk.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "document_id": {"type": "string"},
-                    "locator": {"type": "string"},
-                    "max_chars": {"type": "integer", "default": DEFAULT_CHUNK_CHARS},
-                },
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "siyuan_describe_document_chunks",
-            "description": "Return a chunk map for one visible SiYuan document so long documents can be read without truncation.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "document_id": {"type": "string"},
-                    "locator": {"type": "string"},
-                    "max_chars": {"type": "integer", "default": DEFAULT_CHUNK_CHARS},
-                },
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "siyuan_read_document_chunk",
-            "description": "Read one numbered chunk from a visible SiYuan document, preserving local text and image references in context.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "document_id": {"type": "string"},
-                    "locator": {"type": "string"},
-                    "chunk_index": {"type": "integer", "default": 1},
-                    "max_chars": {"type": "integer", "default": DEFAULT_CHUNK_CHARS},
+                    "document_id": {"type": "string", "description": "Document id, exact hpath, title, or unique partial match."},
+                    "chunk": {"type": "integer", "default": 0, "description": "0=auto (chunk 1 for long docs, full text for short docs), 1..N=specific chunk."},
+                    "max_chars": {"type": "integer", "default": DEFAULT_CHUNK_CHARS, "description": "Characters per chunk, 2000–30000."},
                 },
                 "additionalProperties": False,
             },
@@ -460,6 +639,68 @@ def first_heading(markdown: str) -> str:
 
 def find_markdown_images(markdown: str) -> list[str]:
     return re.findall(r"!\[[^\]]*\]\(([^)]+)\)", markdown)
+
+
+def build_outline(markdown: str, chunks: list[str], max_chars: int) -> str:
+    heading_pattern = re.compile(r"^(#{1,3})\s+(.+)$", re.MULTILINE)
+    raw: list[tuple[int, str]] = []
+    for m in heading_pattern.finditer(markdown):
+        raw.append((len(m.group(1)), m.group(2).strip()))
+
+    header = f"## 大纲 ({len(chunks)} chunks, {max_chars:,} 字/chunk)"
+
+    if not raw:
+        return header + "\n\n(文档无标题结构)"
+
+    heading_chunk: dict[tuple[int, str], int] = {}
+    for level, text in raw:
+        marker = "#" * level + " " + text
+        found = False
+        for i, chunk in enumerate(chunks, start=1):
+            if marker in chunk:
+                heading_chunk[(level, text)] = i
+                found = True
+                break
+        if not found:
+            heading_chunk[(level, text)] = 1
+
+    roots: list[dict[str, Any]] = []
+    stack: list[tuple[int, dict[str, Any]]] = []
+
+    for level, text in raw:
+        chunk_num = heading_chunk[(level, text)]
+        node: dict[str, Any] = {"text": text, "level": level, "chunk": chunk_num, "children": []}
+
+        while stack and stack[-1][0] >= level:
+            stack.pop()
+
+        if stack:
+            stack[-1][1]["children"].append(node)
+        else:
+            roots.append(node)
+
+        stack.append((level, node))
+
+    def _fmt(node: dict[str, Any], indent: int) -> list[str]:
+        prefix = "  " * indent
+        if node["children"]:
+            child_chunks = [c["chunk"] for c in node["children"]]
+            all_c = [node["chunk"]] + child_chunks
+            mn, mx = min(all_c), max(all_c)
+            cs = f"**chunk {mn}**" if mn == mx else f"**chunk {mn}-{mx}**"
+        else:
+            cs = f"chunk {node['chunk']}"
+
+        lines = [f"{prefix}- {node['text']} → {cs}"]
+        for child in node["children"]:
+            lines.extend(_fmt(child, indent + 1))
+        return lines
+
+    body: list[str] = []
+    for r in roots:
+        body.extend(_fmt(r, 0))
+
+    return header + "\n\n" + "\n".join(body)
 
 
 def make_result(request_id: Any, result: Any) -> dict[str, Any]:

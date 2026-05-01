@@ -23,3 +23,5 @@ env/
 Thumbs.db
 .idea/
 .vscode/
+/.playwright-mcp
+/siyuan-index-builder-workspace/iteration-1

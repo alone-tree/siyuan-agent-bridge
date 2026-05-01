@@ -44,7 +44,7 @@ When MCP is available, the agent should call:
 siyuan_start
 ```
 
-This checks the local SiYuan service and returns the existing startup packet. It does not refresh indexes.
+This refreshes the safe index and returns the startup packet with the notebook overview table, START_HERE.md, and guide.md.
 
 If MCP is unavailable, run this from the repository root:
 
@@ -54,18 +54,16 @@ python -m source_code start
 
 ## MCP Tools
 
-- `siyuan_start`: check SiYuan connectivity and return the startup packet.
-- `siyuan_refresh_index`: refresh safe indexes when the user asks, the index is missing, or it is clearly stale.
+- `siyuan_start`: refresh the safe index and return the startup packet with notebook overview table, START_HERE.md, and guide.md. Always call first.
+- `siyuan_refresh_index`: refresh safe indexes mid-session when the user explicitly asks.
 - `siyuan_list_notebooks`: list visible notebooks from the safe index.
-- `siyuan_list_documents`: read an existing notebook map.
-- `siyuan_find_documents`: find visible documents by keyword.
-- `siyuan_read_document`: read a document preview; long documents return chunk guidance instead of the whole text.
-- `siyuan_describe_document_chunks`: return a chunk map for a long document.
-- `siyuan_read_document_chunk`: read one numbered chunk while preserving local text and image references.
+- `siyuan_list_documents`: return the document tree for one notebook, with word counts and update times.
+- `siyuan_find_documents`: search with 4 modes (`keyword`/`query`/`regex`/`sql`), 2 scopes (`headings`/`full`), optional notebook filter.
+- `siyuan_read_document`: read a document with outline. Short docs return full text; long docs return one chunk; use `chunk=N` to navigate.
 - `siyuan_propose_guide_update`: save a proposed guide update in `ai_workspace/`.
 - `siyuan_apply_guide_update`: update `knowledge_base/guide.md` only after explicit user approval.
 
-## Long Documents And Images
+## Long Documents
 
 Long documents are not returned in one large MCP response, because clients and model UIs may truncate the output.
 
@@ -77,20 +75,7 @@ Default chunk size:
 
 Agents can pass `max_chars` to adjust the size. The current range is 2,000 to 30,000 characters.
 
-Recommended flow:
-
-1. Call `siyuan_read_document` for a preview.
-2. If the document is long, call `siyuan_describe_document_chunks`.
-3. Choose relevant chunks from the chunk map.
-4. Call `siyuan_read_document_chunk` for those chunks.
-
-Image references remain in place, for example:
-
-```md
-![image](assets/image-xxx.png)
-```
-
-This keeps mixed text/image notes usable because the image stays near its surrounding explanation.
+`siyuan_read_document` always returns the document outline (heading→chunk mapping) first. For long documents, call with `chunk=0` for the first chunk or `chunk=N` to jump to a specific section.
 
 ## Ignore Rules
 
@@ -184,11 +169,9 @@ siyuan-enhance/
 Main generated files:
 
 - `knowledge_base/guide.md`: human-maintained knowledge-base guide.
-- `knowledge_base/overview.md`: top-level overview.
-- `knowledge_base/tree.md`: full document tree. Agents should not scan it by default.
-- `knowledge_base/docs.jsonl`: document-level index.
+- `knowledge_base/tree.md`: two-layer document tree (notebook overview table + per-notebook document trees). Agents should not scan the full layer 2 by default.
+- `knowledge_base/docs.jsonl`: document-level structured data (AI should not read directly).
 - `knowledge_base/notebooks.json`: notebook index.
-- `knowledge_base/notebooks/`: per-notebook document maps.
 
 Main code modules:
 

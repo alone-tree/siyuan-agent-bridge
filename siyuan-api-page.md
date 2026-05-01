@@ -1,0 +1,2825 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - region
+    - generic [ref=e3]:
+      - link "Skip to content" [ref=e4] [cursor=pointer]:
+        - /url: "#start-of-content"
+      - banner [ref=e6]:
+        - heading "Navigation Menu" [level=2] [ref=e7]
+        - generic [ref=e8]:
+          - link "Homepage" [ref=e10] [cursor=pointer]:
+            - /url: /
+            - img [ref=e11]
+          - generic [ref=e13]:
+            - navigation "Global" [ref=e16]:
+              - list [ref=e17]:
+                - listitem [ref=e18]:
+                  - button "Platform" [ref=e20] [cursor=pointer]:
+                    - text: Platform
+                    - img [ref=e21]
+                - listitem [ref=e23]:
+                  - button "Solutions" [ref=e25] [cursor=pointer]:
+                    - text: Solutions
+                    - img [ref=e26]
+                - listitem [ref=e28]:
+                  - button "Resources" [ref=e30] [cursor=pointer]:
+                    - text: Resources
+                    - img [ref=e31]
+                - listitem [ref=e33]:
+                  - button "Open Source" [ref=e35] [cursor=pointer]:
+                    - text: Open Source
+                    - img [ref=e36]
+                - listitem [ref=e38]:
+                  - button "Enterprise" [ref=e40] [cursor=pointer]:
+                    - text: Enterprise
+                    - img [ref=e41]
+                - listitem [ref=e43]:
+                  - link "Pricing" [ref=e44] [cursor=pointer]:
+                    - /url: https://github.com/pricing
+                    - generic [ref=e45]: Pricing
+            - generic [ref=e46]:
+              - button "Search or jump to…" [ref=e49] [cursor=pointer]:
+                - img [ref=e51]
+              - link "Sign in" [ref=e54] [cursor=pointer]:
+                - /url: /login?return_to=https%3A%2F%2Fgithub.com%2Fsiyuan-note%2Fsiyuan%2Fblob%2Fmaster%2FAPI.md
+              - link "Sign up" [ref=e55] [cursor=pointer]:
+                - /url: /signup?ref_cta=Sign+up&ref_loc=header+logged+out&ref_page=%2F%3Cuser-name%3E%2F%3Crepo-name%3E%2Fblob%2Fshow&source=header-repo&source_repo=siyuan-note%2Fsiyuan
+              - button "Appearance settings" [ref=e58] [cursor=pointer]:
+                - img
+    - main [ref=e62]:
+      - generic [ref=e63]:
+        - generic [ref=e64]:
+          - generic [ref=e66]:
+            - img [ref=e67]
+            - link "siyuan-note" [ref=e70] [cursor=pointer]:
+              - /url: /siyuan-note
+            - generic [ref=e71]: /
+            - strong [ref=e72]:
+              - link "siyuan" [ref=e73] [cursor=pointer]:
+                - /url: /siyuan-note/siyuan
+            - generic [ref=e74]: Public
+          - generic [ref=e75]:
+            - list:
+              - listitem [ref=e76]:
+                - button "Sponsor siyuan-note/siyuan" [ref=e78] [cursor=pointer]:
+                  - generic [ref=e80]:
+                    - img [ref=e81]
+                    - text: Sponsor
+              - listitem [ref=e83]:
+                - link "You must be signed in to change notification settings" [ref=e84] [cursor=pointer]:
+                  - /url: /login?return_to=%2Fsiyuan-note%2Fsiyuan
+                  - img [ref=e85]
+                  - text: Notifications
+              - listitem [ref=e87]:
+                - link "Fork 2.7k" [ref=e88] [cursor=pointer]:
+                  - /url: /login?return_to=%2Fsiyuan-note%2Fsiyuan
+                  - img [ref=e89]
+                  - text: Fork
+                  - generic "2,742" [ref=e91]: 2.7k
+              - listitem [ref=e92]:
+                - link "You must be signed in to star a repository" [ref=e94] [cursor=pointer]:
+                  - /url: /login?return_to=%2Fsiyuan-note%2Fsiyuan
+                  - img [ref=e95]
+                  - text: Star
+                  - generic "43318 users starred this repository" [ref=e97]: 43.3k
+        - navigation "Repository" [ref=e98]:
+          - list [ref=e99]:
+            - listitem [ref=e100]:
+              - link "Code" [ref=e101] [cursor=pointer]:
+                - /url: /siyuan-note/siyuan
+                - img [ref=e102]
+                - generic [ref=e104]: Code
+            - listitem [ref=e105]:
+              - link "Issues 339" [ref=e106] [cursor=pointer]:
+                - /url: /siyuan-note/siyuan/issues
+                - img [ref=e107]
+                - generic [ref=e110]: Issues
+                - generic "339" [ref=e111]
+            - listitem [ref=e112]:
+              - link "Pull requests 25" [ref=e113] [cursor=pointer]:
+                - /url: /siyuan-note/siyuan/pulls
+                - img [ref=e114]
+                - generic [ref=e116]: Pull requests
+                - generic "25" [ref=e117]
+            - listitem [ref=e118]:
+              - link "Actions" [ref=e119] [cursor=pointer]:
+                - /url: /siyuan-note/siyuan/actions
+                - img [ref=e120]
+                - generic [ref=e122]: Actions
+            - listitem [ref=e123]:
+              - link "Security and quality 53" [ref=e124] [cursor=pointer]:
+                - /url: /siyuan-note/siyuan/security
+                - img [ref=e125]
+                - generic [ref=e127]: Security and quality
+                - generic "53" [ref=e128]
+            - listitem [ref=e129]:
+              - link "Insights" [ref=e130] [cursor=pointer]:
+                - /url: /siyuan-note/siyuan/pulse
+                - img [ref=e131]
+                - generic [ref=e133]: Insights
+      - generic [ref=e141]:
+        - generic [ref=e143]:
+          - generic [ref=e146]:
+            - generic [ref=e147]:
+              - generic [ref=e148]:
+                - heading "Collapse file tree" [level=2] [ref=e149]:
+                  - button "Collapse file tree" [expanded] [ref=e150] [cursor=pointer]:
+                    - img [ref=e151]
+                - heading "Files" [level=2] [ref=e154]
+              - generic [ref=e155]:
+                - button "master branch" [ref=e157] [cursor=pointer]:
+                  - generic [ref=e158]:
+                    - generic [ref=e160]:
+                      - img [ref=e162]
+                      - generic [ref=e165]: master
+                    - generic:
+                      - img
+                - button "Search this repository (forward slash)" [ref=e167] [cursor=pointer]:
+                  - img [ref=e168]
+            - generic [ref=e171]:
+              - img [ref=e173]
+              - combobox "Go to file" [ref=e175]
+            - navigation "File Tree Navigation" [ref=e181]:
+              - tree "Files" [ref=e183]:
+                - treeitem ".github" [level=1] [ref=e184]:
+                  - generic [ref=e185] [cursor=pointer]:
+                    - img [ref=e187]
+                    - generic [ref=e189]:
+                      - img [ref=e193]
+                      - generic [ref=e195]: .github
+                - treeitem "app" [level=1] [ref=e196]:
+                  - generic [ref=e197] [cursor=pointer]:
+                    - img [ref=e199]
+                    - generic [ref=e201]:
+                      - img [ref=e205]
+                      - generic [ref=e207]: app
+                - treeitem "kernel" [level=1] [ref=e208]:
+                  - generic [ref=e209] [cursor=pointer]:
+                    - img [ref=e211]
+                    - generic [ref=e213]:
+                      - img [ref=e217]
+                      - generic [ref=e219]: kernel
+                - treeitem "screenshots" [level=1] [ref=e220]:
+                  - generic [ref=e221] [cursor=pointer]:
+                    - img [ref=e223]
+                    - generic [ref=e225]:
+                      - img [ref=e229]
+                      - generic [ref=e231]: screenshots
+                - treeitem "scripts" [level=1] [ref=e232]:
+                  - generic [ref=e233] [cursor=pointer]:
+                    - img [ref=e235]
+                    - generic [ref=e237]:
+                      - img [ref=e241]
+                      - generic [ref=e243]: scripts
+                - treeitem ".gitattributes" [level=1] [ref=e244]:
+                  - generic [ref=e246] [cursor=pointer]:
+                    - img [ref=e249]
+                    - generic [ref=e251]: .gitattributes
+                - treeitem ".gitignore" [level=1] [ref=e252]:
+                  - generic [ref=e254] [cursor=pointer]:
+                    - img [ref=e257]
+                    - generic [ref=e259]: .gitignore
+                - treeitem "API.md" [level=1] [ref=e260]:
+                  - generic [ref=e262] [cursor=pointer]:
+                    - img [ref=e265]
+                    - generic [ref=e267]: API.md
+                - treeitem "API_ja_JP.md" [level=1] [ref=e268]:
+                  - generic [ref=e270] [cursor=pointer]:
+                    - img [ref=e273]
+                    - generic [ref=e275]: API_ja_JP.md
+                - treeitem "API_zh_CN.md" [level=1] [ref=e276]:
+                  - generic [ref=e278] [cursor=pointer]:
+                    - img [ref=e281]
+                    - generic [ref=e283]: API_zh_CN.md
+                - treeitem "CHANGELOG.md" [level=1] [ref=e284]:
+                  - generic [ref=e286] [cursor=pointer]:
+                    - img [ref=e289]
+                    - generic [ref=e291]: CHANGELOG.md
+                - treeitem "Dockerfile" [level=1] [ref=e292]:
+                  - generic [ref=e294] [cursor=pointer]:
+                    - img [ref=e297]
+                    - generic [ref=e299]: Dockerfile
+                - treeitem "LICENSE" [level=1] [ref=e300]:
+                  - generic [ref=e302] [cursor=pointer]:
+                    - img [ref=e305]
+                    - generic [ref=e307]: LICENSE
+                - treeitem "README.md" [level=1] [ref=e308]:
+                  - generic [ref=e310] [cursor=pointer]:
+                    - img [ref=e313]
+                    - generic [ref=e315]: README.md
+                - treeitem "README_ja_JP.md" [level=1] [ref=e316]:
+                  - generic [ref=e318] [cursor=pointer]:
+                    - img [ref=e321]
+                    - generic [ref=e323]: README_ja_JP.md
+                - treeitem "README_tr_TR.md" [level=1] [ref=e324]:
+                  - generic [ref=e326] [cursor=pointer]:
+                    - img [ref=e329]
+                    - generic [ref=e331]: README_tr_TR.md
+                - treeitem "README_zh_CN.md" [level=1] [ref=e332]:
+                  - generic [ref=e334] [cursor=pointer]:
+                    - img [ref=e337]
+                    - generic [ref=e339]: README_zh_CN.md
+          - slider "Draggable pane splitter" [ref=e341]
+        - generic [ref=e344]:
+          - generic [ref=e348]:
+            - generic [ref=e350]:
+              - navigation "Breadcrumbs" [ref=e351]:
+                - heading "Breadcrumbs" [level=2] [ref=e352]
+                - list [ref=e353]:
+                  - listitem [ref=e354]:
+                    - link "siyuan" [ref=e355] [cursor=pointer]:
+                      - /url: /siyuan-note/siyuan/tree/master
+              - generic [ref=e356]:
+                - text: /
+                - heading "API.md" [level=1] [ref=e357]
+              - button "Copy path" [ref=e358] [cursor=pointer]:
+                - img [ref=e359]
+            - button "More file actions" [ref=e365] [cursor=pointer]:
+              - img [ref=e366]
+          - generic [ref=e368]:
+            - generic [ref=e370]:
+              - heading "Latest commit" [level=2] [ref=e371]
+              - generic [ref=e372]:
+                - generic [ref=e374]:
+                  - link "emptylight370" [ref=e375] [cursor=pointer]:
+                    - /url: /emptylight370
+                    - img "emptylight370" [ref=e376]
+                  - link "commits by emptylight370" [ref=e377] [cursor=pointer]:
+                    - /url: /siyuan-note/siyuan/commits?author=emptylight370
+                    - text: emptylight370
+                - generic [ref=e378]:
+                  - generic [ref=e380]:
+                    - link "📝 Improve README translation link style (" [ref=e381] [cursor=pointer]:
+                      - /url: /siyuan-note/siyuan/commit/0eb77f56859e638de6e3e098a8ddc3e051bb7c11
+                    - link "#17319" [ref=e382] [cursor=pointer]:
+                      - /url: https://github.com/siyuan-note/siyuan/pull/17319
+                    - link ")" [ref=e383] [cursor=pointer]:
+                      - /url: /siyuan-note/siyuan/commit/0eb77f56859e638de6e3e098a8ddc3e051bb7c11
+                  - button "Open commit details" [ref=e384] [cursor=pointer]:
+                    - img [ref=e385]
+              - generic [ref=e387]:
+                - generic [ref=e389]:
+                  - link "Commit 0eb77f5" [ref=e390] [cursor=pointer]:
+                    - /url: /siyuan-note/siyuan/commit/0eb77f56859e638de6e3e098a8ddc3e051bb7c11
+                    - text: 0eb77f5
+                  - text: ·
+                  - generic "Mar 23, 2026, 7:19 PM GMT+8" [ref=e391]: Mar 23, 20262 months ago
+                - generic [ref=e392]:
+                  - heading "History" [level=2] [ref=e393]
+                  - link "History" [ref=e394] [cursor=pointer]:
+                    - /url: /siyuan-note/siyuan/commits/master/API.md
+                    - generic [ref=e395]:
+                      - generic:
+                        - img
+                      - generic [ref=e396]: History
+            - generic [ref=e398]:
+              - generic [ref=e400]:
+                - heading "File metadata and controls" [level=2] [ref=e401]
+                - list "File view" [ref=e403]:
+                  - listitem [ref=e404]:
+                    - button "Preview" [ref=e405] [cursor=pointer]:
+                      - generic [ref=e407]: Preview
+                  - listitem [ref=e408]:
+                    - button "Code" [ref=e409] [cursor=pointer]:
+                      - generic [ref=e411]: Code
+                  - listitem [ref=e412]:
+                    - button "Blame" [ref=e413] [cursor=pointer]:
+                      - generic [ref=e415]: Blame
+                - generic [ref=e416]:
+                  - generic [ref=e417]:
+                    - generic [ref=e418]:
+                      - link "Raw" [ref=e420] [cursor=pointer]:
+                        - /url: https://github.com/siyuan-note/siyuan/raw/refs/heads/master/API.md
+                        - generic [ref=e422]: Raw
+                      - button "Copy raw file" [ref=e424] [cursor=pointer]:
+                        - img [ref=e425]
+                      - button "Download raw file" [ref=e429] [cursor=pointer]:
+                        - img [ref=e430]
+                    - generic [ref=e433]:
+                      - button "You must be signed in to make or propose changes" [disabled] [ref=e435]:
+                        - img [ref=e436]
+                      - button "More edit options" [ref=e439] [cursor=pointer]:
+                        - img [ref=e440]
+                  - button "Outline" [ref=e442] [cursor=pointer]:
+                    - img [ref=e443]
+              - region "API.md" [ref=e446]:
+                - article [ref=e448]:
+                  - paragraph [ref=e449]:
+                    - strong [ref=e450]: English
+                    - text: "|"
+                    - link "中文" [ref=e451] [cursor=pointer]:
+                      - /url: /siyuan-note/siyuan/blob/master/API_zh_CN.md
+                    - text: "|"
+                    - link "日本語" [ref=e452] [cursor=pointer]:
+                      - /url: /siyuan-note/siyuan/blob/master/API_ja_JP.md
+                  - list [ref=e453]:
+                    - listitem [ref=e454]:
+                      - link "Specification" [ref=e455] [cursor=pointer]:
+                        - /url: "#Specification"
+                      - list [ref=e456]:
+                        - listitem [ref=e457]:
+                          - link "Parameters and return values" [ref=e458] [cursor=pointer]:
+                            - /url: "#Parameters-and-return-values"
+                        - listitem [ref=e459]:
+                          - link "Authentication" [ref=e460] [cursor=pointer]:
+                            - /url: "#Authentication"
+                    - listitem [ref=e461]:
+                      - link "Notebooks" [ref=e462] [cursor=pointer]:
+                        - /url: "#Notebooks"
+                      - list [ref=e463]:
+                        - listitem [ref=e464]:
+                          - link "List notebooks" [ref=e465] [cursor=pointer]:
+                            - /url: "#List-notebooks"
+                        - listitem [ref=e466]:
+                          - link "Open a notebook" [ref=e467] [cursor=pointer]:
+                            - /url: "#Open-a-notebook"
+                        - listitem [ref=e468]:
+                          - link "Close a notebook" [ref=e469] [cursor=pointer]:
+                            - /url: "#Close-a-notebook"
+                        - listitem [ref=e470]:
+                          - link "Rename a notebook" [ref=e471] [cursor=pointer]:
+                            - /url: "#Rename-a-notebook"
+                        - listitem [ref=e472]:
+                          - link "Create a notebook" [ref=e473] [cursor=pointer]:
+                            - /url: "#Create-a-notebook"
+                        - listitem [ref=e474]:
+                          - link "Remove a notebook" [ref=e475] [cursor=pointer]:
+                            - /url: "#Remove-a-notebook"
+                        - listitem [ref=e476]:
+                          - link "Get notebook configuration" [ref=e477] [cursor=pointer]:
+                            - /url: "#Get-notebook-configuration"
+                        - listitem [ref=e478]:
+                          - link "Save notebook configuration" [ref=e479] [cursor=pointer]:
+                            - /url: "#Save-notebook-configuration"
+                    - listitem [ref=e480]:
+                      - link "Documents" [ref=e481] [cursor=pointer]:
+                        - /url: "#Documents"
+                      - list [ref=e482]:
+                        - listitem [ref=e483]:
+                          - link "Create a document with Markdown" [ref=e484] [cursor=pointer]:
+                            - /url: "#Create-a-document-with-Markdown"
+                        - listitem [ref=e485]:
+                          - link "Rename a document" [ref=e486] [cursor=pointer]:
+                            - /url: "#Rename-a-document"
+                        - listitem [ref=e487]:
+                          - link "Remove a document" [ref=e488] [cursor=pointer]:
+                            - /url: "#Remove-a-document"
+                        - listitem [ref=e489]:
+                          - link "Move documents" [ref=e490] [cursor=pointer]:
+                            - /url: "#Move-documents"
+                        - listitem [ref=e491]:
+                          - link "Get human-readable path based on path" [ref=e492] [cursor=pointer]:
+                            - /url: "#Get-human-readable-path-based-on-path"
+                        - listitem [ref=e493]:
+                          - link "Get human-readable path based on ID" [ref=e494] [cursor=pointer]:
+                            - /url: "#Get-human-readable-path-based-on-ID"
+                        - listitem [ref=e495]:
+                          - link "Get storage path based on ID" [ref=e496] [cursor=pointer]:
+                            - /url: "#Get-storage-path-based-on-ID"
+                        - listitem [ref=e497]:
+                          - link "Get IDs based on human-readable path" [ref=e498] [cursor=pointer]:
+                            - /url: "#Get-IDs-based-on-human-readable-path"
+                    - listitem [ref=e499]:
+                      - link "Assets" [ref=e500] [cursor=pointer]:
+                        - /url: "#Assets"
+                      - list [ref=e501]:
+                        - listitem [ref=e502]:
+                          - link "Upload assets" [ref=e503] [cursor=pointer]:
+                            - /url: "#Upload-assets"
+                    - listitem [ref=e504]:
+                      - link "Blocks" [ref=e505] [cursor=pointer]:
+                        - /url: "#Blocks"
+                      - list [ref=e506]:
+                        - listitem [ref=e507]:
+                          - link "Insert blocks" [ref=e508] [cursor=pointer]:
+                            - /url: "#Insert-blocks"
+                        - listitem [ref=e509]:
+                          - link "Prepend blocks" [ref=e510] [cursor=pointer]:
+                            - /url: "#Prepend-blocks"
+                        - listitem [ref=e511]:
+                          - link "Append blocks" [ref=e512] [cursor=pointer]:
+                            - /url: "#Append-blocks"
+                        - listitem [ref=e513]:
+                          - link "Update a block" [ref=e514] [cursor=pointer]:
+                            - /url: "#Update-a-block"
+                        - listitem [ref=e515]:
+                          - link "Delete a block" [ref=e516] [cursor=pointer]:
+                            - /url: "#Delete-a-block"
+                        - listitem [ref=e517]:
+                          - link "Move a block" [ref=e518] [cursor=pointer]:
+                            - /url: "#Move-a-block"
+                        - listitem [ref=e519]:
+                          - link "Fold a block" [ref=e520] [cursor=pointer]:
+                            - /url: "#Fold-a-block"
+                        - listitem [ref=e521]:
+                          - link "Unfold a block" [ref=e522] [cursor=pointer]:
+                            - /url: "#Unfold-a-block"
+                        - listitem [ref=e523]:
+                          - link "Get a block kramdown" [ref=e524] [cursor=pointer]:
+                            - /url: "#Get-a-block-kramdown"
+                        - listitem [ref=e525]:
+                          - link "Get child blocks" [ref=e526] [cursor=pointer]:
+                            - /url: "#get-child-blocks"
+                        - listitem [ref=e527]:
+                          - link "Transfer block ref" [ref=e528] [cursor=pointer]:
+                            - /url: "#transfer-block-ref"
+                    - listitem [ref=e529]:
+                      - link "Attributes" [ref=e530] [cursor=pointer]:
+                        - /url: "#Attributes"
+                      - list [ref=e531]:
+                        - listitem [ref=e532]:
+                          - link "Set block attributes" [ref=e533] [cursor=pointer]:
+                            - /url: "#Set-block-attributes"
+                        - listitem [ref=e534]:
+                          - link "Get block attributes" [ref=e535] [cursor=pointer]:
+                            - /url: "#Get-block-attributes"
+                    - listitem [ref=e536]:
+                      - link "SQL" [ref=e537] [cursor=pointer]:
+                        - /url: "#SQL"
+                      - list [ref=e538]:
+                        - listitem [ref=e539]:
+                          - link "Execute SQL query" [ref=e540] [cursor=pointer]:
+                            - /url: "#Execute-SQL-query"
+                        - listitem [ref=e541]:
+                          - link "Flush transaction" [ref=e542] [cursor=pointer]:
+                            - /url: "#Flush-transaction"
+                    - listitem [ref=e543]:
+                      - link "Templates" [ref=e544] [cursor=pointer]:
+                        - /url: "#Templates"
+                      - list [ref=e545]:
+                        - listitem [ref=e546]:
+                          - link "Render a template" [ref=e547] [cursor=pointer]:
+                            - /url: "#Render-a-template"
+                        - listitem [ref=e548]:
+                          - link "Render Sprig" [ref=e549] [cursor=pointer]:
+                            - /url: "#Render-Sprig"
+                    - listitem [ref=e550]:
+                      - link "File" [ref=e551] [cursor=pointer]:
+                        - /url: "#File"
+                      - list [ref=e552]:
+                        - listitem [ref=e553]:
+                          - link "Get file" [ref=e554] [cursor=pointer]:
+                            - /url: "#Get-file"
+                        - listitem [ref=e555]:
+                          - link "Put file" [ref=e556] [cursor=pointer]:
+                            - /url: "#Put-file"
+                        - listitem [ref=e557]:
+                          - link "Remove file" [ref=e558] [cursor=pointer]:
+                            - /url: "#Remove-file"
+                        - listitem [ref=e559]:
+                          - link "Rename file" [ref=e560] [cursor=pointer]:
+                            - /url: "#Rename-file"
+                        - listitem [ref=e561]:
+                          - link "List files" [ref=e562] [cursor=pointer]:
+                            - /url: "#List-files"
+                    - listitem [ref=e563]:
+                      - link "Export" [ref=e564] [cursor=pointer]:
+                        - /url: "#Export"
+                      - list [ref=e565]:
+                        - listitem [ref=e566]:
+                          - link "Export Markdown" [ref=e567] [cursor=pointer]:
+                            - /url: "#Export-Markdown"
+                        - listitem [ref=e568]:
+                          - link "Export Files and Folders" [ref=e569] [cursor=pointer]:
+                            - /url: "#Export-files-and-folders"
+                    - listitem [ref=e570]:
+                      - link "Conversion" [ref=e571] [cursor=pointer]:
+                        - /url: "#Conversion"
+                      - list [ref=e572]:
+                        - listitem [ref=e573]:
+                          - link "Pandoc" [ref=e574] [cursor=pointer]:
+                            - /url: "#Pandoc"
+                    - listitem [ref=e575]:
+                      - link "Notification" [ref=e576] [cursor=pointer]:
+                        - /url: "#Notification"
+                      - list [ref=e577]:
+                        - listitem [ref=e578]:
+                          - link "Push message" [ref=e579] [cursor=pointer]:
+                            - /url: "#Push-message"
+                        - listitem [ref=e580]:
+                          - link "Push error message" [ref=e581] [cursor=pointer]:
+                            - /url: "#Push-error-message"
+                    - listitem [ref=e582]:
+                      - link "Network" [ref=e583] [cursor=pointer]:
+                        - /url: "#Network"
+                      - list [ref=e584]:
+                        - listitem [ref=e585]:
+                          - link "Forward proxy" [ref=e586] [cursor=pointer]:
+                            - /url: "#Forward-proxy"
+                    - listitem [ref=e587]:
+                      - link "System" [ref=e588] [cursor=pointer]:
+                        - /url: "#System"
+                      - list [ref=e589]:
+                        - listitem [ref=e590]:
+                          - link "Get boot progress" [ref=e591] [cursor=pointer]:
+                            - /url: "#Get-boot-progress"
+                        - listitem [ref=e592]:
+                          - link "Get system version" [ref=e593] [cursor=pointer]:
+                            - /url: "#Get-system-version"
+                        - listitem [ref=e594]:
+                          - link "Get the current time of the system" [ref=e595] [cursor=pointer]:
+                            - /url: "#Get-the-current-time-of-the-system"
+                  - separator [ref=e596]
+                  - generic [ref=e597]:
+                    - heading "Specification" [level=2] [ref=e598]
+                    - 'link "Permalink: Specification" [ref=e599] [cursor=pointer]':
+                      - /url: "#specification"
+                      - img [ref=e600]
+                  - generic [ref=e602]:
+                    - heading "Parameters and return values" [level=3] [ref=e603]
+                    - 'link "Permalink: Parameters and return values" [ref=e604] [cursor=pointer]':
+                      - /url: "#parameters-and-return-values"
+                      - img [ref=e605]
+                  - list [ref=e607]:
+                    - listitem [ref=e608]:
+                      - paragraph [ref=e609]:
+                        - text: "Endpoint:"
+                        - code [ref=e610]: http://127.0.0.1:6806
+                    - listitem [ref=e611]:
+                      - paragraph [ref=e612]: Both are POST methods
+                    - listitem [ref=e613]:
+                      - paragraph [ref=e614]:
+                        - text: An interface with parameters is required, the parameter is a JSON string, placed in the body, and the header Content-Type is
+                        - code [ref=e615]: application/json
+                    - listitem [ref=e616]:
+                      - paragraph [ref=e617]: Return value
+                      - generic [ref=e618]:
+                        - generic [ref=e619]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e620]: "\"\""
+                          - text: ", \"data\": {} }"
+                        - button "Copy" [ref=e622] [cursor=pointer]:
+                          - img [ref=e623]
+                      - list [ref=e626]:
+                        - listitem [ref=e627]:
+                          - code [ref=e628]: code
+                          - text: ": non-zero for exceptions"
+                        - listitem [ref=e629]:
+                          - code [ref=e630]: msg
+                          - text: ": an empty string under normal circumstances, an error text will be returned under abnormal conditions"
+                        - listitem [ref=e631]:
+                          - code [ref=e632]: data
+                          - text: ": may be"
+                          - code [ref=e633]: "{}"
+                          - text: ","
+                          - code [ref=e634]: "[]"
+                          - text: or
+                          - code [ref=e635]: "NULL"
+                          - text: ", depending on the interface"
+                  - generic [ref=e636]:
+                    - heading "Authentication" [level=3] [ref=e637]
+                    - 'link "Permalink: Authentication" [ref=e638] [cursor=pointer]':
+                      - /url: "#authentication"
+                      - img [ref=e639]
+                  - paragraph [ref=e641]:
+                    - text: View API token in
+                    - generic [ref=e642]: Settings - About
+                    - text: ", request header:"
+                    - code [ref=e643]: "Authorization: Token xxx"
+                  - generic [ref=e644]:
+                    - heading "Notebooks" [level=2] [ref=e645]
+                    - 'link "Permalink: Notebooks" [ref=e646] [cursor=pointer]':
+                      - /url: "#notebooks"
+                      - img [ref=e647]
+                  - generic [ref=e649]:
+                    - heading "List notebooks" [level=3] [ref=e650]
+                    - 'link "Permalink: List notebooks" [ref=e651] [cursor=pointer]':
+                      - /url: "#list-notebooks"
+                      - img [ref=e652]
+                  - list [ref=e654]:
+                    - listitem [ref=e655]:
+                      - paragraph [ref=e656]:
+                        - code [ref=e657]: /api/notebook/lsNotebooks
+                    - listitem [ref=e658]:
+                      - paragraph [ref=e659]: No parameters
+                    - listitem [ref=e660]:
+                      - paragraph [ref=e661]: Return value
+                      - generic [ref=e662]:
+                        - generic [ref=e663]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e664]: "\"\""
+                          - text: ", \"data\": { \"notebooks\": [ { \"id\":"
+                          - generic [ref=e665]: "\"20210817205410-2kvfpfn\""
+                          - text: ", \"name\":"
+                          - generic [ref=e666]: "\"Test Notebook\""
+                          - text: ", \"icon\":"
+                          - generic [ref=e667]: "\"1f41b\""
+                          - text: ", \"sort\": 0, \"closed\": false }, { \"id\":"
+                          - generic [ref=e668]: "\"20210808180117-czj9bvb\""
+                          - text: ", \"name\":"
+                          - generic [ref=e669]: "\"SiYuan User Guide\""
+                          - text: ", \"icon\":"
+                          - generic [ref=e670]: "\"1f4d4\""
+                          - text: ", \"sort\": 1, \"closed\": false } ] } }"
+                        - button "Copy" [ref=e672] [cursor=pointer]:
+                          - img [ref=e673]
+                  - generic [ref=e676]:
+                    - heading "Open a notebook" [level=3] [ref=e677]
+                    - 'link "Permalink: Open a notebook" [ref=e678] [cursor=pointer]':
+                      - /url: "#open-a-notebook"
+                      - img [ref=e679]
+                  - list [ref=e681]:
+                    - listitem [ref=e682]:
+                      - paragraph [ref=e683]:
+                        - code [ref=e684]: /api/notebook/openNotebook
+                    - listitem [ref=e685]:
+                      - paragraph [ref=e686]: Parameters
+                      - generic [ref=e687]:
+                        - generic [ref=e688]:
+                          - text: "{ \"notebook\":"
+                          - generic [ref=e689]: "\"20210831090520-7dvbdv0\""
+                          - text: "}"
+                        - button "Copy" [ref=e691] [cursor=pointer]:
+                          - img [ref=e692]
+                      - list [ref=e695]:
+                        - listitem [ref=e696]:
+                          - code [ref=e697]: notebook
+                          - text: ": Notebook ID"
+                    - listitem [ref=e698]:
+                      - paragraph [ref=e699]: Return value
+                      - generic [ref=e700]:
+                        - generic [ref=e701]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e702]: "\"\""
+                          - text: ", \"data\": null }"
+                        - button "Copy" [ref=e704] [cursor=pointer]:
+                          - img [ref=e705]
+                  - generic [ref=e708]:
+                    - heading "Close a notebook" [level=3] [ref=e709]
+                    - 'link "Permalink: Close a notebook" [ref=e710] [cursor=pointer]':
+                      - /url: "#close-a-notebook"
+                      - img [ref=e711]
+                  - list [ref=e713]:
+                    - listitem [ref=e714]:
+                      - paragraph [ref=e715]:
+                        - code [ref=e716]: /api/notebook/closeNotebook
+                    - listitem [ref=e717]:
+                      - paragraph [ref=e718]: Parameters
+                      - generic [ref=e719]:
+                        - generic [ref=e720]:
+                          - text: "{ \"notebook\":"
+                          - generic [ref=e721]: "\"20210831090520-7dvbdv0\""
+                          - text: "}"
+                        - button "Copy" [ref=e723] [cursor=pointer]:
+                          - img [ref=e724]
+                      - list [ref=e727]:
+                        - listitem [ref=e728]:
+                          - code [ref=e729]: notebook
+                          - text: ": Notebook ID"
+                    - listitem [ref=e730]:
+                      - paragraph [ref=e731]: Return value
+                      - generic [ref=e732]:
+                        - generic [ref=e733]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e734]: "\"\""
+                          - text: ", \"data\": null }"
+                        - button "Copy" [ref=e736] [cursor=pointer]:
+                          - img [ref=e737]
+                  - generic [ref=e740]:
+                    - heading "Rename a notebook" [level=3] [ref=e741]
+                    - 'link "Permalink: Rename a notebook" [ref=e742] [cursor=pointer]':
+                      - /url: "#rename-a-notebook"
+                      - img [ref=e743]
+                  - list [ref=e745]:
+                    - listitem [ref=e746]:
+                      - paragraph [ref=e747]:
+                        - code [ref=e748]: /api/notebook/renameNotebook
+                    - listitem [ref=e749]:
+                      - paragraph [ref=e750]: Parameters
+                      - generic [ref=e751]:
+                        - generic [ref=e752]:
+                          - text: "{ \"notebook\":"
+                          - generic [ref=e753]: "\"20210831090520-7dvbdv0\""
+                          - text: ", \"name\":"
+                          - generic [ref=e754]: "\"New name for notebook\""
+                          - text: "}"
+                        - button "Copy" [ref=e756] [cursor=pointer]:
+                          - img [ref=e757]
+                      - list [ref=e760]:
+                        - listitem [ref=e761]:
+                          - code [ref=e762]: notebook
+                          - text: ": Notebook ID"
+                    - listitem [ref=e763]:
+                      - paragraph [ref=e764]: Return value
+                      - generic [ref=e765]:
+                        - generic [ref=e766]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e767]: "\"\""
+                          - text: ", \"data\": null }"
+                        - button "Copy" [ref=e769] [cursor=pointer]:
+                          - img [ref=e770]
+                  - generic [ref=e773]:
+                    - heading "Create a notebook" [level=3] [ref=e774]
+                    - 'link "Permalink: Create a notebook" [ref=e775] [cursor=pointer]':
+                      - /url: "#create-a-notebook"
+                      - img [ref=e776]
+                  - list [ref=e778]:
+                    - listitem [ref=e779]:
+                      - paragraph [ref=e780]:
+                        - code [ref=e781]: /api/notebook/createNotebook
+                    - listitem [ref=e782]:
+                      - paragraph [ref=e783]: Parameters
+                      - generic [ref=e784]:
+                        - generic [ref=e785]:
+                          - text: "{ \"name\":"
+                          - generic [ref=e786]: "\"Notebook name\""
+                          - text: "}"
+                        - button "Copy" [ref=e788] [cursor=pointer]:
+                          - img [ref=e789]
+                    - listitem [ref=e792]:
+                      - paragraph [ref=e793]: Return value
+                      - generic [ref=e794]:
+                        - generic [ref=e795]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e796]: "\"\""
+                          - text: ", \"data\": { \"notebook\": { \"id\":"
+                          - generic [ref=e797]: "\"20220126215949-r1wvoch\""
+                          - text: ", \"name\":"
+                          - generic [ref=e798]: "\"Notebook name\""
+                          - text: ", \"icon\":"
+                          - generic [ref=e799]: "\"\""
+                          - text: ", \"sort\": 0, \"closed\": false } } }"
+                        - button "Copy" [ref=e801] [cursor=pointer]:
+                          - img [ref=e802]
+                  - generic [ref=e805]:
+                    - heading "Remove a notebook" [level=3] [ref=e806]
+                    - 'link "Permalink: Remove a notebook" [ref=e807] [cursor=pointer]':
+                      - /url: "#remove-a-notebook"
+                      - img [ref=e808]
+                  - list [ref=e810]:
+                    - listitem [ref=e811]:
+                      - paragraph [ref=e812]:
+                        - code [ref=e813]: /api/notebook/removeNotebook
+                    - listitem [ref=e814]:
+                      - paragraph [ref=e815]: Parameters
+                      - generic [ref=e816]:
+                        - generic [ref=e817]:
+                          - text: "{ \"notebook\":"
+                          - generic [ref=e818]: "\"20210831090520-7dvbdv0\""
+                          - text: "}"
+                        - button "Copy" [ref=e820] [cursor=pointer]:
+                          - img [ref=e821]
+                      - list [ref=e824]:
+                        - listitem [ref=e825]:
+                          - code [ref=e826]: notebook
+                          - text: ": Notebook ID"
+                    - listitem [ref=e827]:
+                      - paragraph [ref=e828]: Return value
+                      - generic [ref=e829]:
+                        - generic [ref=e830]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e831]: "\"\""
+                          - text: ", \"data\": null }"
+                        - button "Copy" [ref=e833] [cursor=pointer]:
+                          - img [ref=e834]
+                  - generic [ref=e837]:
+                    - heading "Get notebook configuration" [level=3] [ref=e838]
+                    - 'link "Permalink: Get notebook configuration" [ref=e839] [cursor=pointer]':
+                      - /url: "#get-notebook-configuration"
+                      - img [ref=e840]
+                  - list [ref=e842]:
+                    - listitem [ref=e843]:
+                      - paragraph [ref=e844]:
+                        - code [ref=e845]: /api/notebook/getNotebookConf
+                    - listitem [ref=e846]:
+                      - paragraph [ref=e847]: Parameters
+                      - generic [ref=e848]:
+                        - generic [ref=e849]:
+                          - text: "{ \"notebook\":"
+                          - generic [ref=e850]: "\"20210817205410-2kvfpfn\""
+                          - text: "}"
+                        - button "Copy" [ref=e852] [cursor=pointer]:
+                          - img [ref=e853]
+                      - list [ref=e856]:
+                        - listitem [ref=e857]:
+                          - code [ref=e858]: notebook
+                          - text: ": Notebook ID"
+                    - listitem [ref=e859]:
+                      - paragraph [ref=e860]: Return value
+                      - generic [ref=e861]:
+                        - generic [ref=e862]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e863]: "\"\""
+                          - text: ", \"data\": { \"box\":"
+                          - generic [ref=e864]: "\"20210817205410-2kvfpfn\""
+                          - text: ", \"conf\": { \"name\":"
+                          - generic [ref=e865]: "\"Test Notebook\""
+                          - text: ", \"closed\": false, \"refCreateSavePath\":"
+                          - generic [ref=e866]: "\"\""
+                          - text: ", \"createDocNameTemplate\":"
+                          - generic [ref=e867]: "\"\""
+                          - text: ", \"dailyNoteSavePath\":"
+                          - generic [ref=e868]: "\"/daily note/{{now | date \\\"2006/01\\\"}}/{{now | date \\\"2006-01-02\\\"}}\""
+                          - text: ", \"dailyNoteTemplatePath\":"
+                          - generic [ref=e869]: "\"\""
+                          - text: "}, \"name\":"
+                          - generic [ref=e870]: "\"Test Notebook\""
+                          - text: "} }"
+                        - button "Copy" [ref=e872] [cursor=pointer]:
+                          - img [ref=e873]
+                  - generic [ref=e876]:
+                    - heading "Save notebook configuration" [level=3] [ref=e877]
+                    - 'link "Permalink: Save notebook configuration" [ref=e878] [cursor=pointer]':
+                      - /url: "#save-notebook-configuration"
+                      - img [ref=e879]
+                  - list [ref=e881]:
+                    - listitem [ref=e882]:
+                      - paragraph [ref=e883]:
+                        - code [ref=e884]: /api/notebook/setNotebookConf
+                    - listitem [ref=e885]:
+                      - paragraph [ref=e886]: Parameters
+                      - generic [ref=e887]:
+                        - generic [ref=e888]:
+                          - text: "{ \"notebook\":"
+                          - generic [ref=e889]: "\"20210817205410-2kvfpfn\""
+                          - text: ", \"conf\": { \"name\":"
+                          - generic [ref=e890]: "\"Test Notebook\""
+                          - text: ", \"closed\": false, \"refCreateSavePath\":"
+                          - generic [ref=e891]: "\"\""
+                          - text: ", \"createDocNameTemplate\":"
+                          - generic [ref=e892]: "\"\""
+                          - text: ", \"dailyNoteSavePath\":"
+                          - generic [ref=e893]: "\"/daily note/{{now | date \\\"2006/01\\\"}}/{{now | date \\\"2006-01-02\\\"}}\""
+                          - text: ", \"dailyNoteTemplatePath\":"
+                          - generic [ref=e894]: "\"\""
+                          - text: "} }"
+                        - button "Copy" [ref=e896] [cursor=pointer]:
+                          - img [ref=e897]
+                      - list [ref=e900]:
+                        - listitem [ref=e901]:
+                          - code [ref=e902]: notebook
+                          - text: ": Notebook ID"
+                    - listitem [ref=e903]:
+                      - paragraph [ref=e904]: Return value
+                      - generic [ref=e905]:
+                        - generic [ref=e906]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e907]: "\"\""
+                          - text: ", \"data\": { \"name\":"
+                          - generic [ref=e908]: "\"Test Notebook\""
+                          - text: ", \"closed\": false, \"refCreateSavePath\":"
+                          - generic [ref=e909]: "\"\""
+                          - text: ", \"createDocNameTemplate\":"
+                          - generic [ref=e910]: "\"\""
+                          - text: ", \"dailyNoteSavePath\":"
+                          - generic [ref=e911]: "\"/daily note/{{now | date \\\"2006/01\\\"}}/{{now | date \\\"2006-01-02\\\"}}\""
+                          - text: ", \"dailyNoteTemplatePath\":"
+                          - generic [ref=e912]: "\"\""
+                          - text: "} }"
+                        - button "Copy" [ref=e914] [cursor=pointer]:
+                          - img [ref=e915]
+                  - generic [ref=e918]:
+                    - heading "Documents" [level=2] [ref=e919]
+                    - 'link "Permalink: Documents" [ref=e920] [cursor=pointer]':
+                      - /url: "#documents"
+                      - img [ref=e921]
+                  - generic [ref=e923]:
+                    - heading "Create a document with Markdown" [level=3] [ref=e924]
+                    - 'link "Permalink: Create a document with Markdown" [ref=e925] [cursor=pointer]':
+                      - /url: "#create-a-document-with-markdown"
+                      - img [ref=e926]
+                  - list [ref=e928]:
+                    - listitem [ref=e929]:
+                      - paragraph [ref=e930]:
+                        - code [ref=e931]: /api/filetree/createDocWithMd
+                    - listitem [ref=e932]:
+                      - paragraph [ref=e933]: Parameters
+                      - generic [ref=e934]:
+                        - generic [ref=e935]:
+                          - text: "{ \"notebook\":"
+                          - generic [ref=e936]: "\"20210817205410-2kvfpfn\""
+                          - text: ", \"path\":"
+                          - generic [ref=e937]: "\"/foo/bar\""
+                          - text: ", \"markdown\":"
+                          - generic [ref=e938]: "\"\""
+                          - text: "}"
+                        - button "Copy" [ref=e940] [cursor=pointer]:
+                          - img [ref=e941]
+                      - list [ref=e944]:
+                        - listitem [ref=e945]:
+                          - code [ref=e946]: notebook
+                          - text: ": Notebook ID"
+                        - listitem [ref=e947]:
+                          - code [ref=e948]: path
+                          - text: ": Document path, which needs to start with / and separate levels with / (path here corresponds to the database hpath field)"
+                        - listitem [ref=e949]:
+                          - code [ref=e950]: markdown
+                          - text: ": GFM Markdown content"
+                    - listitem [ref=e951]:
+                      - paragraph [ref=e952]: Return value
+                      - generic [ref=e953]:
+                        - generic [ref=e954]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e955]: "\"\""
+                          - text: ", \"data\":"
+                          - generic [ref=e956]: "\"20210914223645-oj2vnx2\""
+                          - text: "}"
+                        - button "Copy" [ref=e958] [cursor=pointer]:
+                          - img [ref=e959]
+                      - list [ref=e962]:
+                        - listitem [ref=e963]:
+                          - code [ref=e964]: data
+                          - text: ": Created document ID"
+                        - listitem [ref=e965]:
+                          - text: If you use the same
+                          - code [ref=e966]: path
+                          - text: to call this interface repeatedly, the existing document will not be overwritten
+                  - generic [ref=e967]:
+                    - heading "Rename a document" [level=3] [ref=e968]
+                    - 'link "Permalink: Rename a document" [ref=e969] [cursor=pointer]':
+                      - /url: "#rename-a-document"
+                      - img [ref=e970]
+                  - list [ref=e972]:
+                    - listitem [ref=e973]:
+                      - paragraph [ref=e974]:
+                        - code [ref=e975]: /api/filetree/renameDoc
+                    - listitem [ref=e976]:
+                      - paragraph [ref=e977]: Parameters
+                      - generic [ref=e978]:
+                        - generic [ref=e979]:
+                          - text: "{ \"notebook\":"
+                          - generic [ref=e980]: "\"20210831090520-7dvbdv0\""
+                          - text: ", \"path\":"
+                          - generic [ref=e981]: "\"/20210902210113-0avi12f.sy\""
+                          - text: ", \"title\":"
+                          - generic [ref=e982]: "\"New document title\""
+                          - text: "}"
+                        - button "Copy" [ref=e984] [cursor=pointer]:
+                          - img [ref=e985]
+                      - list [ref=e988]:
+                        - listitem [ref=e989]:
+                          - code [ref=e990]: notebook
+                          - text: ": Notebook ID"
+                        - listitem [ref=e991]:
+                          - code [ref=e992]: path
+                          - text: ": Document path"
+                        - listitem [ref=e993]:
+                          - code [ref=e994]: title
+                          - text: ": New document title"
+                    - listitem [ref=e995]:
+                      - paragraph [ref=e996]: Return value
+                      - generic [ref=e997]:
+                        - generic [ref=e998]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e999]: "\"\""
+                          - text: ", \"data\": null }"
+                        - button "Copy" [ref=e1001] [cursor=pointer]:
+                          - img [ref=e1002]
+                  - paragraph [ref=e1005]:
+                    - text: Rename a document by
+                    - code [ref=e1006]: id
+                    - text: ":"
+                  - list [ref=e1007]:
+                    - listitem [ref=e1008]:
+                      - paragraph [ref=e1009]:
+                        - code [ref=e1010]: /api/filetree/renameDocByID
+                    - listitem [ref=e1011]:
+                      - paragraph [ref=e1012]: Parameters
+                      - generic [ref=e1013]:
+                        - generic [ref=e1014]:
+                          - text: "{ \"id\":"
+                          - generic [ref=e1015]: "\"20210902210113-0avi12f\""
+                          - text: ", \"title\":"
+                          - generic [ref=e1016]: "\"New document title\""
+                          - text: "}"
+                        - button "Copy" [ref=e1018] [cursor=pointer]:
+                          - img [ref=e1019]
+                      - list [ref=e1022]:
+                        - listitem [ref=e1023]:
+                          - code [ref=e1024]: id
+                          - text: ": Document ID"
+                        - listitem [ref=e1025]:
+                          - code [ref=e1026]: title
+                          - text: ": New document title"
+                    - listitem [ref=e1027]:
+                      - paragraph [ref=e1028]: Return value
+                      - generic [ref=e1029]:
+                        - generic [ref=e1030]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1031]: "\"\""
+                          - text: ", \"data\": null }"
+                        - button "Copy" [ref=e1033] [cursor=pointer]:
+                          - img [ref=e1034]
+                  - generic [ref=e1037]:
+                    - heading "Remove a document" [level=3] [ref=e1038]
+                    - 'link "Permalink: Remove a document" [ref=e1039] [cursor=pointer]':
+                      - /url: "#remove-a-document"
+                      - img [ref=e1040]
+                  - list [ref=e1042]:
+                    - listitem [ref=e1043]:
+                      - paragraph [ref=e1044]:
+                        - code [ref=e1045]: /api/filetree/removeDoc
+                    - listitem [ref=e1046]:
+                      - paragraph [ref=e1047]: Parameters
+                      - generic [ref=e1048]:
+                        - generic [ref=e1049]:
+                          - text: "{ \"notebook\":"
+                          - generic [ref=e1050]: "\"20210831090520-7dvbdv0\""
+                          - text: ", \"path\":"
+                          - generic [ref=e1051]: "\"/20210902210113-0avi12f.sy\""
+                          - text: "}"
+                        - button "Copy" [ref=e1053] [cursor=pointer]:
+                          - img [ref=e1054]
+                      - list [ref=e1057]:
+                        - listitem [ref=e1058]:
+                          - code [ref=e1059]: notebook
+                          - text: ": Notebook ID"
+                        - listitem [ref=e1060]:
+                          - code [ref=e1061]: path
+                          - text: ": Document path"
+                    - listitem [ref=e1062]:
+                      - paragraph [ref=e1063]: Return value
+                      - generic [ref=e1064]:
+                        - generic [ref=e1065]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1066]: "\"\""
+                          - text: ", \"data\": null }"
+                        - button "Copy" [ref=e1068] [cursor=pointer]:
+                          - img [ref=e1069]
+                  - paragraph [ref=e1072]:
+                    - text: Remove a document by
+                    - code [ref=e1073]: id
+                    - text: ":"
+                  - list [ref=e1074]:
+                    - listitem [ref=e1075]:
+                      - paragraph [ref=e1076]:
+                        - code [ref=e1077]: /api/filetree/removeDocByID
+                    - listitem [ref=e1078]:
+                      - paragraph [ref=e1079]: Parameters
+                      - generic [ref=e1080]:
+                        - generic [ref=e1081]:
+                          - text: "{ \"id\":"
+                          - generic [ref=e1082]: "\"20210902210113-0avi12f\""
+                          - text: "}"
+                        - button "Copy" [ref=e1084] [cursor=pointer]:
+                          - img [ref=e1085]
+                      - list [ref=e1088]:
+                        - listitem [ref=e1089]:
+                          - code [ref=e1090]: id
+                          - text: ": Document ID"
+                    - listitem [ref=e1091]:
+                      - paragraph [ref=e1092]: Return value
+                      - generic [ref=e1093]:
+                        - generic [ref=e1094]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1095]: "\"\""
+                          - text: ", \"data\": null }"
+                        - button "Copy" [ref=e1097] [cursor=pointer]:
+                          - img [ref=e1098]
+                  - generic [ref=e1101]:
+                    - heading "Move documents" [level=3] [ref=e1102]
+                    - 'link "Permalink: Move documents" [ref=e1103] [cursor=pointer]':
+                      - /url: "#move-documents"
+                      - img [ref=e1104]
+                  - list [ref=e1106]:
+                    - listitem [ref=e1107]:
+                      - paragraph [ref=e1108]:
+                        - code [ref=e1109]: /api/filetree/moveDocs
+                    - listitem [ref=e1110]:
+                      - paragraph [ref=e1111]: Parameters
+                      - generic [ref=e1112]:
+                        - generic [ref=e1113]:
+                          - text: "{ \"fromPaths\": ["
+                          - generic [ref=e1114]: "\"/20210917220056-yxtyl7i.sy\""
+                          - text: "], \"toNotebook\":"
+                          - generic [ref=e1115]: "\"20210817205410-2kvfpfn\""
+                          - text: ", \"toPath\":"
+                          - generic [ref=e1116]: "\"/\""
+                          - text: "}"
+                        - button "Copy" [ref=e1118] [cursor=pointer]:
+                          - img [ref=e1119]
+                      - list [ref=e1122]:
+                        - listitem [ref=e1123]:
+                          - code [ref=e1124]: fromPaths
+                          - text: ": Source paths"
+                        - listitem [ref=e1125]:
+                          - code [ref=e1126]: toNotebook
+                          - text: ": Target notebook ID"
+                        - listitem [ref=e1127]:
+                          - code [ref=e1128]: toPath
+                          - text: ": Target path"
+                    - listitem [ref=e1129]:
+                      - paragraph [ref=e1130]: Return value
+                      - generic [ref=e1131]:
+                        - generic [ref=e1132]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1133]: "\"\""
+                          - text: ", \"data\": null }"
+                        - button "Copy" [ref=e1135] [cursor=pointer]:
+                          - img [ref=e1136]
+                  - paragraph [ref=e1139]:
+                    - text: Move documents by
+                    - code [ref=e1140]: id
+                    - text: ":"
+                  - list [ref=e1141]:
+                    - listitem [ref=e1142]:
+                      - paragraph [ref=e1143]:
+                        - code [ref=e1144]: /api/filetree/moveDocsByID
+                    - listitem [ref=e1145]:
+                      - paragraph [ref=e1146]: Parameters
+                      - generic [ref=e1147]:
+                        - generic [ref=e1148]:
+                          - text: "{ \"fromIDs\": ["
+                          - generic [ref=e1149]: "\"20210917220056-yxtyl7i\""
+                          - text: "], \"toID\":"
+                          - generic [ref=e1150]: "\"20210817205410-2kvfpfn\""
+                          - text: "}"
+                        - button "Copy" [ref=e1152] [cursor=pointer]:
+                          - img [ref=e1153]
+                      - list [ref=e1156]:
+                        - listitem [ref=e1157]:
+                          - code [ref=e1158]: fromIDs
+                          - text: ": Source docs' IDs"
+                        - listitem [ref=e1159]:
+                          - code [ref=e1160]: toID
+                          - text: ": Target parent doc's ID or notebook ID"
+                    - listitem [ref=e1161]:
+                      - paragraph [ref=e1162]: Return value
+                      - generic [ref=e1163]:
+                        - generic [ref=e1164]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1165]: "\"\""
+                          - text: ", \"data\": null }"
+                        - button "Copy" [ref=e1167] [cursor=pointer]:
+                          - img [ref=e1168]
+                  - generic [ref=e1171]:
+                    - heading "Get human-readable path based on path" [level=3] [ref=e1172]
+                    - 'link "Permalink: Get human-readable path based on path" [ref=e1173] [cursor=pointer]':
+                      - /url: "#get-human-readable-path-based-on-path"
+                      - img [ref=e1174]
+                  - list [ref=e1176]:
+                    - listitem [ref=e1177]:
+                      - paragraph [ref=e1178]:
+                        - code [ref=e1179]: /api/filetree/getHPathByPath
+                    - listitem [ref=e1180]:
+                      - paragraph [ref=e1181]: Parameters
+                      - generic [ref=e1182]:
+                        - generic [ref=e1183]:
+                          - text: "{ \"notebook\":"
+                          - generic [ref=e1184]: "\"20210831090520-7dvbdv0\""
+                          - text: ", \"path\":"
+                          - generic [ref=e1185]: "\"/20210917220500-sz588nq/20210917220056-yxtyl7i.sy\""
+                          - text: "}"
+                        - button "Copy" [ref=e1187] [cursor=pointer]:
+                          - img [ref=e1188]
+                      - list [ref=e1191]:
+                        - listitem [ref=e1192]:
+                          - code [ref=e1193]: notebook
+                          - text: ": Notebook ID"
+                        - listitem [ref=e1194]:
+                          - code [ref=e1195]: path
+                          - text: ": Document path"
+                    - listitem [ref=e1196]:
+                      - paragraph [ref=e1197]: Return value
+                      - generic [ref=e1198]:
+                        - generic [ref=e1199]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1200]: "\"\""
+                          - text: ", \"data\":"
+                          - generic [ref=e1201]: "\"/foo/bar\""
+                          - text: "}"
+                        - button "Copy" [ref=e1203] [cursor=pointer]:
+                          - img [ref=e1204]
+                  - generic [ref=e1207]:
+                    - heading "Get human-readable path based on ID" [level=3] [ref=e1208]
+                    - 'link "Permalink: Get human-readable path based on ID" [ref=e1209] [cursor=pointer]':
+                      - /url: "#get-human-readable-path-based-on-id"
+                      - img [ref=e1210]
+                  - list [ref=e1212]:
+                    - listitem [ref=e1213]:
+                      - paragraph [ref=e1214]:
+                        - code [ref=e1215]: /api/filetree/getHPathByID
+                    - listitem [ref=e1216]:
+                      - paragraph [ref=e1217]: Parameters
+                      - generic [ref=e1218]:
+                        - generic [ref=e1219]:
+                          - text: "{ \"id\":"
+                          - generic [ref=e1220]: "\"20210917220056-yxtyl7i\""
+                          - text: "}"
+                        - button "Copy" [ref=e1222] [cursor=pointer]:
+                          - img [ref=e1223]
+                      - list [ref=e1226]:
+                        - listitem [ref=e1227]:
+                          - code [ref=e1228]: id
+                          - text: ": Block ID"
+                    - listitem [ref=e1229]:
+                      - paragraph [ref=e1230]: Return value
+                      - generic [ref=e1231]:
+                        - generic [ref=e1232]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1233]: "\"\""
+                          - text: ", \"data\":"
+                          - generic [ref=e1234]: "\"/foo/bar\""
+                          - text: "}"
+                        - button "Copy" [ref=e1236] [cursor=pointer]:
+                          - img [ref=e1237]
+                  - generic [ref=e1240]:
+                    - heading "Get storage path based on ID" [level=3] [ref=e1241]
+                    - 'link "Permalink: Get storage path based on ID" [ref=e1242] [cursor=pointer]':
+                      - /url: "#get-storage-path-based-on-id"
+                      - img [ref=e1243]
+                  - list [ref=e1245]:
+                    - listitem [ref=e1246]:
+                      - paragraph [ref=e1247]:
+                        - code [ref=e1248]: /api/filetree/getPathByID
+                    - listitem [ref=e1249]:
+                      - paragraph [ref=e1250]: Parameters
+                      - generic [ref=e1251]:
+                        - generic [ref=e1252]:
+                          - text: "{ \"id\":"
+                          - generic [ref=e1253]: "\"20210808180320-fqgskfj\""
+                          - text: "}"
+                        - button "Copy" [ref=e1255] [cursor=pointer]:
+                          - img [ref=e1256]
+                      - list [ref=e1259]:
+                        - listitem [ref=e1260]:
+                          - code [ref=e1261]: id
+                          - text: ": Block ID"
+                    - listitem [ref=e1262]:
+                      - paragraph [ref=e1263]: Return value
+                      - generic [ref=e1264]:
+                        - generic [ref=e1265]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1266]: "\"\""
+                          - text: ", \"data\": { \"notebook\":"
+                          - generic [ref=e1267]: "\"20210808180117-czj9bvb\""
+                          - text: ", \"path\":"
+                          - generic [ref=e1268]: "\"/20200812220555-lj3enxa/20210808180320-fqgskfj.sy\""
+                          - text: "} }"
+                        - button "Copy" [ref=e1270] [cursor=pointer]:
+                          - img [ref=e1271]
+                  - generic [ref=e1274]:
+                    - heading "Get IDs based on human-readable path" [level=3] [ref=e1275]
+                    - 'link "Permalink: Get IDs based on human-readable path" [ref=e1276] [cursor=pointer]':
+                      - /url: "#get-ids-based-on-human-readable-path"
+                      - img [ref=e1277]
+                  - list [ref=e1279]:
+                    - listitem [ref=e1280]:
+                      - paragraph [ref=e1281]:
+                        - code [ref=e1282]: /api/filetree/getIDsByHPath
+                    - listitem [ref=e1283]:
+                      - paragraph [ref=e1284]: Parameters
+                      - generic [ref=e1285]:
+                        - generic [ref=e1286]:
+                          - text: "{ \"path\":"
+                          - generic [ref=e1287]: "\"/foo/bar\""
+                          - text: ", \"notebook\":"
+                          - generic [ref=e1288]: "\"20210808180117-czj9bvb\""
+                          - text: "}"
+                        - button "Copy" [ref=e1290] [cursor=pointer]:
+                          - img [ref=e1291]
+                      - list [ref=e1294]:
+                        - listitem [ref=e1295]:
+                          - code [ref=e1296]: path
+                          - text: ": Human-readable path"
+                        - listitem [ref=e1297]:
+                          - code [ref=e1298]: notebook
+                          - text: ": Notebook ID"
+                    - listitem [ref=e1299]:
+                      - paragraph [ref=e1300]: Return value
+                      - generic [ref=e1301]:
+                        - generic [ref=e1302]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1303]: "\"\""
+                          - text: ", \"data\": ["
+                          - generic [ref=e1304]: "\"20200813004931-q4cu8na\""
+                          - text: "] }"
+                        - button "Copy" [ref=e1306] [cursor=pointer]:
+                          - img [ref=e1307]
+                  - generic [ref=e1310]:
+                    - heading "Assets" [level=2] [ref=e1311]
+                    - 'link "Permalink: Assets" [ref=e1312] [cursor=pointer]':
+                      - /url: "#assets"
+                      - img [ref=e1313]
+                  - generic [ref=e1315]:
+                    - heading "Upload assets" [level=3] [ref=e1316]
+                    - 'link "Permalink: Upload assets" [ref=e1317] [cursor=pointer]':
+                      - /url: "#upload-assets"
+                      - img [ref=e1318]
+                  - list [ref=e1320]:
+                    - listitem [ref=e1321]:
+                      - paragraph [ref=e1322]:
+                        - code [ref=e1323]: /api/asset/upload
+                    - listitem [ref=e1324]:
+                      - paragraph [ref=e1325]: The parameter is an HTTP Multipart form
+                      - list [ref=e1326]:
+                        - listitem [ref=e1327]:
+                          - paragraph [ref=e1328]:
+                            - code [ref=e1329]: assetsDirPath
+                            - text: ": The folder path where assets are stored, with the data folder as the root path, for example:"
+                          - list [ref=e1330]:
+                            - listitem [ref=e1331]:
+                              - code [ref=e1332]: "\"/assets/\""
+                              - text: ": workspace/data/assets/ folder"
+                            - listitem [ref=e1333]:
+                              - code [ref=e1334]: "\"/assets/sub/\""
+                              - text: ": workspace/data/assets/sub/ folder"
+                          - paragraph [ref=e1335]: Under normal circumstances, it is recommended to use the first method, which is stored in the assets folder of the workspace, putting in a subdirectory has some side effects, please refer to the assets chapter of the user guide.
+                        - listitem [ref=e1336]:
+                          - paragraph [ref=e1337]:
+                            - code [ref=e1338]: file[]
+                            - text: ": Uploaded file list"
+                    - listitem [ref=e1339]:
+                      - paragraph [ref=e1340]: Return value
+                      - generic [ref=e1341]:
+                        - generic [ref=e1342]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1343]: "\"\""
+                          - text: ", \"data\": { \"errFiles\": ["
+                          - generic [ref=e1344]: "\"\""
+                          - text: "], \"succMap\": { \"foo.png\":"
+                          - generic [ref=e1345]: "\"assets/foo-20210719092549-9j5y79r.png\""
+                          - text: "} } }"
+                        - button "Copy" [ref=e1347] [cursor=pointer]:
+                          - img [ref=e1348]
+                      - list [ref=e1351]:
+                        - listitem [ref=e1352]:
+                          - code [ref=e1353]: errFiles
+                          - text: ": List of filenames with errors in upload processing"
+                        - listitem [ref=e1354]:
+                          - code [ref=e1355]: succMap
+                          - text: ": For successfully processed files, the key is the file name when uploading, and the value is assets/foo-id.png, which is used to replace the asset link address in the existing Markdown content with the uploaded address"
+                  - generic [ref=e1356]:
+                    - heading "Blocks" [level=2] [ref=e1357]
+                    - 'link "Permalink: Blocks" [ref=e1358] [cursor=pointer]':
+                      - /url: "#blocks"
+                      - img [ref=e1359]
+                  - generic [ref=e1361]:
+                    - heading "Insert blocks" [level=3] [ref=e1362]
+                    - 'link "Permalink: Insert blocks" [ref=e1363] [cursor=pointer]':
+                      - /url: "#insert-blocks"
+                      - img [ref=e1364]
+                  - list [ref=e1366]:
+                    - listitem [ref=e1367]:
+                      - paragraph [ref=e1368]:
+                        - code [ref=e1369]: /api/block/insertBlock
+                    - listitem [ref=e1370]:
+                      - paragraph [ref=e1371]: Parameters
+                      - generic [ref=e1372]:
+                        - generic [ref=e1373]:
+                          - text: "{ \"dataType\":"
+                          - generic [ref=e1374]: "\"markdown\""
+                          - text: ", \"data\":"
+                          - generic [ref=e1375]: "\"foo**bar**{: style=\\\"color: var(--b3-font-color8);\\\"}baz\""
+                          - text: ", \"nextID\":"
+                          - generic [ref=e1376]: "\"\""
+                          - text: ", \"previousID\":"
+                          - generic [ref=e1377]: "\"20211229114650-vrek5x6\""
+                          - text: ", \"parentID\":"
+                          - generic [ref=e1378]: "\"\""
+                          - text: "}"
+                        - button "Copy" [ref=e1380] [cursor=pointer]:
+                          - img [ref=e1381]
+                      - list [ref=e1384]:
+                        - listitem [ref=e1385]:
+                          - code [ref=e1386]: dataType
+                          - text: ": The data type to be inserted, the value can be"
+                          - code [ref=e1387]: markdown
+                          - text: or
+                          - code [ref=e1388]: dom
+                        - listitem [ref=e1389]:
+                          - code [ref=e1390]: data
+                          - text: ": Data to be inserted"
+                        - listitem [ref=e1391]:
+                          - code [ref=e1392]: nextID
+                          - text: ": The ID of the next block, used to anchor the insertion position"
+                        - listitem [ref=e1393]:
+                          - code [ref=e1394]: previousID
+                          - text: ": The ID of the previous block, used to anchor the insertion position"
+                        - listitem [ref=e1395]:
+                          - code [ref=e1396]: parentID
+                          - text: ": The ID of the parent block, used to anchor the insertion position"
+                      - paragraph [ref=e1397]:
+                        - code [ref=e1398]: nextID
+                        - text: ","
+                        - code [ref=e1399]: previousID
+                        - text: ", and"
+                        - code [ref=e1400]: parentID
+                        - text: "must have at least one value, using priority:"
+                        - code [ref=e1401]: nextID
+                        - text: ">"
+                        - code [ref=e1402]: previousID
+                        - text: ">"
+                        - code [ref=e1403]: parentID
+                    - listitem [ref=e1404]:
+                      - paragraph [ref=e1405]: Return value
+                      - generic [ref=e1406]:
+                        - generic [ref=e1407]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1408]: "\"\""
+                          - text: ", \"data\": [ { \"doOperations\": [ { \"action\":"
+                          - generic [ref=e1409]: "\"insert\""
+                          - text: ", \"data\":"
+                          - generic [ref=e1410]: "\"<div data-node-id=\\\"20211230115020-g02dfx0\\\" data-node-index=\\\"1\\\" data-type=\\\"NodeParagraph\\\" class=\\\"p\\\"><div contenteditable=\\\"true\\\" spellcheck=\\\"false\\\">foo<strong style=\\\"color: var(--b3-font-color8);\\\">bar</strong>baz</div><div class=\\\"protyle-attr\\\" contenteditable=\\\"false\\\"></div></div>\""
+                          - text: ", \"id\":"
+                          - generic [ref=e1411]: "\"20211230115020-g02dfx0\""
+                          - text: ", \"parentID\":"
+                          - generic [ref=e1412]: "\"\""
+                          - text: ", \"previousID\":"
+                          - generic [ref=e1413]: "\"20211229114650-vrek5x6\""
+                          - text: ", \"retData\": null } ], \"undoOperations\": null } ] }"
+                        - button "Copy" [ref=e1415] [cursor=pointer]:
+                          - img [ref=e1416]
+                      - list [ref=e1419]:
+                        - listitem [ref=e1420]:
+                          - code [ref=e1421]: action.data
+                          - text: ": DOM generated by the newly inserted block"
+                        - listitem [ref=e1422]:
+                          - code [ref=e1423]: action.id
+                          - text: ": ID of the newly inserted block"
+                  - generic [ref=e1424]:
+                    - heading "Prepend blocks" [level=3] [ref=e1425]
+                    - 'link "Permalink: Prepend blocks" [ref=e1426] [cursor=pointer]':
+                      - /url: "#prepend-blocks"
+                      - img [ref=e1427]
+                  - list [ref=e1429]:
+                    - listitem [ref=e1430]:
+                      - paragraph [ref=e1431]:
+                        - code [ref=e1432]: /api/block/prependBlock
+                    - listitem [ref=e1433]:
+                      - paragraph [ref=e1434]: Parameters
+                      - generic [ref=e1435]:
+                        - generic [ref=e1436]:
+                          - text: "{ \"data\":"
+                          - generic [ref=e1437]: "\"foo**bar**{: style=\\\"color: var(--b3-font-color8);\\\"}baz\""
+                          - text: ", \"dataType\":"
+                          - generic [ref=e1438]: "\"markdown\""
+                          - text: ", \"parentID\":"
+                          - generic [ref=e1439]: "\"20220107173950-7f9m1nb\""
+                          - text: "}"
+                        - button "Copy" [ref=e1441] [cursor=pointer]:
+                          - img [ref=e1442]
+                      - list [ref=e1445]:
+                        - listitem [ref=e1446]:
+                          - code [ref=e1447]: dataType
+                          - text: ": The data type to be inserted, the value can be"
+                          - code [ref=e1448]: markdown
+                          - text: or
+                          - code [ref=e1449]: dom
+                        - listitem [ref=e1450]:
+                          - code [ref=e1451]: data
+                          - text: ": Data to be inserted"
+                        - listitem [ref=e1452]:
+                          - code [ref=e1453]: parentID
+                          - text: ": The ID of the parent block, used to anchor the insertion position"
+                    - listitem [ref=e1454]:
+                      - paragraph [ref=e1455]: Return value
+                      - generic [ref=e1456]:
+                        - generic [ref=e1457]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1458]: "\"\""
+                          - text: ", \"data\": [ { \"doOperations\": [ { \"action\":"
+                          - generic [ref=e1459]: "\"insert\""
+                          - text: ", \"data\":"
+                          - generic [ref=e1460]: "\"<div data-node-id=\\\"20220108003710-hm0x9sc\\\" data-node-index=\\\"1\\\" data-type=\\\"NodeParagraph\\\" class=\\\"p\\\"><div contenteditable=\\\"true\\\" spellcheck=\\\"false\\\">foo<strong style=\\\"color: var(--b3-font-color8);\\\">bar</strong>baz</div><div class=\\\"protyle-attr\\\" contenteditable=\\\"false\\\"></div></div>\""
+                          - text: ", \"id\":"
+                          - generic [ref=e1461]: "\"20220108003710-hm0x9sc\""
+                          - text: ", \"parentID\":"
+                          - generic [ref=e1462]: "\"20220107173950-7f9m1nb\""
+                          - text: ", \"previousID\":"
+                          - generic [ref=e1463]: "\"\""
+                          - text: ", \"retData\": null } ], \"undoOperations\": null } ] }"
+                        - button "Copy" [ref=e1465] [cursor=pointer]:
+                          - img [ref=e1466]
+                      - list [ref=e1469]:
+                        - listitem [ref=e1470]:
+                          - code [ref=e1471]: action.data
+                          - text: ": DOM generated by the newly inserted block"
+                        - listitem [ref=e1472]:
+                          - code [ref=e1473]: action.id
+                          - text: ": ID of the newly inserted block"
+                  - generic [ref=e1474]:
+                    - heading "Append blocks" [level=3] [ref=e1475]
+                    - 'link "Permalink: Append blocks" [ref=e1476] [cursor=pointer]':
+                      - /url: "#append-blocks"
+                      - img [ref=e1477]
+                  - list [ref=e1479]:
+                    - listitem [ref=e1480]:
+                      - paragraph [ref=e1481]:
+                        - code [ref=e1482]: /api/block/appendBlock
+                    - listitem [ref=e1483]:
+                      - paragraph [ref=e1484]: Parameters
+                      - generic [ref=e1485]:
+                        - generic [ref=e1486]:
+                          - text: "{ \"data\":"
+                          - generic [ref=e1487]: "\"foo**bar**{: style=\\\"color: var(--b3-font-color8);\\\"}baz\""
+                          - text: ", \"dataType\":"
+                          - generic [ref=e1488]: "\"markdown\""
+                          - text: ", \"parentID\":"
+                          - generic [ref=e1489]: "\"20220107173950-7f9m1nb\""
+                          - text: "}"
+                        - button "Copy" [ref=e1491] [cursor=pointer]:
+                          - img [ref=e1492]
+                      - list [ref=e1495]:
+                        - listitem [ref=e1496]:
+                          - code [ref=e1497]: dataType
+                          - text: ": The data type to be inserted, the value can be"
+                          - code [ref=e1498]: markdown
+                          - text: or
+                          - code [ref=e1499]: dom
+                        - listitem [ref=e1500]:
+                          - code [ref=e1501]: data
+                          - text: ": Data to be inserted"
+                        - listitem [ref=e1502]:
+                          - code [ref=e1503]: parentID
+                          - text: ": The ID of the parent block, used to anchor the insertion position"
+                    - listitem [ref=e1504]:
+                      - paragraph [ref=e1505]: Return value
+                      - generic [ref=e1506]:
+                        - generic [ref=e1507]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1508]: "\"\""
+                          - text: ", \"data\": [ { \"doOperations\": [ { \"action\":"
+                          - generic [ref=e1509]: "\"insert\""
+                          - text: ", \"data\":"
+                          - generic [ref=e1510]: "\"<div data-node-id=\\\"20220108003642-y2wmpcv\\\" data-node-index=\\\"1\\\" data-type=\\\"NodeParagraph\\\" class=\\\"p\\\"><div contenteditable=\\\"true\\\" spellcheck=\\\"false\\\">foo<strong style=\\\"color: var(--b3-font-color8);\\\">bar</strong>baz</div><div class=\\\"protyle-attr\\\" contenteditable=\\\"false\\\"></div></div>\""
+                          - text: ", \"id\":"
+                          - generic [ref=e1511]: "\"20220108003642-y2wmpcv\""
+                          - text: ", \"parentID\":"
+                          - generic [ref=e1512]: "\"20220107173950-7f9m1nb\""
+                          - text: ", \"previousID\":"
+                          - generic [ref=e1513]: "\"20220108003615-7rk41t1\""
+                          - text: ", \"retData\": null } ], \"undoOperations\": null } ] }"
+                        - button "Copy" [ref=e1515] [cursor=pointer]:
+                          - img [ref=e1516]
+                      - list [ref=e1519]:
+                        - listitem [ref=e1520]:
+                          - code [ref=e1521]: action.data
+                          - text: ": DOM generated by the newly inserted block"
+                        - listitem [ref=e1522]:
+                          - code [ref=e1523]: action.id
+                          - text: ": ID of the newly inserted block"
+                  - generic [ref=e1524]:
+                    - heading "Update a block" [level=3] [ref=e1525]
+                    - 'link "Permalink: Update a block" [ref=e1526] [cursor=pointer]':
+                      - /url: "#update-a-block"
+                      - img [ref=e1527]
+                  - list [ref=e1529]:
+                    - listitem [ref=e1530]:
+                      - paragraph [ref=e1531]:
+                        - code [ref=e1532]: /api/block/updateBlock
+                    - listitem [ref=e1533]:
+                      - paragraph [ref=e1534]: Parameters
+                      - generic [ref=e1535]:
+                        - generic [ref=e1536]:
+                          - text: "{ \"dataType\":"
+                          - generic [ref=e1537]: "\"markdown\""
+                          - text: ", \"data\":"
+                          - generic [ref=e1538]: "\"foobarbaz\""
+                          - text: ", \"id\":"
+                          - generic [ref=e1539]: "\"20211230161520-querkps\""
+                          - text: "}"
+                        - button "Copy" [ref=e1541] [cursor=pointer]:
+                          - img [ref=e1542]
+                      - list [ref=e1545]:
+                        - listitem [ref=e1546]:
+                          - code [ref=e1547]: dataType
+                          - text: ": The data type to be updated, the value can be"
+                          - code [ref=e1548]: markdown
+                          - text: or
+                          - code [ref=e1549]: dom
+                        - listitem [ref=e1550]:
+                          - code [ref=e1551]: data
+                          - text: ": Data to be updated"
+                        - listitem [ref=e1552]:
+                          - code [ref=e1553]: id
+                          - text: ": ID of the block to be updated"
+                    - listitem [ref=e1554]:
+                      - paragraph [ref=e1555]: Return value
+                      - generic [ref=e1556]:
+                        - generic [ref=e1557]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1558]: "\"\""
+                          - text: ", \"data\": [ { \"doOperations\": [ { \"action\":"
+                          - generic [ref=e1559]: "\"update\""
+                          - text: ", \"data\":"
+                          - generic [ref=e1560]: "\"<div data-node-id=\\\"20211230161520-querkps\\\" data-node-index=\\\"1\\\" data-type=\\\"NodeParagraph\\\" class=\\\"p\\\"><div contenteditable=\\\"true\\\" spellcheck=\\\"false\\\">foo<strong>bar</strong>baz</div><div class=\\\"protyle-attr\\\" contenteditable=\\\"false\\\"></div></div>\""
+                          - text: ", \"id\":"
+                          - generic [ref=e1561]: "\"20211230161520-querkps\""
+                          - text: ", \"parentID\":"
+                          - generic [ref=e1562]: "\"\""
+                          - text: ", \"previousID\":"
+                          - generic [ref=e1563]: "\"\""
+                          - text: ", \"retData\": null } ], \"undoOperations\": null } ] }"
+                        - button "Copy" [ref=e1565] [cursor=pointer]:
+                          - img [ref=e1566]
+                      - list [ref=e1569]:
+                        - listitem [ref=e1570]:
+                          - code [ref=e1571]: action.data
+                          - text: ": DOM generated by the updated block"
+                  - generic [ref=e1572]:
+                    - heading "Delete a block" [level=3] [ref=e1573]
+                    - 'link "Permalink: Delete a block" [ref=e1574] [cursor=pointer]':
+                      - /url: "#delete-a-block"
+                      - img [ref=e1575]
+                  - list [ref=e1577]:
+                    - listitem [ref=e1578]:
+                      - paragraph [ref=e1579]:
+                        - code [ref=e1580]: /api/block/deleteBlock
+                    - listitem [ref=e1581]:
+                      - paragraph [ref=e1582]: Parameters
+                      - generic [ref=e1583]:
+                        - generic [ref=e1584]:
+                          - text: "{ \"id\":"
+                          - generic [ref=e1585]: "\"20211230161520-querkps\""
+                          - text: "}"
+                        - button "Copy" [ref=e1587] [cursor=pointer]:
+                          - img [ref=e1588]
+                      - list [ref=e1591]:
+                        - listitem [ref=e1592]:
+                          - code [ref=e1593]: id
+                          - text: ": ID of the block to be deleted"
+                    - listitem [ref=e1594]:
+                      - paragraph [ref=e1595]: Return value
+                      - generic [ref=e1596]:
+                        - generic [ref=e1597]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1598]: "\"\""
+                          - text: ", \"data\": [ { \"doOperations\": [ { \"action\":"
+                          - generic [ref=e1599]: "\"delete\""
+                          - text: ", \"data\": null, \"id\":"
+                          - generic [ref=e1600]: "\"20211230162439-vtm09qo\""
+                          - text: ", \"parentID\":"
+                          - generic [ref=e1601]: "\"\""
+                          - text: ", \"previousID\":"
+                          - generic [ref=e1602]: "\"\""
+                          - text: ", \"retData\": null } ], \"undoOperations\": null } ] }"
+                        - button "Copy" [ref=e1604] [cursor=pointer]:
+                          - img [ref=e1605]
+                  - generic [ref=e1608]:
+                    - heading "Move a block" [level=3] [ref=e1609]
+                    - 'link "Permalink: Move a block" [ref=e1610] [cursor=pointer]':
+                      - /url: "#move-a-block"
+                      - img [ref=e1611]
+                  - list [ref=e1613]:
+                    - listitem [ref=e1614]:
+                      - paragraph [ref=e1615]:
+                        - code [ref=e1616]: /api/block/moveBlock
+                    - listitem [ref=e1617]:
+                      - paragraph [ref=e1618]: Parameters
+                      - generic [ref=e1619]:
+                        - generic [ref=e1620]:
+                          - text: "{ \"id\":"
+                          - generic [ref=e1621]: "\"20230406180530-3o1rqkc\""
+                          - text: ", \"previousID\":"
+                          - generic [ref=e1622]: "\"20230406152734-if5kyx6\""
+                          - text: ", \"parentID\":"
+                          - generic [ref=e1623]: "\"20230404183855-woe52ko\""
+                          - text: "}"
+                        - button "Copy" [ref=e1625] [cursor=pointer]:
+                          - img [ref=e1626]
+                      - list [ref=e1629]:
+                        - listitem [ref=e1630]:
+                          - code [ref=e1631]: id
+                          - text: ": Block ID to move"
+                        - listitem [ref=e1632]:
+                          - code [ref=e1633]: previousID
+                          - text: ": The ID of the previous block, used to anchor the insertion position"
+                        - listitem [ref=e1634]:
+                          - code [ref=e1635]: parentID
+                          - text: ": The ID of the parent block, used to anchor the insertion position,"
+                          - code [ref=e1636]: previousID
+                          - text: and
+                          - code [ref=e1637]: parentID
+                          - text: cannot be empty at the same time, if they exist at the same time,
+                          - code [ref=e1638]: previousID
+                          - text: will be used first
+                    - listitem [ref=e1639]:
+                      - paragraph [ref=e1640]: Return value
+                      - generic [ref=e1641]:
+                        - generic [ref=e1642]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1643]: "\"\""
+                          - text: ", \"data\": [ { \"doOperations\": [ { \"action\":"
+                          - generic [ref=e1644]: "\"move\""
+                          - text: ", \"data\": null, \"id\":"
+                          - generic [ref=e1645]: "\"20230406180530-3o1rqkc\""
+                          - text: ", \"parentID\":"
+                          - generic [ref=e1646]: "\"20230404183855-woe52ko\""
+                          - text: ", \"previousID\":"
+                          - generic [ref=e1647]: "\"20230406152734-if5kyx6\""
+                          - text: ", \"nextID\":"
+                          - generic [ref=e1648]: "\"\""
+                          - text: ", \"retData\": null, \"srcIDs\": null, \"name\":"
+                          - generic [ref=e1649]: "\"\""
+                          - text: ", \"type\":"
+                          - generic [ref=e1650]: "\"\""
+                          - text: "} ], \"undoOperations\": null } ] }"
+                        - button "Copy" [ref=e1652] [cursor=pointer]:
+                          - img [ref=e1653]
+                  - generic [ref=e1656]:
+                    - heading "Fold a block" [level=3] [ref=e1657]
+                    - 'link "Permalink: Fold a block" [ref=e1658] [cursor=pointer]':
+                      - /url: "#fold-a-block"
+                      - img [ref=e1659]
+                  - list [ref=e1661]:
+                    - listitem [ref=e1662]:
+                      - paragraph [ref=e1663]:
+                        - code [ref=e1664]: /api/block/foldBlock
+                    - listitem [ref=e1665]:
+                      - paragraph [ref=e1666]: Parameters
+                      - generic [ref=e1667]:
+                        - generic [ref=e1668]:
+                          - text: "{ \"id\":"
+                          - generic [ref=e1669]: "\"20231224160424-2f5680o\""
+                          - text: "}"
+                        - button "Copy" [ref=e1671] [cursor=pointer]:
+                          - img [ref=e1672]
+                      - list [ref=e1675]:
+                        - listitem [ref=e1676]:
+                          - code [ref=e1677]: id
+                          - text: ": Block ID to fold"
+                    - listitem [ref=e1678]:
+                      - paragraph [ref=e1679]: Return value
+                      - generic [ref=e1680]:
+                        - generic [ref=e1681]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1682]: "\"\""
+                          - text: ", \"data\": null }"
+                        - button "Copy" [ref=e1684] [cursor=pointer]:
+                          - img [ref=e1685]
+                  - generic [ref=e1688]:
+                    - heading "Unfold a block" [level=3] [ref=e1689]
+                    - 'link "Permalink: Unfold a block" [ref=e1690] [cursor=pointer]':
+                      - /url: "#unfold-a-block"
+                      - img [ref=e1691]
+                  - list [ref=e1693]:
+                    - listitem [ref=e1694]:
+                      - paragraph [ref=e1695]:
+                        - code [ref=e1696]: /api/block/unfoldBlock
+                    - listitem [ref=e1697]:
+                      - paragraph [ref=e1698]: Parameters
+                      - generic [ref=e1699]:
+                        - generic [ref=e1700]:
+                          - text: "{ \"id\":"
+                          - generic [ref=e1701]: "\"20231224160424-2f5680o\""
+                          - text: "}"
+                        - button "Copy" [ref=e1703] [cursor=pointer]:
+                          - img [ref=e1704]
+                      - list [ref=e1707]:
+                        - listitem [ref=e1708]:
+                          - code [ref=e1709]: id
+                          - text: ": Block ID to unfold"
+                    - listitem [ref=e1710]:
+                      - paragraph [ref=e1711]: Return value
+                      - generic [ref=e1712]:
+                        - generic [ref=e1713]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1714]: "\"\""
+                          - text: ", \"data\": null }"
+                        - button "Copy" [ref=e1716] [cursor=pointer]:
+                          - img [ref=e1717]
+                  - generic [ref=e1720]:
+                    - heading "Get a block kramdown" [level=3] [ref=e1721]
+                    - 'link "Permalink: Get a block kramdown" [ref=e1722] [cursor=pointer]':
+                      - /url: "#get-a-block-kramdown"
+                      - img [ref=e1723]
+                  - list [ref=e1725]:
+                    - listitem [ref=e1726]:
+                      - paragraph [ref=e1727]:
+                        - code [ref=e1728]: /api/block/getBlockKramdown
+                    - listitem [ref=e1729]:
+                      - paragraph [ref=e1730]: Parameters
+                      - generic [ref=e1731]:
+                        - generic [ref=e1732]:
+                          - text: "{ \"id\":"
+                          - generic [ref=e1733]: "\"20201225220954-dlgzk1o\""
+                          - text: "}"
+                        - button "Copy" [ref=e1735] [cursor=pointer]:
+                          - img [ref=e1736]
+                      - list [ref=e1739]:
+                        - listitem [ref=e1740]:
+                          - code [ref=e1741]: id
+                          - text: ": ID of the block to be got"
+                    - listitem [ref=e1742]:
+                      - paragraph [ref=e1743]: Return value
+                      - generic [ref=e1744]:
+                        - generic [ref=e1745]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1746]: "\"\""
+                          - text: ", \"data\": { \"id\":"
+                          - generic [ref=e1747]: "\"20201225220954-dlgzk1o\""
+                          - text: ", \"kramdown\":"
+                          - generic [ref=e1748]: "\"* {: id=\\\"20201225220954-e913snx\\\"}Create a new notebook, create a new document under the notebook\\n {: id=\\\"20210131161940-kfs31q6\\\"}\\n* {: id=\\\"20201225220954-ygz217h\\\"}Enter <kbd>/</kbd> in the editor to trigger the function menu\\n {: id=\\\"20210131161940-eo0riwq\\\"}\\n* {: id=\\\"20201225220954-875yybt\\\"}((20200924101200-gss5vee \\\"Navigate in the content block\\\")) and ((20200924100906-0u4zfq3 \\\"Window and tab\\\"))\\n {: id=\\\"20210131161940-b5uow2h\\\"}\""
+                          - text: "} }"
+                        - button "Copy" [ref=e1750] [cursor=pointer]:
+                          - img [ref=e1751]
+                  - generic [ref=e1754]:
+                    - heading "Get child blocks" [level=3] [ref=e1755]
+                    - 'link "Permalink: Get child blocks" [ref=e1756] [cursor=pointer]':
+                      - /url: "#get-child-blocks"
+                      - img [ref=e1757]
+                  - list [ref=e1759]:
+                    - listitem [ref=e1760]:
+                      - paragraph [ref=e1761]:
+                        - code [ref=e1762]: /api/block/getChildBlocks
+                    - listitem [ref=e1763]:
+                      - paragraph [ref=e1764]: Parameters
+                      - generic [ref=e1765]:
+                        - generic [ref=e1766]:
+                          - text: "{ \"id\":"
+                          - generic [ref=e1767]: "\"20230506212712-vt9ajwj\""
+                          - text: "}"
+                        - button "Copy" [ref=e1769] [cursor=pointer]:
+                          - img [ref=e1770]
+                      - list [ref=e1773]:
+                        - listitem [ref=e1774]:
+                          - code [ref=e1775]: id
+                          - text: ": Parent block ID"
+                        - listitem [ref=e1776]: The blocks below a heading are also counted as child blocks
+                    - listitem [ref=e1777]:
+                      - paragraph [ref=e1778]: Return value
+                      - generic [ref=e1779]:
+                        - generic [ref=e1780]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1781]: "\"\""
+                          - text: ", \"data\": [ { \"id\":"
+                          - generic [ref=e1782]: "\"20230512083858-mjdwkbn\""
+                          - text: ", \"type\":"
+                          - generic [ref=e1783]: "\"h\""
+                          - text: ", \"subType\":"
+                          - generic [ref=e1784]: "\"h1\""
+                          - text: "}, { \"id\":"
+                          - generic [ref=e1785]: "\"20230513213727-thswvfd\""
+                          - text: ", \"type\":"
+                          - generic [ref=e1786]: "\"s\""
+                          - text: "}, { \"id\":"
+                          - generic [ref=e1787]: "\"20230513213633-9lsj4ew\""
+                          - text: ", \"type\":"
+                          - generic [ref=e1788]: "\"l\""
+                          - text: ", \"subType\":"
+                          - generic [ref=e1789]: "\"u\""
+                          - text: "} ] }"
+                        - button "Copy" [ref=e1791] [cursor=pointer]:
+                          - img [ref=e1792]
+                  - generic [ref=e1795]:
+                    - heading "Transfer block ref" [level=3] [ref=e1796]
+                    - 'link "Permalink: Transfer block ref" [ref=e1797] [cursor=pointer]':
+                      - /url: "#transfer-block-ref"
+                      - img [ref=e1798]
+                  - list [ref=e1800]:
+                    - listitem [ref=e1801]:
+                      - paragraph [ref=e1802]:
+                        - code [ref=e1803]: /api/block/transferBlockRef
+                    - listitem [ref=e1804]:
+                      - paragraph [ref=e1805]: Parameters
+                      - generic [ref=e1806]:
+                        - generic [ref=e1807]:
+                          - text: "{ \"fromID\":"
+                          - generic [ref=e1808]: "\"20230612160235-mv6rrh1\""
+                          - text: ", \"toID\":"
+                          - generic [ref=e1809]: "\"20230613093045-uwcomng\""
+                          - text: ", \"refIDs\": ["
+                          - generic [ref=e1810]: "\"20230613092230-cpyimmd\""
+                          - text: "] }"
+                        - button "Copy" [ref=e1812] [cursor=pointer]:
+                          - img [ref=e1813]
+                      - list [ref=e1816]:
+                        - listitem [ref=e1817]:
+                          - code [ref=e1818]: fromID
+                          - text: ": Def block ID"
+                        - listitem [ref=e1819]:
+                          - code [ref=e1820]: toID
+                          - text: ": Target block ID"
+                        - listitem [ref=e1821]:
+                          - code [ref=e1822]: refIDs
+                          - text: ": Ref block IDs point to def block ID, optional, if not specified, all ref block IDs will be transferred"
+                    - listitem [ref=e1823]:
+                      - paragraph [ref=e1824]: Return value
+                      - generic [ref=e1825]:
+                        - generic [ref=e1826]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1827]: "\"\""
+                          - text: ", \"data\": null }"
+                        - button "Copy" [ref=e1829] [cursor=pointer]:
+                          - img [ref=e1830]
+                  - generic [ref=e1833]:
+                    - heading "Attributes" [level=2] [ref=e1834]
+                    - 'link "Permalink: Attributes" [ref=e1835] [cursor=pointer]':
+                      - /url: "#attributes"
+                      - img [ref=e1836]
+                  - generic [ref=e1838]:
+                    - heading "Set block attributes" [level=3] [ref=e1839]
+                    - 'link "Permalink: Set block attributes" [ref=e1840] [cursor=pointer]':
+                      - /url: "#set-block-attributes"
+                      - img [ref=e1841]
+                  - list [ref=e1843]:
+                    - listitem [ref=e1844]:
+                      - paragraph [ref=e1845]:
+                        - code [ref=e1846]: /api/attr/setBlockAttrs
+                    - listitem [ref=e1847]:
+                      - paragraph [ref=e1848]: Parameters
+                      - generic [ref=e1849]:
+                        - generic [ref=e1850]:
+                          - text: "{ \"id\":"
+                          - generic [ref=e1851]: "\"20210912214605-uhi5gco\""
+                          - text: ", \"attrs\": { \"custom-attr1\":"
+                          - generic [ref=e1852]: "\"line1\\nline2\""
+                          - text: "} }"
+                        - button "Copy" [ref=e1854] [cursor=pointer]:
+                          - img [ref=e1855]
+                      - list [ref=e1858]:
+                        - listitem [ref=e1859]:
+                          - code [ref=e1860]: id
+                          - text: ": Block ID"
+                        - listitem [ref=e1861]:
+                          - code [ref=e1862]: attrs
+                          - text: ": Block attributes, custom attributes must be prefixed with"
+                          - code [ref=e1863]: custom-
+                    - listitem [ref=e1864]:
+                      - paragraph [ref=e1865]: Return value
+                      - generic [ref=e1866]:
+                        - generic [ref=e1867]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1868]: "\"\""
+                          - text: ", \"data\": null }"
+                        - button "Copy" [ref=e1870] [cursor=pointer]:
+                          - img [ref=e1871]
+                  - generic [ref=e1874]:
+                    - heading "Get block attributes" [level=3] [ref=e1875]
+                    - 'link "Permalink: Get block attributes" [ref=e1876] [cursor=pointer]':
+                      - /url: "#get-block-attributes"
+                      - img [ref=e1877]
+                  - list [ref=e1879]:
+                    - listitem [ref=e1880]:
+                      - paragraph [ref=e1881]:
+                        - code [ref=e1882]: /api/attr/getBlockAttrs
+                    - listitem [ref=e1883]:
+                      - paragraph [ref=e1884]: Parameters
+                      - generic [ref=e1885]:
+                        - generic [ref=e1886]:
+                          - text: "{ \"id\":"
+                          - generic [ref=e1887]: "\"20210912214605-uhi5gco\""
+                          - text: "}"
+                        - button "Copy" [ref=e1889] [cursor=pointer]:
+                          - img [ref=e1890]
+                      - list [ref=e1893]:
+                        - listitem [ref=e1894]:
+                          - code [ref=e1895]: id
+                          - text: ": Block ID"
+                    - listitem [ref=e1896]:
+                      - paragraph [ref=e1897]: Return value
+                      - generic [ref=e1898]:
+                        - generic [ref=e1899]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1900]: "\"\""
+                          - text: ", \"data\": { \"custom-attr1\":"
+                          - generic [ref=e1901]: "\"line1\\nline2\""
+                          - text: ", \"id\":"
+                          - generic [ref=e1902]: "\"20210912214605-uhi5gco\""
+                          - text: ", \"title\":"
+                          - generic [ref=e1903]: "\"PDF Annotation Demo\""
+                          - text: ", \"type\":"
+                          - generic [ref=e1904]: "\"doc\""
+                          - text: ", \"updated\":"
+                          - generic [ref=e1905]: "\"20210916120715\""
+                          - text: "} }"
+                        - button "Copy" [ref=e1907] [cursor=pointer]:
+                          - img [ref=e1908]
+                  - generic [ref=e1911]:
+                    - heading "SQL" [level=2] [ref=e1912]
+                    - 'link "Permalink: SQL" [ref=e1913] [cursor=pointer]':
+                      - /url: "#sql"
+                      - img [ref=e1914]
+                  - generic [ref=e1916]:
+                    - heading "Execute SQL query" [level=3] [ref=e1917]
+                    - 'link "Permalink: Execute SQL query" [ref=e1918] [cursor=pointer]':
+                      - /url: "#execute-sql-query"
+                      - img [ref=e1919]
+                  - list [ref=e1921]:
+                    - listitem [ref=e1922]:
+                      - paragraph [ref=e1923]:
+                        - code [ref=e1924]: /api/query/sql
+                    - listitem [ref=e1925]:
+                      - paragraph [ref=e1926]: Parameters
+                      - generic [ref=e1927]:
+                        - generic [ref=e1928]:
+                          - text: "{ \"stmt\":"
+                          - generic [ref=e1929]: "\"SELECT * FROM blocks WHERE content LIKE'%content%' LIMIT 7\""
+                          - text: "}"
+                        - button "Copy" [ref=e1931] [cursor=pointer]:
+                          - img [ref=e1932]
+                      - list [ref=e1935]:
+                        - listitem [ref=e1936]:
+                          - code [ref=e1937]: stmt
+                          - text: ": SQL statement"
+                    - listitem [ref=e1938]:
+                      - paragraph [ref=e1939]: Return value
+                      - generic [ref=e1940]:
+                        - generic [ref=e1941]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1942]: "\"\""
+                          - text: ", \"data\": [ { \"col\":"
+                          - generic [ref=e1943]: "\"val\""
+                          - text: "} ] }"
+                        - button "Copy" [ref=e1945] [cursor=pointer]:
+                          - img [ref=e1946]
+                  - paragraph [ref=e1949]: "Note: To ensure data security, access to this interface is prohibited in Publish Mode."
+                  - generic [ref=e1950]:
+                    - heading "Flush transaction" [level=3] [ref=e1951]
+                    - 'link "Permalink: Flush transaction" [ref=e1952] [cursor=pointer]':
+                      - /url: "#flush-transaction"
+                      - img [ref=e1953]
+                  - list [ref=e1955]:
+                    - listitem [ref=e1956]:
+                      - paragraph [ref=e1957]:
+                        - code [ref=e1958]: /api/sqlite/flushTransaction
+                    - listitem [ref=e1959]:
+                      - paragraph [ref=e1960]: No parameters
+                    - listitem [ref=e1961]:
+                      - paragraph [ref=e1962]: Return value
+                      - generic [ref=e1963]:
+                        - generic [ref=e1964]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e1965]: "\"\""
+                          - text: ", \"data\": null }"
+                        - button "Copy" [ref=e1967] [cursor=pointer]:
+                          - img [ref=e1968]
+                  - generic [ref=e1971]:
+                    - heading "Templates" [level=2] [ref=e1972]
+                    - 'link "Permalink: Templates" [ref=e1973] [cursor=pointer]':
+                      - /url: "#templates"
+                      - img [ref=e1974]
+                  - generic [ref=e1976]:
+                    - heading "Render a template" [level=3] [ref=e1977]
+                    - 'link "Permalink: Render a template" [ref=e1978] [cursor=pointer]':
+                      - /url: "#render-a-template"
+                      - img [ref=e1979]
+                  - list [ref=e1981]:
+                    - listitem [ref=e1982]:
+                      - paragraph [ref=e1983]:
+                        - code [ref=e1984]: /api/template/render
+                    - listitem [ref=e1985]:
+                      - paragraph [ref=e1986]: Parameters
+                      - generic [ref=e1987]:
+                        - generic [ref=e1988]:
+                          - text: "{ \"id\":"
+                          - generic [ref=e1989]: "\"20220724223548-j6g0o87\""
+                          - text: ", \"path\":"
+                          - generic [ref=e1990]: "\"F:\\\\SiYuan\\\\data\\\\templates\\\\foo.md\""
+                          - text: "}"
+                        - button "Copy" [ref=e1992] [cursor=pointer]:
+                          - img [ref=e1993]
+                      - list [ref=e1996]:
+                        - listitem [ref=e1997]:
+                          - code [ref=e1998]: id
+                          - text: ": The ID of the document where the rendering is called"
+                        - listitem [ref=e1999]:
+                          - code [ref=e2000]: path
+                          - text: ": Template file absolute path"
+                    - listitem [ref=e2001]:
+                      - paragraph [ref=e2002]: Return value
+                      - generic [ref=e2003]:
+                        - generic [ref=e2004]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e2005]: "\"\""
+                          - text: ", \"data\": { \"content\":"
+                          - generic [ref=e2006]: "\"<div data-node-id=\\\"20220729234848-dlgsah7\\\" data-node-index=\\\"1\\\" data-type=\\\"NodeParagraph\\\" class=\\\"p\\\" updated=\\\"20220729234840\\\"><div contenteditable=\\\"true\\\" spellcheck=\\\"false\\\">foo</div><div class=\\\"protyle-attr\\\" contenteditable=\\\"false\\\"></div></div>\""
+                          - text: ", \"path\":"
+                          - generic [ref=e2007]: "\"F:\\\\SiYuan\\\\data\\\\templates\\\\foo.md\""
+                          - text: "} }"
+                        - button "Copy" [ref=e2009] [cursor=pointer]:
+                          - img [ref=e2010]
+                  - generic [ref=e2013]:
+                    - heading "Render Sprig" [level=3] [ref=e2014]
+                    - 'link "Permalink: Render Sprig" [ref=e2015] [cursor=pointer]':
+                      - /url: "#render-sprig"
+                      - img [ref=e2016]
+                  - list [ref=e2018]:
+                    - listitem [ref=e2019]:
+                      - paragraph [ref=e2020]:
+                        - code [ref=e2021]: /api/template/renderSprig
+                    - listitem [ref=e2022]:
+                      - paragraph [ref=e2023]: Parameters
+                      - generic [ref=e2024]:
+                        - generic [ref=e2025]:
+                          - text: "{ \"template\":"
+                          - generic [ref=e2026]: "\"/daily note/{{now | date \\\"2006/01\\\"}}/{{now | date \\\"2006-01-02\\\"}}\""
+                          - text: "}"
+                        - button "Copy" [ref=e2028] [cursor=pointer]:
+                          - img [ref=e2029]
+                      - list [ref=e2032]:
+                        - listitem [ref=e2033]:
+                          - code [ref=e2034]: template
+                          - text: ": template content"
+                    - listitem [ref=e2035]:
+                      - paragraph [ref=e2036]: Return value
+                      - generic [ref=e2037]:
+                        - generic [ref=e2038]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e2039]: "\"\""
+                          - text: ", \"data\":"
+                          - generic [ref=e2040]: "\"/daily note/2023/03/2023-03-24\""
+                          - text: "}"
+                        - button "Copy" [ref=e2042] [cursor=pointer]:
+                          - img [ref=e2043]
+                  - generic [ref=e2046]:
+                    - heading "File" [level=2] [ref=e2047]
+                    - 'link "Permalink: File" [ref=e2048] [cursor=pointer]':
+                      - /url: "#file"
+                      - img [ref=e2049]
+                  - generic [ref=e2051]:
+                    - heading "Get file" [level=3] [ref=e2052]
+                    - 'link "Permalink: Get file" [ref=e2053] [cursor=pointer]':
+                      - /url: "#get-file"
+                      - img [ref=e2054]
+                  - list [ref=e2056]:
+                    - listitem [ref=e2057]:
+                      - paragraph [ref=e2058]:
+                        - code [ref=e2059]: /api/file/getFile
+                    - listitem [ref=e2060]:
+                      - paragraph [ref=e2061]: Parameters
+                      - paragraph [ref=e2062]:
+                        - code [ref=e2063]: "json { \"path\": \"/data/20210808180117-6v0mkxr/20200923234011-ieuun1p.sy\" }"
+                      - list [ref=e2064]:
+                        - listitem [ref=e2065]:
+                          - code [ref=e2066]: path
+                          - text: ": the file path under the workspace path"
+                    - listitem [ref=e2067]:
+                      - paragraph [ref=e2068]: Return value
+                      - list [ref=e2069]:
+                        - listitem [ref=e2070]:
+                          - paragraph [ref=e2071]:
+                            - text: Response status code
+                            - code [ref=e2072]: "200"
+                            - text: ": File content"
+                        - listitem [ref=e2073]:
+                          - paragraph [ref=e2074]:
+                            - text: Response status code
+                            - code [ref=e2075]: "202"
+                            - text: ": Exception information"
+                          - generic [ref=e2076]:
+                            - generic [ref=e2077]:
+                              - text: "{ \"code\": 404, \"msg\":"
+                              - generic [ref=e2078]: "\"\""
+                              - text: ", \"data\": null }"
+                            - button "Copy" [ref=e2080] [cursor=pointer]:
+                              - img [ref=e2081]
+                          - list [ref=e2084]:
+                            - listitem [ref=e2085]:
+                              - paragraph [ref=e2086]:
+                                - code [ref=e2087]: code
+                                - text: ": non-zero for exceptions"
+                              - list [ref=e2088]:
+                                - listitem [ref=e2089]:
+                                  - code [ref=e2090]: "-1"
+                                  - text: ": Parameter parsing error"
+                                - listitem [ref=e2091]:
+                                  - code [ref=e2092]: "403"
+                                  - text: ": Permission denied (file is not in the workspace)"
+                                - listitem [ref=e2093]:
+                                  - code [ref=e2094]: "404"
+                                  - text: ": Not Found (file doesn't exist)"
+                                - listitem [ref=e2095]:
+                                  - code [ref=e2096]: "405"
+                                  - text: ": Method Not Allowed (it's a directory)"
+                                - listitem [ref=e2097]:
+                                  - code [ref=e2098]: "500"
+                                  - text: ": Server Error (stat file failed / read file failed)"
+                            - listitem [ref=e2099]:
+                              - paragraph [ref=e2100]:
+                                - code [ref=e2101]: msg
+                                - text: ": a piece of text describing the error"
+                  - generic [ref=e2102]:
+                    - heading "Put file" [level=3] [ref=e2103]
+                    - 'link "Permalink: Put file" [ref=e2104] [cursor=pointer]':
+                      - /url: "#put-file"
+                      - img [ref=e2105]
+                  - list [ref=e2107]:
+                    - listitem [ref=e2108]:
+                      - paragraph [ref=e2109]:
+                        - code [ref=e2110]: /api/file/putFile
+                    - listitem [ref=e2111]:
+                      - paragraph [ref=e2112]: The parameter is an HTTP Multipart form
+                      - list [ref=e2113]:
+                        - listitem [ref=e2114]:
+                          - code [ref=e2115]: path
+                          - text: ": the file path under the workspace path"
+                        - listitem [ref=e2116]:
+                          - code [ref=e2117]: isDir
+                          - text: ": whether to create a folder, when"
+                          - code [ref=e2118]: "true"
+                          - text: only create a folder, ignore
+                          - code [ref=e2119]: file
+                        - listitem [ref=e2120]:
+                          - code [ref=e2121]: modTime
+                          - text: ": last access and modification time, Unix time"
+                        - listitem [ref=e2122]:
+                          - code [ref=e2123]: file
+                          - text: ": the uploaded file"
+                    - listitem [ref=e2124]:
+                      - paragraph [ref=e2125]: Return value
+                      - generic [ref=e2126]:
+                        - generic [ref=e2127]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e2128]: "\"\""
+                          - text: ", \"data\": null }"
+                        - button "Copy" [ref=e2130] [cursor=pointer]:
+                          - img [ref=e2131]
+                  - generic [ref=e2134]:
+                    - heading "Remove file" [level=3] [ref=e2135]
+                    - 'link "Permalink: Remove file" [ref=e2136] [cursor=pointer]':
+                      - /url: "#remove-file"
+                      - img [ref=e2137]
+                  - list [ref=e2139]:
+                    - listitem [ref=e2140]:
+                      - paragraph [ref=e2141]:
+                        - code [ref=e2142]: /api/file/removeFile
+                    - listitem [ref=e2143]:
+                      - paragraph [ref=e2144]: Parameters
+                      - generic [ref=e2145]:
+                        - generic [ref=e2146]:
+                          - text: "{ \"path\":"
+                          - generic [ref=e2147]: "\"/data/20210808180117-6v0mkxr/20200923234011-ieuun1p.sy\""
+                          - text: "}"
+                        - button "Copy" [ref=e2149] [cursor=pointer]:
+                          - img [ref=e2150]
+                      - list [ref=e2153]:
+                        - listitem [ref=e2154]:
+                          - code [ref=e2155]: path
+                          - text: ": the file path under the workspace path"
+                    - listitem [ref=e2156]:
+                      - paragraph [ref=e2157]: Return value
+                      - generic [ref=e2158]:
+                        - generic [ref=e2159]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e2160]: "\"\""
+                          - text: ", \"data\": null }"
+                        - button "Copy" [ref=e2162] [cursor=pointer]:
+                          - img [ref=e2163]
+                  - generic [ref=e2166]:
+                    - heading "Rename file" [level=3] [ref=e2167]
+                    - 'link "Permalink: Rename file" [ref=e2168] [cursor=pointer]':
+                      - /url: "#rename-file"
+                      - img [ref=e2169]
+                  - list [ref=e2171]:
+                    - listitem [ref=e2172]:
+                      - paragraph [ref=e2173]:
+                        - code [ref=e2174]: /api/file/renameFile
+                    - listitem [ref=e2175]:
+                      - paragraph [ref=e2176]: Parameters
+                      - generic [ref=e2177]:
+                        - generic [ref=e2178]:
+                          - text: "{ \"path\":"
+                          - generic [ref=e2179]: "\"/data/assets/image-20230523085812-k3o9t32.png\""
+                          - text: ", \"newPath\":"
+                          - generic [ref=e2180]: "\"/data/assets/test-20230523085812-k3o9t32.png\""
+                          - text: "}"
+                        - button "Copy" [ref=e2182] [cursor=pointer]:
+                          - img [ref=e2183]
+                      - list [ref=e2186]:
+                        - listitem [ref=e2187]:
+                          - code [ref=e2188]: path
+                          - text: ": the file path under the workspace path"
+                        - listitem [ref=e2189]:
+                          - code [ref=e2190]: newPath
+                          - text: ": the new file path under the workspace path"
+                    - listitem [ref=e2191]:
+                      - paragraph [ref=e2192]: Return value
+                      - generic [ref=e2193]:
+                        - generic [ref=e2194]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e2195]: "\"\""
+                          - text: ", \"data\": null }"
+                        - button "Copy" [ref=e2197] [cursor=pointer]:
+                          - img [ref=e2198]
+                  - generic [ref=e2201]:
+                    - heading "List files" [level=3] [ref=e2202]
+                    - 'link "Permalink: List files" [ref=e2203] [cursor=pointer]':
+                      - /url: "#list-files"
+                      - img [ref=e2204]
+                  - list [ref=e2206]:
+                    - listitem [ref=e2207]:
+                      - paragraph [ref=e2208]:
+                        - code [ref=e2209]: /api/file/readDir
+                    - listitem [ref=e2210]:
+                      - paragraph [ref=e2211]: Parameters
+                      - generic [ref=e2212]:
+                        - generic [ref=e2213]:
+                          - text: "{ \"path\":"
+                          - generic [ref=e2214]: "\"/data/20210808180117-6v0mkxr/20200923234011-ieuun1p\""
+                          - text: "}"
+                        - button "Copy" [ref=e2216] [cursor=pointer]:
+                          - img [ref=e2217]
+                      - list [ref=e2220]:
+                        - listitem [ref=e2221]:
+                          - code [ref=e2222]: path
+                          - text: ": the dir path under the workspace path"
+                    - listitem [ref=e2223]:
+                      - paragraph [ref=e2224]: Return value
+                      - generic [ref=e2225]:
+                        - generic [ref=e2226]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e2227]: "\"\""
+                          - text: ", \"data\": [ { \"isDir\": true, \"isSymlink\": false, \"name\":"
+                          - generic [ref=e2228]: "\"20210808180303-6yi0dv5\""
+                          - text: ", \"updated\": 1691467624 }, { \"isDir\": false, \"isSymlink\": false, \"name\":"
+                          - generic [ref=e2229]: "\"20210808180303-6yi0dv5.sy\""
+                          - text: ", \"updated\": 1663298365 } ] }"
+                        - button "Copy" [ref=e2231] [cursor=pointer]:
+                          - img [ref=e2232]
+                  - generic [ref=e2235]:
+                    - heading "Export" [level=2] [ref=e2236]
+                    - 'link "Permalink: Export" [ref=e2237] [cursor=pointer]':
+                      - /url: "#export"
+                      - img [ref=e2238]
+                  - generic [ref=e2240]:
+                    - heading "Export Markdown" [level=3] [ref=e2241]
+                    - 'link "Permalink: Export Markdown" [ref=e2242] [cursor=pointer]':
+                      - /url: "#export-markdown"
+                      - img [ref=e2243]
+                  - list [ref=e2245]:
+                    - listitem [ref=e2246]:
+                      - paragraph [ref=e2247]:
+                        - code [ref=e2248]: /api/export/exportMdContent
+                    - listitem [ref=e2249]:
+                      - paragraph [ref=e2250]: Parameters
+                      - generic [ref=e2251]:
+                        - generic [ref=e2252]:
+                          - text: "{ \"id\":"
+                          - generic [ref=e2253]: "\"\""
+                          - text: "}"
+                        - button "Copy" [ref=e2255] [cursor=pointer]:
+                          - img [ref=e2256]
+                      - list [ref=e2259]:
+                        - listitem [ref=e2260]:
+                          - code [ref=e2261]: id
+                          - text: ": ID of the doc block to export"
+                    - listitem [ref=e2262]:
+                      - paragraph [ref=e2263]: Return value
+                      - generic [ref=e2264]:
+                        - generic [ref=e2265]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e2266]: "\"\""
+                          - text: ", \"data\": { \"hPath\":"
+                          - generic [ref=e2267]: "\"/Please Start Here\""
+                          - text: ", \"content\":"
+                          - generic [ref=e2268]: "\"## 🍫 Content Block\\n\\nIn SiYuan, the only important core concept is...\""
+                          - text: "} }"
+                        - button "Copy" [ref=e2270] [cursor=pointer]:
+                          - img [ref=e2271]
+                      - list [ref=e2274]:
+                        - listitem [ref=e2275]:
+                          - code [ref=e2276]: hPath
+                          - text: ": human-readable path"
+                        - listitem [ref=e2277]:
+                          - code [ref=e2278]: content
+                          - text: ": Markdown content"
+                  - generic [ref=e2279]:
+                    - heading "Export files and folders" [level=3] [ref=e2280]
+                    - 'link "Permalink: Export files and folders" [ref=e2281] [cursor=pointer]':
+                      - /url: "#export-files-and-folders"
+                      - img [ref=e2282]
+                  - list [ref=e2284]:
+                    - listitem [ref=e2285]:
+                      - paragraph [ref=e2286]:
+                        - code [ref=e2287]: /api/export/exportResources
+                    - listitem [ref=e2288]:
+                      - paragraph [ref=e2289]: Parameters
+                      - generic [ref=e2290]:
+                        - generic [ref=e2291]:
+                          - text: "{ \"paths\": ["
+                          - generic [ref=e2292]: "\"/conf/appearance/boot\""
+                          - text: ","
+                          - generic [ref=e2293]: "\"/conf/appearance/langs\""
+                          - text: ","
+                          - generic [ref=e2294]: "\"/conf/appearance/emojis/conf.json\""
+                          - text: ","
+                          - generic [ref=e2295]: "\"/conf/appearance/icons/index.html\""
+                          - text: "], \"name\":"
+                          - generic [ref=e2296]: "\"zip-file-name\""
+                          - text: "}"
+                        - button "Copy" [ref=e2298] [cursor=pointer]:
+                          - img [ref=e2299]
+                      - list [ref=e2302]:
+                        - listitem [ref=e2303]:
+                          - code [ref=e2304]: paths
+                          - text: ": A list of file or folder paths to be exported, the same filename/folder name will be overwritten"
+                        - listitem [ref=e2305]:
+                          - code [ref=e2306]: name
+                          - text: ": (Optional) The exported file name, which defaults to"
+                          - code [ref=e2307]: export-YYYY-MM-DD_hh-mm-ss.zip
+                          - text: when not set
+                    - listitem [ref=e2308]:
+                      - paragraph [ref=e2309]: Return value
+                      - generic [ref=e2310]:
+                        - generic [ref=e2311]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e2312]: "\"\""
+                          - text: ", \"data\": { \"path\":"
+                          - generic [ref=e2313]: "\"temp/export/zip-file-name.zip\""
+                          - text: "} }"
+                        - button "Copy" [ref=e2315] [cursor=pointer]:
+                          - img [ref=e2316]
+                      - list [ref=e2319]:
+                        - listitem [ref=e2320]:
+                          - code [ref=e2321]: path
+                          - text: ": The path of"
+                          - code [ref=e2322]: "*.zip"
+                          - text: file created
+                          - list [ref=e2323]:
+                            - listitem [ref=e2324]:
+                              - text: The directory structure in
+                              - code [ref=e2325]: zip-file-name.zip
+                              - text: "is as follows:"
+                              - list [ref=e2326]:
+                                - listitem [ref=e2327]:
+                                  - code [ref=e2328]: zip-file-name
+                                  - list [ref=e2329]:
+                                    - listitem [ref=e2330]:
+                                      - code [ref=e2331]: boot
+                                    - listitem [ref=e2332]:
+                                      - code [ref=e2333]: langs
+                                    - listitem [ref=e2334]:
+                                      - code [ref=e2335]: conf.json
+                                    - listitem [ref=e2336]:
+                                      - code [ref=e2337]: index.html
+                  - generic [ref=e2338]:
+                    - heading "Conversion" [level=2] [ref=e2339]
+                    - 'link "Permalink: Conversion" [ref=e2340] [cursor=pointer]':
+                      - /url: "#conversion"
+                      - img [ref=e2341]
+                  - generic [ref=e2343]:
+                    - heading "Pandoc" [level=3] [ref=e2344]
+                    - 'link "Permalink: Pandoc" [ref=e2345] [cursor=pointer]':
+                      - /url: "#pandoc"
+                      - img [ref=e2346]
+                  - list [ref=e2348]:
+                    - listitem [ref=e2349]:
+                      - paragraph [ref=e2350]:
+                        - code [ref=e2351]: /api/convert/pandoc
+                    - listitem [ref=e2352]:
+                      - paragraph [ref=e2353]: Working directory
+                      - list [ref=e2354]:
+                        - listitem [ref=e2355]:
+                          - text: Executing the pandoc command will set the working directory to
+                          - code [ref=e2356]: "workspace/temp/convert/pandoc/${dir}"
+                        - listitem [ref=e2357]:
+                          - text: API
+                          - link "Put file" [ref=e2358] [cursor=pointer]:
+                            - /url: "#put-file"
+                            - code [ref=e2359]: Put file
+                          - text: can be used to write the file to be converted to this directory first
+                        - listitem [ref=e2360]: Then call the API for conversion, and the converted file will also be written to this directory
+                        - listitem [ref=e2361]:
+                          - text: Finally, call the API
+                          - link "Get file" [ref=e2362] [cursor=pointer]:
+                            - /url: "#get-file"
+                            - code [ref=e2363]: Get file
+                          - text: to get the converted file
+                          - list [ref=e2364]:
+                            - listitem [ref=e2365]:
+                              - text: Or call the API
+                              - link "Create a document with Markdown" [ref=e2366] [cursor=pointer]:
+                                - /url: "#Create-a-document-with-Markdown"
+                            - listitem [ref=e2367]:
+                              - text: Or call the internal API
+                              - code [ref=e2368]: importStdMd
+                              - text: to import the converted folder directly
+                    - listitem [ref=e2369]:
+                      - paragraph [ref=e2370]: Parameters
+                      - generic [ref=e2371]:
+                        - generic [ref=e2372]:
+                          - text: "{ \"dir\":"
+                          - generic [ref=e2373]: "\"test\""
+                          - text: ", \"args\": ["
+                          - generic [ref=e2374]: "\"--to\""
+                          - text: ","
+                          - generic [ref=e2375]: "\"markdown_strict-raw_html\""
+                          - text: ","
+                          - generic [ref=e2376]: "\"foo.epub\""
+                          - text: ","
+                          - generic [ref=e2377]: "\"-o\""
+                          - text: ","
+                          - generic [ref=e2378]: "\"foo.md\""
+                          - text: "] }"
+                        - button "Copy" [ref=e2380] [cursor=pointer]:
+                          - img [ref=e2381]
+                      - list [ref=e2384]:
+                        - listitem [ref=e2385]:
+                          - code [ref=e2386]: args
+                          - text: ": Pandoc command line parameters"
+                    - listitem [ref=e2387]:
+                      - paragraph [ref=e2388]: Return value
+                      - generic [ref=e2389]:
+                        - generic [ref=e2390]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e2391]: "\"\""
+                          - text: ", \"data\": { \"path\":"
+                          - generic [ref=e2392]: "\"/temp/convert/pandoc/test\""
+                          - text: "} }"
+                        - button "Copy" [ref=e2394] [cursor=pointer]:
+                          - img [ref=e2395]
+                      - list [ref=e2398]:
+                        - listitem [ref=e2399]:
+                          - code [ref=e2400]: path
+                          - text: ": the path under the workspace"
+                  - generic [ref=e2401]:
+                    - heading "Notification" [level=2] [ref=e2402]
+                    - 'link "Permalink: Notification" [ref=e2403] [cursor=pointer]':
+                      - /url: "#notification"
+                      - img [ref=e2404]
+                  - generic [ref=e2406]:
+                    - heading "Push message" [level=3] [ref=e2407]
+                    - 'link "Permalink: Push message" [ref=e2408] [cursor=pointer]':
+                      - /url: "#push-message"
+                      - img [ref=e2409]
+                  - list [ref=e2411]:
+                    - listitem [ref=e2412]:
+                      - paragraph [ref=e2413]:
+                        - code [ref=e2414]: /api/notification/pushMsg
+                    - listitem [ref=e2415]:
+                      - paragraph [ref=e2416]: Parameters
+                      - generic [ref=e2417]:
+                        - generic [ref=e2418]:
+                          - text: "{ \"msg\":"
+                          - generic [ref=e2419]: "\"test\""
+                          - text: ", \"timeout\": 7000 }"
+                        - button "Copy" [ref=e2421] [cursor=pointer]:
+                          - img [ref=e2422]
+                      - list [ref=e2425]:
+                        - listitem [ref=e2426]:
+                          - code [ref=e2427]: timeout
+                          - text: ": The duration of the message display in milliseconds. This field can be omitted, the default is 7000 milliseconds"
+                    - listitem [ref=e2428]:
+                      - paragraph [ref=e2429]: Return value
+                      - generic [ref=e2430]:
+                        - generic [ref=e2431]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e2432]: "\"\""
+                          - text: ", \"data\": { \"id\":"
+                          - generic [ref=e2433]: "\"62jtmqi\""
+                          - text: "} }"
+                        - button "Copy" [ref=e2435] [cursor=pointer]:
+                          - img [ref=e2436]
+                      - list [ref=e2439]:
+                        - listitem [ref=e2440]:
+                          - code [ref=e2441]: id
+                          - text: ": Message ID"
+                  - generic [ref=e2442]:
+                    - heading "Push error message" [level=3] [ref=e2443]
+                    - 'link "Permalink: Push error message" [ref=e2444] [cursor=pointer]':
+                      - /url: "#push-error-message"
+                      - img [ref=e2445]
+                  - list [ref=e2447]:
+                    - listitem [ref=e2448]:
+                      - paragraph [ref=e2449]:
+                        - code [ref=e2450]: /api/notification/pushErrMsg
+                    - listitem [ref=e2451]:
+                      - paragraph [ref=e2452]: Parameters
+                      - generic [ref=e2453]:
+                        - generic [ref=e2454]:
+                          - text: "{ \"msg\":"
+                          - generic [ref=e2455]: "\"test\""
+                          - text: ", \"timeout\": 7000 }"
+                        - button "Copy" [ref=e2457] [cursor=pointer]:
+                          - img [ref=e2458]
+                      - list [ref=e2461]:
+                        - listitem [ref=e2462]:
+                          - code [ref=e2463]: timeout
+                          - text: ": The duration of the message display in milliseconds. This field can be omitted, the default is 7000 milliseconds"
+                    - listitem [ref=e2464]:
+                      - paragraph [ref=e2465]: Return value
+                      - generic [ref=e2466]:
+                        - generic [ref=e2467]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e2468]: "\"\""
+                          - text: ", \"data\": { \"id\":"
+                          - generic [ref=e2469]: "\"qc9znut\""
+                          - text: "} }"
+                        - button "Copy" [ref=e2471] [cursor=pointer]:
+                          - img [ref=e2472]
+                      - list [ref=e2475]:
+                        - listitem [ref=e2476]:
+                          - code [ref=e2477]: id
+                          - text: ": Message ID"
+                  - generic [ref=e2478]:
+                    - heading "Network" [level=2] [ref=e2479]
+                    - 'link "Permalink: Network" [ref=e2480] [cursor=pointer]':
+                      - /url: "#network"
+                      - img [ref=e2481]
+                  - generic [ref=e2483]:
+                    - heading "Forward proxy" [level=3] [ref=e2484]
+                    - 'link "Permalink: Forward proxy" [ref=e2485] [cursor=pointer]':
+                      - /url: "#forward-proxy"
+                      - img [ref=e2486]
+                  - list [ref=e2488]:
+                    - listitem [ref=e2489]:
+                      - paragraph [ref=e2490]:
+                        - code [ref=e2491]: /api/network/forwardProxy
+                    - listitem [ref=e2492]:
+                      - paragraph [ref=e2493]: Parameters
+                      - generic [ref=e2494]:
+                        - generic [ref=e2495]:
+                          - text: "{ \"url\":"
+                          - generic [ref=e2496]: "\"https://b3log.org/siyuan/\""
+                          - text: ", \"method\":"
+                          - generic [ref=e2497]: "\"GET\""
+                          - text: ", \"timeout\": 7000, \"contentType\":"
+                          - generic [ref=e2498]: "\"text/html\""
+                          - text: ", \"headers\": [ { \"Cookie\":"
+                          - generic [ref=e2499]: "\"\""
+                          - text: "} ], \"payload\": {}, \"payloadEncoding\":"
+                          - generic [ref=e2500]: "\"text\""
+                          - text: ", \"responseEncoding\":"
+                          - generic [ref=e2501]: "\"text\""
+                          - text: "}"
+                        - button "Copy" [ref=e2503] [cursor=pointer]:
+                          - img [ref=e2504]
+                      - list [ref=e2507]:
+                        - listitem [ref=e2508]:
+                          - paragraph [ref=e2509]:
+                            - code [ref=e2510]: url
+                            - text: ": URL to forward"
+                        - listitem [ref=e2511]:
+                          - paragraph [ref=e2512]:
+                            - code [ref=e2513]: method
+                            - text: ": HTTP method, default is"
+                            - code [ref=e2514]: POST
+                        - listitem [ref=e2515]:
+                          - paragraph [ref=e2516]:
+                            - code [ref=e2517]: timeout
+                            - text: ": timeout in milliseconds, default is"
+                            - code [ref=e2518]: "7000"
+                        - listitem [ref=e2519]:
+                          - paragraph [ref=e2520]:
+                            - code [ref=e2521]: contentType
+                            - text: ": Content-Type, default is"
+                            - code [ref=e2522]: application/json
+                        - listitem [ref=e2523]:
+                          - paragraph [ref=e2524]:
+                            - code [ref=e2525]: headers
+                            - text: ": HTTP headers"
+                        - listitem [ref=e2526]:
+                          - paragraph [ref=e2527]:
+                            - code [ref=e2528]: payload
+                            - text: ": HTTP payload, object or string"
+                        - listitem [ref=e2529]:
+                          - paragraph [ref=e2530]:
+                            - code [ref=e2531]: payloadEncoding
+                            - text: ": The encoding scheme used by"
+                            - code [ref=e2532]: pyaload
+                            - text: ", default is"
+                            - code [ref=e2533]: text
+                            - text: ", optional values are as follows"
+                          - list [ref=e2534]:
+                            - listitem [ref=e2535]:
+                              - code [ref=e2536]: text
+                            - listitem [ref=e2537]:
+                              - code [ref=e2538]: base64
+                              - text: "|"
+                              - code [ref=e2539]: base64-std
+                            - listitem [ref=e2540]:
+                              - code [ref=e2541]: base64-url
+                            - listitem [ref=e2542]:
+                              - code [ref=e2543]: base32
+                              - text: "|"
+                              - code [ref=e2544]: base32-std
+                            - listitem [ref=e2545]:
+                              - code [ref=e2546]: base32-hex
+                            - listitem [ref=e2547]:
+                              - code [ref=e2548]: hex
+                        - listitem [ref=e2549]:
+                          - paragraph [ref=e2550]:
+                            - code [ref=e2551]: responseEncoding
+                            - text: ": The encoding scheme used by"
+                            - code [ref=e2552]: body
+                            - text: in response data, default is
+                            - code [ref=e2553]: text
+                            - text: ", optional values are as follows"
+                          - list [ref=e2554]:
+                            - listitem [ref=e2555]:
+                              - code [ref=e2556]: text
+                            - listitem [ref=e2557]:
+                              - code [ref=e2558]: base64
+                              - text: "|"
+                              - code [ref=e2559]: base64-std
+                            - listitem [ref=e2560]:
+                              - code [ref=e2561]: base64-url
+                            - listitem [ref=e2562]:
+                              - code [ref=e2563]: base32
+                              - text: "|"
+                              - code [ref=e2564]: base32-std
+                            - listitem [ref=e2565]:
+                              - code [ref=e2566]: base32-hex
+                            - listitem [ref=e2567]:
+                              - code [ref=e2568]: hex
+                    - listitem [ref=e2569]:
+                      - paragraph [ref=e2570]: Return value
+                      - generic [ref=e2571]:
+                        - generic [ref=e2572]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e2573]: "\"\""
+                          - text: ", \"data\": { \"body\":"
+                          - generic [ref=e2574]: "\"\""
+                          - text: ", \"bodyEncoding\":"
+                          - generic [ref=e2575]: "\"text\""
+                          - text: ", \"contentType\":"
+                          - generic [ref=e2576]: "\"text/html\""
+                          - text: ", \"elapsed\": 1976, \"headers\": { }, \"status\": 200, \"url\":"
+                          - generic [ref=e2577]: "\"https://b3log.org/siyuan\""
+                          - text: "} }"
+                        - button "Copy" [ref=e2579] [cursor=pointer]:
+                          - img [ref=e2580]
+                      - list [ref=e2583]:
+                        - listitem [ref=e2584]:
+                          - paragraph [ref=e2585]:
+                            - code [ref=e2586]: bodyEncoding
+                            - text: ": The encoding scheme used by"
+                            - code [ref=e2587]: body
+                            - text: ", is consistent with field"
+                            - code [ref=e2588]: responseEncoding
+                            - text: in request, default is
+                            - code [ref=e2589]: text
+                            - text: ", optional values are as follows"
+                          - list [ref=e2590]:
+                            - listitem [ref=e2591]:
+                              - code [ref=e2592]: text
+                            - listitem [ref=e2593]:
+                              - code [ref=e2594]: base64
+                              - text: "|"
+                              - code [ref=e2595]: base64-std
+                            - listitem [ref=e2596]:
+                              - code [ref=e2597]: base64-url
+                            - listitem [ref=e2598]:
+                              - code [ref=e2599]: base32
+                              - text: "|"
+                              - code [ref=e2600]: base32-std
+                            - listitem [ref=e2601]:
+                              - code [ref=e2602]: base32-hex
+                            - listitem [ref=e2603]:
+                              - code [ref=e2604]: hex
+                  - generic [ref=e2605]:
+                    - heading "System" [level=2] [ref=e2606]
+                    - 'link "Permalink: System" [ref=e2607] [cursor=pointer]':
+                      - /url: "#system"
+                      - img [ref=e2608]
+                  - generic [ref=e2610]:
+                    - heading "Get boot progress" [level=3] [ref=e2611]
+                    - 'link "Permalink: Get boot progress" [ref=e2612] [cursor=pointer]':
+                      - /url: "#get-boot-progress"
+                      - img [ref=e2613]
+                  - list [ref=e2615]:
+                    - listitem [ref=e2616]:
+                      - paragraph [ref=e2617]:
+                        - code [ref=e2618]: /api/system/bootProgress
+                    - listitem [ref=e2619]:
+                      - paragraph [ref=e2620]: No parameters
+                    - listitem [ref=e2621]:
+                      - paragraph [ref=e2622]: Return value
+                      - generic [ref=e2623]:
+                        - generic [ref=e2624]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e2625]: "\"\""
+                          - text: ", \"data\": { \"details\":"
+                          - generic [ref=e2626]: "\"Finishing boot...\""
+                          - text: ", \"progress\": 100 } }"
+                        - button "Copy" [ref=e2628] [cursor=pointer]:
+                          - img [ref=e2629]
+                  - generic [ref=e2632]:
+                    - heading "Get system version" [level=3] [ref=e2633]
+                    - 'link "Permalink: Get system version" [ref=e2634] [cursor=pointer]':
+                      - /url: "#get-system-version"
+                      - img [ref=e2635]
+                  - list [ref=e2637]:
+                    - listitem [ref=e2638]:
+                      - paragraph [ref=e2639]:
+                        - code [ref=e2640]: /api/system/version
+                    - listitem [ref=e2641]:
+                      - paragraph [ref=e2642]: No parameters
+                    - listitem [ref=e2643]:
+                      - paragraph [ref=e2644]: Return value
+                      - generic [ref=e2645]:
+                        - generic [ref=e2646]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e2647]: "\"\""
+                          - text: ", \"data\":"
+                          - generic [ref=e2648]: "\"1.3.5\""
+                          - text: "}"
+                        - button "Copy" [ref=e2650] [cursor=pointer]:
+                          - img [ref=e2651]
+                  - generic [ref=e2654]:
+                    - heading "Get the current time of the system" [level=3] [ref=e2655]
+                    - 'link "Permalink: Get the current time of the system" [ref=e2656] [cursor=pointer]':
+                      - /url: "#get-the-current-time-of-the-system"
+                      - img [ref=e2657]
+                  - list [ref=e2659]:
+                    - listitem [ref=e2660]:
+                      - paragraph [ref=e2661]:
+                        - code [ref=e2662]: /api/system/currentTime
+                    - listitem [ref=e2663]:
+                      - paragraph [ref=e2664]: No parameters
+                    - listitem [ref=e2665]:
+                      - paragraph [ref=e2666]: Return value
+                      - generic [ref=e2667]:
+                        - generic [ref=e2668]:
+                          - text: "{ \"code\": 0, \"msg\":"
+                          - generic [ref=e2669]: "\"\""
+                          - text: ", \"data\": 1631850968131 }"
+                        - button "Copy" [ref=e2671] [cursor=pointer]:
+                          - img [ref=e2672]
+                      - list [ref=e2675]:
+                        - listitem [ref=e2676]:
+                          - code [ref=e2677]: data
+                          - text: ": Precision in milliseconds"
+  - alert [ref=e2681]

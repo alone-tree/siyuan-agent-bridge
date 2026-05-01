@@ -7,14 +7,13 @@ If you are an AI agent and the user asks you to use their notes, personal knowle
 ## Mandatory Startup
 
 1. Do not scan the repository looking for note content.
-2. Start with the MCP tool `siyuan_start` when available. It checks SiYuan and returns existing top-level guidance.
+2. Start with the MCP tool `siyuan_start` when available. It refreshes the safe index and returns the notebook overview table, START_HERE.md, and guide.md.
 3. If MCP is unavailable, run `python -m source_code start` from this repository root.
 4. Read the returned startup packet before using any other note content.
-5. Use `knowledge_base/overview.md` to choose relevant notebooks.
-6. Use `knowledge_base/notebooks/<notebook-id>.md` only for relevant notebook maps.
-7. Read full documents only when needed. Prefer MCP `siyuan_read_document`.
-8. For long or image-heavy documents, call `siyuan_describe_document_chunks`, then read specific chunks with `siyuan_read_document_chunk`.
-9. Do not refresh/rebuild indexes unless the user asks, the index is missing, or the index is clearly stale.
+5. Use the notebook overview table from `siyuan_start` to choose relevant notebooks.
+6. Use `siyuan_list_documents` for one notebook's document tree.
+7. Read full documents only when needed. Prefer MCP `siyuan_read_document`. The tool always returns the outline; long documents return one chunk at a time. Use `chunk=0` for the first chunk or `chunk=N` to jump to a specific chunk.
+8. Use `siyuan_refresh_index` mid-session only when the user explicitly asks to refresh.
 
 ## Safety Rules
 

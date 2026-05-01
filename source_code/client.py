@@ -80,6 +80,36 @@ class SiYuanClient:
             return data
         raise SiYuanApiError("Unexpected kramdown response shape")
 
+    def search_full_text(
+        self,
+        query: str,
+        *,
+        method: int = 0,
+        types: dict[str, bool] | None = None,
+        paths: list[str] | None = None,
+        group_by: int = 1,
+        order_by: int = 7,
+        page: int = 1,
+        page_size: int = 64,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "query": query,
+            "method": method,
+            "groupBy": group_by,
+            "orderBy": order_by,
+            "page": page,
+            "pageSize": page_size,
+        }
+        if types:
+            payload["types"] = types
+        if paths:
+            payload["paths"] = paths
+
+        data = self._post("/api/search/fullTextSearchBlock", payload)
+        if not isinstance(data, dict):
+            raise SiYuanApiError("Unexpected search response shape")
+        return data
+
     def _post(self, path: str, payload: dict[str, Any]) -> Any:
         body = json.dumps(payload).encode("utf-8")
         headers = {"Content-Type": "application/json"}

@@ -24,6 +24,7 @@ from .ignore import (
 from .indexer import (
     DOCS_SQL,
     KNOWLEDGE_BASE_DIR,
+    build_notebook_overview,
     find_documents,
     load_docs,
     normalize_documents,
@@ -179,6 +180,7 @@ def cmd_refresh(_args: argparse.Namespace, config: Config) -> int:
 
 def cmd_start(_args: argparse.Namespace, config: Config) -> int:
     client = get_working_client(config)
+    refresh_index(client, config.root)
     version = client.version()
     print(render_start_packet(config.root, version))
     return 0
@@ -427,30 +429,23 @@ def render_start_packet(root: Path, version: str) -> str:
     base = root / KNOWLEDGE_BASE_DIR
     start_here = read_optional_text(root / "START_HERE.md")
     guide = read_optional_text(base / "guide.md")
-    summary = format_existing_index_summary(root)
+    overview = build_notebook_overview(root)
     return "\n".join(
         [
             "# SiYuan Knowledge Startup Packet",
             "",
             f"SiYuan connection: OK, version {version}",
-            summary,
+            "",
+            overview,
             "",
             "## Mandatory Workflow",
             "",
             "1. Use this startup packet first.",
-            "2. Follow `knowledge_base/guide.md` before opening broad maps.",
-            "3. Use `knowledge_base/overview.md` to choose relevant notebooks.",
-            "4. Read `knowledge_base/notebooks/<notebook-id>.md` only for relevant notebooks.",
-            "5. Read full documents only through `python -m source_code read <doc-id>` or the MCP `siyuan_read_document` tool.",
-            "6. Do not refresh or rebuild indexes unless the user asks or the index is clearly missing/stale.",
-            "7. Do not scan all files just to understand the notebook.",
-            "",
-            "## Top-Level Indexes To Read Next",
-            "",
-            "- `knowledge_base/guide.md`: curated routing rules and preferences.",
-            "- `knowledge_base/overview.md`: curated top-level notebook map.",
-            "- `knowledge_base/notebooks/`: per-notebook maps, read only when relevant.",
-            "- `knowledge_base/tree.md`: full tree, use only when overview/notebook maps are insufficient.",
+            "2. Follow `knowledge_base/guide.md` for durable preferences.",
+            "3. Use the notebook overview above to choose relevant notebooks.",
+            "4. Use `siyuan_list_documents` to see one notebook's document tree.",
+            "5. Read documents with `siyuan_read_document`.",
+            "6. Use `siyuan_refresh_index` mid-session only when the user explicitly asks to refresh.",
             "",
             "## Start Here",
             "",
@@ -462,22 +457,6 @@ def render_start_packet(root: Path, version: str) -> str:
             "",
         ]
     )
-
-
-def format_existing_index_summary(root: Path) -> str:
-    base = root / KNOWLEDGE_BASE_DIR
-    notebooks_path = base / "notebooks.json"
-    docs_path = base / "docs.jsonl"
-    if not notebooks_path.exists() or not docs_path.exists():
-        return "Existing index: missing. Ask the user before running a full refresh unless they already requested it."
-    try:
-        import json
-
-        notebook_count = len(json.loads(notebooks_path.read_text(encoding="utf-8")))
-        document_count = sum(1 for line in docs_path.read_text(encoding="utf-8").splitlines() if line.strip())
-    except Exception:
-        return "Existing index: present but unreadable. Ask the user before rebuilding it."
-    return f"Existing index: {notebook_count} visible notebooks, {document_count} visible documents."
 
 
 def read_optional_text(path: Path) -> str:

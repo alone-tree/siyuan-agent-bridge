@@ -14,7 +14,7 @@ and complete) over themes (which are fuzzy and incomplete).
 
 - The `siyuan-knowledge` MCP tools must be available. If they are not, tell the
   user to register the MCP server first.
-- `knowledge_base/overview.md` and per-notebook maps must exist. If the safe
+- `knowledge_base/tree.md` and `knowledge_base/docs.jsonl` must exist. If the safe
   index has never been generated, ask the user to run `siyuan_refresh_index`
   first.
 
@@ -36,8 +36,7 @@ The user may specify how thoroughly you should read before writing the index:
   summaries for each document you read. This mode is for building a rich,
   annotated index.
 
-If the user does not specify, default to **快速**. You may ask: "要我快速扫一遍
-结构就建索引，还是深入读一些重点文档再建？"
+If the user does not specify, default to **快速**. You may ask: "要我快速扫一遍结构就建索引，还是深入读一些重点文档再建？"
 
 Titles alone are not enough to judge a document's content. Always read before
 you summarize. A document titled "REITs" might be a 3000-word analysis or a
@@ -45,10 +44,10 @@ one-line bookmark — you cannot tell from the path.
 
 ### Step 1 — Survey the structure
 
-Call `siyuan_list_notebooks` and read `knowledge_base/overview.md`. Identify:
+Call `siyuan_start` to get the notebook overview table (tree.md layer 1). Identify:
 
 - Which notebooks have documents (>0 visible).
-- Document counts per notebook — large notebooks need more structural summary,
+- Document counts and word counts per notebook — large notebooks need more structural summary,
   small ones can list documents more directly.
 
 ### Step 2 — Read notebook maps and hub documents
@@ -65,8 +64,10 @@ with its notebook ID. As you read the map, classify the internal structure:
   Note the hub.
 
 After classifying, **read hub documents** according to the reading depth the
-user specified. Use `siyuan_read_document` with the document ID. For long
-documents, read only the first chunk — a preview is enough for index purposes.
+user specified. Use `siyuan_read_document` with the document ID. The tool returns
+the document outline first, then the content. For long documents, `chunk=0`
+(default) returns the first chunk — a preview is enough for index purposes. Use
+`chunk=N` to jump to specific sections if needed.
 
 ### Step 3 — Generate index.md
 
@@ -146,9 +147,7 @@ After writing `index.md`, tell the user:
 2. Which notebooks you summarized at path level vs. document level.
 3. The 3–5 most important-looking hub documents you encountered.
 4. The line count of the generated index (for the user's awareness).
-5. Ask: "Does the structure look right? Which paths or documents should I mark
-   as priority? If you want more detailed summaries for specific documents,
-   tell me and I'll read them deeper."
+5. Ask: "Does the structure look right? Which paths or documents should I mark as priority? If you want more detailed summaries for specific documents, tell me and I'll read them deeper."
 
 ### Step 5 — Handle user feedback
 
@@ -166,8 +165,8 @@ Apply each change and confirm what you updated.
 When the user asks to update the index:
 
 1. If the index may be stale, call `siyuan_refresh_index` first.
-2. Re-read `knowledge_base/overview.md` to detect new or removed notebooks.
-3. For notebooks that may have changed, re-read their notebook map.
+2. Call `siyuan_start` to get the current notebook overview table and detect new or removed notebooks.
+3. For notebooks that may have changed, use `siyuan_list_documents` with their notebook ID.
 4. For any new or likely-changed documents, read them with
    `siyuan_read_document` to produce or refresh summaries. Do not rewrite
    summaries for unchanged documents — only update what is stale.
@@ -184,9 +183,6 @@ When the user asks to update the index:
 
 - Do not modify SiYuan notes.
 - Do not call SiYuan write APIs.
-- Do not read hidden documents or notebooks. Work only from visible safe
-  indexes.
-- Do not overwrite human annotations in `index.md`. Add your updates around
-  them.
-- The user's words are the only confirmation needed. "Create index" means
-  create it. "Update index" means update it. No extra approval step.
+- Do not read hidden documents or notebooks. Work only from visible safe indexes.
+- Do not overwrite human annotations in `index.md`. Add your updates around them.
+- The user's words are the only confirmation needed. "Create index" means create it. "Update index" means update it. No extra approval step.
