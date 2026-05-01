@@ -18,11 +18,7 @@ Local project root: `D:\Github\siyuan-enhance`.
 5. Use `siyuan_list_documents` for the notebook's document tree.
 6. Use `siyuan_read_document` when a document is worth deep reading. It always returns the outline (heading→chunk map). Long documents return one chunk at a time — use `chunk=0` for the first chunk or `chunk=N` to jump to a specific section.
 
-If MCP tools are unavailable, run the fallback from the repository root:
-
-```bash
-python -m source_code start
-```
+If MCP tools are unavailable, tell the user the SiYuan knowledge MCP is not registered or not reachable. Do not scan local files for note content.
 
 ## Tool Use
 
@@ -30,7 +26,7 @@ python -m source_code start
 - `siyuan_refresh_index`: refresh safe indexes only when the user explicitly asks for a mid-session refresh.
 - `siyuan_list_notebooks`: list visible notebooks from the safe index.
 - `siyuan_list_documents`: return the document tree for one notebook with word counts and update times.
-- `siyuan_find_documents`: search the knowledge base. 4 modes — `keyword` (space-separated AND), `query` (FTS5 AND/OR/NOT/`"phrase"`/`prefix*`), `regex` (Go RE2), `sql` (direct SQL, needs admin). Scope: `headings` (titles + headings) or `full` (all block text). Filter with `notebooks` parameter.
+- `siyuan_find_documents`: search the knowledge base. It uses the safe local index for titles, paths, tags, and notebook names, and live SiYuan search for block content when available. 4 modes — `keyword` (space-separated AND), `query` (AND/OR/NOT/`"phrase"`/`prefix*`), `regex`, `sql` (direct SQL, needs admin). Scope: `headings` (titles + headings) or `full` (all block text). Filter with `notebooks` parameter.
 - `siyuan_read_document`: read a document as Markdown. Always returns the outline (heading→chunk mapping). Short docs (≤max_chars) return full text. Long docs return outline + one chunk — use `chunk=0` for the first chunk or `chunk=N` to jump to a specific chunk.
 - `siyuan_propose_guide_update`: save a suggested guide improvement in `ai_workspace/` without modifying the guide.
 - `siyuan_apply_guide_update`: update `knowledge_base/guide.md` only after explicit user approval.

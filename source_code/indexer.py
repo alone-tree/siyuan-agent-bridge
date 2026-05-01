@@ -26,15 +26,15 @@ LIMIT 100000
 GUIDE_TEMPLATE = """# Personal Knowledge Base Guide
 
 This file is the reading map for AI agents. Keep it short, explicit, and personal.
-`python -m source_code refresh` will not overwrite this file after it exists.
+`siyuan_refresh_index` will not overwrite this file after it exists.
 
 ## Startup Rules
 
 1. Read this guide first.
-2. Read `knowledge_base/tree.md` before exploring the knowledge base.
+2. Use the notebook overview from `siyuan_start` before exploring the knowledge base.
 3. Do not scan the whole tree just to understand the knowledge base.
 4. Read document trees only when a task points to that notebook or topic.
-5. Use `python -m source_code read <doc-id>` only when a specific document is worth reading deeply.
+5. Use `siyuan_read_document` only when a specific document is worth reading deeply.
 6. Put derived notes, task context, and drafts in `ai_workspace/`.
 
 ## Important Areas
@@ -73,6 +73,7 @@ def refresh_index(client: SiYuanClient, root: Path) -> RefreshResult:
     notebooks = filter_notebooks(all_notebooks, privacy)
     all_docs = normalize_documents(client.query_sql(DOCS_SQL), all_notebooks)
     docs = filter_documents(all_docs, privacy)
+    update_document_word_counts(client, docs)
 
     write_json(cache_dir / "notebooks.json", notebooks)
     write_jsonl(cache_dir / "docs.jsonl", docs)
@@ -140,6 +141,7 @@ def normalize_documents(
                 "tags": parse_tags(row.get("tag")),
                 "alias": str(row.get("alias") or "").strip(),
                 "memo": str(row.get("memo") or "").strip(),
+                "index_word_count": compute_word_count(row.get("content")),
                 "word_count": compute_word_count(row.get("content")),
                 "created": str(row.get("created") or "").strip(),
                 "updated": str(row.get("updated") or "").strip(),
@@ -147,6 +149,13 @@ def normalize_documents(
         )
     docs.sort(key=lambda item: (item["notebook_name"].casefold(), item["hpath"].casefold(), item["id"]))
     return docs
+
+
+def update_document_word_counts(client: SiYuanClient, docs: list[dict[str, Any]]) -> None:
+    for doc in docs:
+        markdown = client.export_markdown(str(doc["id"]))
+        doc["word_count"] = compute_word_count(markdown)
+        doc["markdown_chars"] = len(markdown)
 
 
 def parse_tags(value: Any) -> list[str]:

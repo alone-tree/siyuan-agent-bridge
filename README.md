@@ -4,7 +4,7 @@
 
 SiYuan Enhance is a private, local-first adapter that lets external AI agents use your SiYuan notes as a structured personal knowledge base.
 
-It is not a SiYuan plugin, not a public package, and not a vector-search system. Your notes stay in SiYuan. This project creates safe read-only indexes and exposes controlled CLI / MCP tools for AI agents.
+It is not a SiYuan plugin, not a public package, and not a vector-search system. Your notes stay in SiYuan. This project creates safe read-only indexes and exposes them to AI agents through MCP tools and a Skill workflow.
 
 ## Current Capabilities
 
@@ -12,6 +12,7 @@ It is not a SiYuan plugin, not a public package, and not a vector-search system.
 - Hides notebooks, single documents, or document subtrees through `siyuan.ignore.local.json`.
 - Temporarily opens hidden items through `siyuan.allow.local.json`.
 - Generates safe indexes, overview files, and notebook maps under `knowledge_base/`.
+- Computes full-document word counts from exported Markdown for visible documents, so agents can use length as an importance signal.
 - Provides MCP tools for Claude Code, Codex, OpenCode, and similar agents.
 - Chunks long documents. The default chunk size is 10,000 characters and can be adjusted with `max_chars`.
 - Preserves Markdown image references inside document chunks, so image-heavy notes keep surrounding text context.
@@ -33,7 +34,7 @@ Typical flow:
 1. Write notes in SiYuan as usual.
 2. Edit `siyuan.ignore.local.json` if some content should be hidden.
 3. Ask the AI agent to refresh the knowledge-base index.
-4. The agent calls `siyuan_refresh_index` or runs `python -m source_code refresh`.
+4. The agent calls `siyuan_refresh_index`.
 5. The AI only sees the visible safe index after refresh.
 
 ## Agent Startup
@@ -46,11 +47,7 @@ siyuan_start
 
 This refreshes the safe index and returns the startup packet with the notebook overview table, START_HERE.md, and guide.md.
 
-If MCP is unavailable, run this from the repository root:
-
-```bash
-python -m source_code start
-```
+If MCP is unavailable, register or repair the MCP server first. The Python CLI is only a developer diagnostic interface, not the normal AI entrypoint.
 
 ## MCP Tools
 
@@ -58,7 +55,7 @@ python -m source_code start
 - `siyuan_refresh_index`: refresh safe indexes mid-session when the user explicitly asks.
 - `siyuan_list_notebooks`: list visible notebooks from the safe index.
 - `siyuan_list_documents`: return the document tree for one notebook, with word counts and update times.
-- `siyuan_find_documents`: search with 4 modes (`keyword`/`query`/`regex`/`sql`), 2 scopes (`headings`/`full`), optional notebook filter.
+- `siyuan_find_documents`: search safe-index titles/paths/tags plus live SiYuan block content when available, with 4 modes (`keyword`/`query`/`regex`/`sql`), 2 scopes (`headings`/`full`), optional notebook filter.
 - `siyuan_read_document`: read a document with outline. Short docs return full text; long docs return one chunk; use `chunk=N` to navigate.
 - `siyuan_propose_guide_update`: save a proposed guide update in `ai_workspace/`.
 - `siyuan_apply_guide_update`: update `knowledge_base/guide.md` only after explicit user approval.
@@ -178,7 +175,7 @@ Main code modules:
 - `source_code/client.py`: read-only SiYuan API client.
 - `source_code/indexer.py`: scanning and index generation.
 - `source_code/ignore.py`: privacy ignore and temporary allow rules.
-- `source_code/cli.py`: CLI entrypoint.
+- `source_code/cli.py`: developer diagnostic entrypoint.
 - `source_code/mcp_server.py`: MCP stdio server.
 
 ## Privacy Model

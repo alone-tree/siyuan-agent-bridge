@@ -35,6 +35,14 @@ class FakeClient:
             },
         ]
 
+    def export_markdown(self, block_id):
+        markdown = {
+            "20260429120000-abcdefg": "# SiYuan Enhance\n\nThis document has a longer exported body.",
+            "20260429130000-hijklmn": "# Other\n\nShort body.",
+            "20260429140000-child": "# Child\n\nChild body.",
+        }
+        return markdown.get(block_id, "")
+
 
 class IndexerTests(unittest.TestCase):
     def test_refresh_writes_indexes_and_preserves_existing_guide(self):
@@ -64,6 +72,21 @@ class IndexerTests(unittest.TestCase):
 
         self.assertEqual(by_id["20260429120000-abcdefg"]["tags"], ["ai", "notes"])
         self.assertEqual(by_id["20260429120000-abcdefg"]["notebook_name"], "Main")
+
+    def test_refresh_uses_exported_markdown_for_word_count(self):
+        root = Path.cwd() / ".test_tmp" / "indexer_word_count"
+        root.mkdir(parents=True, exist_ok=True)
+
+        refresh_index(FakeClient(), root)
+        docs = {
+            doc["id"]: doc
+            for doc in (
+                json.loads(line)
+                for line in (root / "knowledge_base" / "docs.jsonl").read_text(encoding="utf-8").splitlines()
+            )
+        }
+
+        self.assertGreater(docs["20260429120000-abcdefg"]["word_count"], docs["20260429120000-abcdefg"]["index_word_count"])
 
     def test_find_and_resolve_documents(self):
         docs = normalize_documents(FakeClient().query_sql(""), FakeClient().list_notebooks())

@@ -208,11 +208,14 @@ class McpServer:
             if not notebooks:
                 notebooks = None
 
-        config = load_config(self.root)
-        client = get_working_client(config)
-        local_docs = load_docs(self.root)
+        privacy = load_privacy_rules(self.root)
+        local_docs = filter_documents(load_docs(self.root), privacy)
+        local_hits = self._search_local_index(keyword, mode, local_docs, notebooks, limit)
+        api_error = ""
 
         if mode == "sql":
+            config = load_config(self.root)
+            client = get_working_client(config)
             try:
                 rows = client.query_sql(keyword)
             except SiYuanApiError as exc:
@@ -221,46 +224,103 @@ class McpServer:
                 raise
             enriched = self._enrich_sql_results(rows, local_docs, notebooks)
         else:
-            method_map = {"keyword": 0, "query": 1, "regex": 3}
-            api_method = method_map[mode]
-            data = search_content(
-                client,
-                keyword,
-                method=api_method,
-                scope=scope,
-                notebooks=notebooks,
-                limit=limit,
-            )
-            blocks: list[dict[str, Any]] = data.get("blocks", [])
-            keywords = [kw for kw in keyword.split() if kw]
-            enriched = self._enrich_search_blocks(blocks, local_docs, keywords, notebooks)
+            enriched = local_hits
+            try:
+                config = load_config(self.root)
+                client = get_working_client(config)
+                method_map = {"keyword": 0, "query": 1, "regex": 3}
+                api_method = method_map[mode]
+                data = search_content(
+                    client,
+                    keyword,
+                    method=api_method,
+                    scope=scope,
+                    notebooks=notebooks,
+                    limit=limit,
+                )
+                blocks: list[dict[str, Any]] = data.get("blocks", [])
+                keywords = search_terms(keyword, mode)
+                live_hits = self._enrich_search_blocks(blocks, local_docs, keywords, notebooks)
+                enriched = merge_search_results(local_hits, live_hits)
+            except (SiYuanConnectionError, SiYuanApiError) as exc:
+                api_error = str(exc)
 
         if not enriched:
             return f"# Search: \"{keyword}\" ({scope}, {mode})\n\nNo matching visible documents."
 
+        enriched = enriched[:limit]
         grouped = self._group_by_notebook(enriched)
 
         scope_label = "标题" if scope == "headings" else "全文"
         lines = [f"# Search: \"{keyword}\" ({scope_label}, {mode}, {len(enriched)} matches in {len(grouped)} notebooks)", ""]
+        if api_error:
+            lines.extend([
+                "> Live SiYuan search failed; showing matches from the safe local index.",
+                "",
+            ])
 
+        remaining = limit
         for nb_name in sorted(grouped, key=str.casefold):
             items = grouped[nb_name]
             lines.append(f"## {nb_name} ({len(items)} matches)")
-            for item in items[:limit]:
+            for item in items[:remaining]:
                 wc = item.get("word_count", 0)
                 date = format_date(str(item.get("updated", "")))
                 hpath = str(item.get("hpath") or "/")
                 doc_id = str(item.get("id") or "")
-                lines.append(f"- `{doc_id}` {hpath} {wc:,}字 {date}")
+                source = str(item.get("source") or "")
+                source_text = f" [{source}]" if source else ""
+                lines.append(f"- `{doc_id}` {hpath} {wc:,}字 {date}{source_text}".rstrip())
                 snippet = item.get("snippet", "")
                 if snippet:
                     lines.append(f"  > {snippet}")
             lines.append("")
-            limit -= len(items)
-            if limit <= 0:
+            remaining -= len(items)
+            if remaining <= 0:
                 break
 
         return "\n".join(lines)
+
+    def _search_local_index(
+        self,
+        keyword: str,
+        mode: str,
+        local_docs: list[dict[str, Any]],
+        notebook_filter: list[str] | None,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        docs = [
+            doc for doc in local_docs
+            if not notebook_filter or str(doc.get("notebook_id", "")) in notebook_filter
+        ]
+        terms = search_terms(keyword, mode)
+        if mode == "keyword":
+            matches = find_documents(docs, keyword, limit=limit)
+        elif mode == "query":
+            matches = [doc for doc in docs if query_matches(local_search_text(doc), keyword)]
+        elif mode == "regex":
+            try:
+                pattern = re.compile(keyword, re.IGNORECASE)
+            except re.error as exc:
+                raise ValueError(f"invalid regex: {exc}") from exc
+            matches = [doc for doc in docs if pattern.search(local_search_text(doc))]
+        else:
+            matches = []
+
+        results = []
+        for doc in matches[:limit]:
+            snippet = extract_snippet(local_search_text(doc), terms)
+            results.append({
+                "id": str(doc.get("id", "")),
+                "notebook_id": str(doc.get("notebook_id", "")),
+                "notebook_name": str(doc.get("notebook_name", "")),
+                "hpath": str(doc.get("hpath", "")),
+                "word_count": doc.get("word_count", 0),
+                "updated": str(doc.get("updated", "")),
+                "snippet": snippet,
+                "source": "safe index",
+            })
+        return results
 
     def _enrich_search_blocks(
         self,
@@ -307,6 +367,7 @@ class McpServer:
                 "word_count": doc.get("word_count", 0),
                 "updated": str(doc.get("updated", "")),
                 "snippet": snippet,
+                "source": "live search",
             })
 
         results.sort(key=lambda r: (r["notebook_name"].casefold(), r["hpath"].casefold()))
@@ -352,6 +413,7 @@ class McpServer:
                 "word_count": doc.get("word_count", 0),
                 "updated": str(doc.get("updated", "")),
                 "snippet": "",
+                "source": "sql",
             })
 
         results.sort(key=lambda r: (r["notebook_name"].casefold(), r["hpath"].casefold()))
@@ -374,13 +436,13 @@ class McpServer:
 
         doc_path = str(doc.get("hpath") or doc.get("title") or doc.get("id"))
         doc_id = str(doc.get("id"))
-        wc = doc.get("word_count", 0)
+        markdown_wc = compute_word_count(markdown)
         date = format_date(str(doc.get("updated", "")))
 
         header_lines = [
             f"# Document: {doc_path}",
             f"Document ID: `{doc_id}`",
-            f"字数: {wc:,} | 更新: {date}",
+            f"字数: {markdown_wc:,} | 更新: {date}",
         ]
         header = "\n".join(header_lines)
 
@@ -486,6 +548,87 @@ def _read_optional(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def local_search_text(doc: dict[str, Any]) -> str:
+    return " ".join([
+        str(doc.get("id", "")),
+        str(doc.get("title", "")),
+        str(doc.get("hpath", "")),
+        str(doc.get("notebook_name", "")),
+        str(doc.get("alias", "")),
+        str(doc.get("memo", "")),
+        " ".join(str(tag) for tag in doc.get("tags", [])),
+    ])
+
+
+def search_terms(query: str, mode: str) -> list[str]:
+    if mode == "regex":
+        return [query]
+    terms = []
+    for quoted, word in re.findall(r'"([^"]+)"|(\S+)', query):
+        token = quoted or word
+        if token.upper() in ("AND", "OR", "NOT"):
+            continue
+        token = token.strip("*")
+        if token:
+            terms.append(token)
+    return terms
+
+
+def query_matches(text: str, query: str) -> bool:
+    folded = text.casefold()
+    parts = re.split(r"\s+OR\s+", query, flags=re.IGNORECASE)
+    return any(query_part_matches(folded, part) for part in parts)
+
+
+def query_part_matches(folded_text: str, query: str) -> bool:
+    required: list[str] = []
+    denied: list[str] = []
+    negate = False
+    for raw in re.findall(r'"[^"]+"|\S+', query):
+        token = raw.strip()
+        upper = token.upper()
+        if upper == "AND":
+            continue
+        if upper == "NOT":
+            negate = True
+            continue
+        if negate:
+            denied.append(token)
+            negate = False
+        else:
+            required.append(token)
+    return all(query_token_matches(folded_text, token) for token in required) and not any(
+        query_token_matches(folded_text, token) for token in denied
+    )
+
+
+def query_token_matches(folded_text: str, token: str) -> bool:
+    text = token.strip('"').casefold()
+    if text.endswith("*"):
+        text = text[:-1]
+    return bool(text and text in folded_text)
+
+
+def merge_search_results(*groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: dict[str, dict[str, Any]] = {}
+    for group in groups:
+        for item in group:
+            doc_id = str(item.get("id", ""))
+            if not doc_id:
+                continue
+            if doc_id in merged:
+                existing = merged[doc_id]
+                if item.get("snippet") and not existing.get("snippet"):
+                    existing["snippet"] = item["snippet"]
+                if item.get("source") and item["source"] not in str(existing.get("source", "")):
+                    existing["source"] = f"{existing.get('source')}, {item['source']}"
+            else:
+                merged[doc_id] = dict(item)
+    results = list(merged.values())
+    results.sort(key=lambda r: (str(r.get("notebook_name", "")).casefold(), str(r.get("hpath", "")).casefold()))
+    return results
+
+
 def tool_specs() -> list[dict[str, Any]]:
     return [
         {
@@ -517,7 +660,7 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_find_documents",
-            "description": "Search the SiYuan knowledge base. Supports 4 modes: keyword (space-separated keywords, AND logic, default), query (FTS5 query syntax with AND/OR/NOT/phrase/prefix*), regex (Go RE2 regex, no backreferences/lookarounds), sql (direct SQL, requires admin). Scope: headings (document titles + headings, default) or full (all block text).",
+            "description": "Search the SiYuan knowledge base. Uses the safe local index for document titles, paths, tags, and notebook names, and live SiYuan search for block content when available. Supports 4 modes: keyword (space-separated keywords, AND logic, default), query (AND/OR/NOT/phrase/prefix*), regex, sql (direct SQL, requires admin). Scope: headings (document titles + headings, default) or full (all block text).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
