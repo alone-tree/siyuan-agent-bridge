@@ -301,7 +301,7 @@ def render_tree(notebooks: Iterable[dict[str, Any]], docs: Iterable[dict[str, An
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
     lines = [
-        "# SiYuan Knowledge Tree",
+        "# SiYuan Agent Bridge Tree",
         "",
         f"> {now} | {len(notebook_list)} notebooks | {total_docs} docs | {total_words:,} 字 | {total_blocks} 块",
         "",
@@ -358,7 +358,7 @@ def render_notebook_overview(notebooks: Iterable[dict[str, Any]], docs: Iterable
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
 
     lines = [
-        "# SiYuan Knowledge Tree",
+        "# SiYuan Agent Bridge Tree",
         "",
         f"> {now} | {len(notebook_list)} notebooks | {len(doc_list)} docs | {total_words:,} 字 | {total_blocks} 块",
         "",

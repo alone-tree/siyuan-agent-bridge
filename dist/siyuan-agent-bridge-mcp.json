@@ -1,10 +1,10 @@
 {
   "mcpServers": {
-    "siyuan-knowledge": {
+    "siyuan-agent-bridge": {
       "type": "stdio",
       "command": "python",
       "args": [
-        "D:\\Github\\siyuan-enhance\\plugins\\siyuan-knowledge\\scripts\\run_mcp.py"
+        "D:\\Github\\siyuan-agent-bridge\\plugins\\siyuan-agent-bridge\\scripts\\run_mcp.py"
       ],
       "env": {
         "PYTHONUTF8": "1"

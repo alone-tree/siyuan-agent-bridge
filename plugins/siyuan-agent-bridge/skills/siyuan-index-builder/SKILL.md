@@ -1,6 +1,6 @@
 ---
 name: siyuan-index-builder
-description: 创建和更新思源知识库的结构化索引文件 knowledge_base/index.md。当用户提到"创建索引"、"更新索引"、"建索引"、"重建索引"、"刷新索引"、"index"，或希望 AI 快速定位知识库中的相关文档时使用此 skill。
+description: 创建和更新思源代理桥库的结构化索引文件 knowledge_base/index.md。当用户提到"创建索引"、"更新索引"、"建索引"、"重建索引"、"刷新索引"、"index"，或希望 AI 快速定位知识库中的相关文档时使用此 skill。
 ---
 
 # SiYuan Index Builder
@@ -12,7 +12,7 @@ and complete) over themes (which are fuzzy and incomplete).
 
 ## Prerequisites
 
-- The `siyuan-knowledge` MCP tools must be available. If they are not, tell the
+- The `siyuan-agent-bridge` MCP tools must be available. If they are not, tell the
   user to register the MCP server first.
 - `knowledge_base/tree.md` and `knowledge_base/docs.jsonl` must exist. If the safe
   index has never been generated, ask the user to run `siyuan_refresh_index`

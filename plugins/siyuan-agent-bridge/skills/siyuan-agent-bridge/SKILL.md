@@ -1,13 +1,13 @@
 ---
-name: siyuan-knowledge
+name: siyuan-agent-bridge
 description: Use when the user wants to read or search their private SiYuan notes (思源笔记). Triggers on mentions of 思源, 知识库, or when the agent needs personal context from the user's notes.
 ---
 
-# SiYuan Knowledge
+# SiYuan Agent Bridge
 
-Access the user's private SiYuan knowledge base through MCP tools. Never scan the filesystem for note content.
+Access the user's private SiYuan notes through MCP tools. Never scan the filesystem for note content.
 
-Local project root: `D:\Github\siyuan-enhance`.
+Local project root: `D:\Github\siyuan-agent-bridge`.
 
 ## Mandatory Startup
 
@@ -20,7 +20,7 @@ Local project root: `D:\Github\siyuan-enhance`.
 7. Use `siyuan_list` for one notebook's document tree (provide `notebook_id`).
 8. Use `siyuan_read_document` when a document is worth deep reading. It always returns the outline (heading→chunk map). Long documents return one chunk at a time — use `chunk=0` for the first chunk or `chunk=N` to jump to a specific section.
 
-If MCP tools are unavailable, tell the user the SiYuan knowledge MCP is not registered or not reachable. Do not scan local files for note content.
+If MCP tools are unavailable, tell the user the SiYuan Agent Bridge MCP is not registered or not reachable. Do not scan local files for note content.
 
 ## Tool Use
 

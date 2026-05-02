@@ -1,8 +1,8 @@
-# SiYuan Enhance
+# SiYuan Agent Bridge
 
 [中文说明](README.md)
 
-SiYuan Enhance is a private, local-first adapter that lets external AI agents use your SiYuan notes as a structured personal knowledge base.
+SiYuan Agent Bridge is a private, local-first adapter that lets external AI agents use your SiYuan notes as a structured personal knowledge base.
 
 It is not a SiYuan plugin, not a public package, and not a vector-search system. Your notes stay in SiYuan. This project creates safe read-only indexes and exposes them to AI agents through MCP tools and a Skill workflow.
 
@@ -120,7 +120,7 @@ After editing, ask the AI agent to refresh the index. Previously visible documen
 The latest skill zip is:
 
 ```text
-dist/siyuan-knowledge-skill-latest.zip
+dist/siyuan-agent-bridge-skill-latest.zip
 ```
 
 For MCP registration, use this custom stdio config:
@@ -130,7 +130,7 @@ For MCP registration, use this custom stdio config:
   "type": "stdio",
   "command": "python",
   "args": [
-    "D:\\Github\\siyuan-enhance\\plugins\\siyuan-knowledge\\scripts\\run_mcp.py"
+    "D:\\Github\\siyuan-agent-bridge\\plugins\\siyuan-agent-bridge\\scripts\\run_mcp.py"
   ],
   "env": {
     "PYTHONUTF8": "1"
@@ -141,14 +141,14 @@ For MCP registration, use this custom stdio config:
 Reference files:
 
 ```text
-dist/siyuan-knowledge-mcp.json
-dist/siyuan-knowledge-mcp-deeplink.txt
+dist/siyuan-agent-bridge-mcp.json
+dist/siyuan-agent-bridge-mcp-deeplink.txt
 ```
 
 ## Project Structure
 
 ```text
-siyuan-enhance/
+siyuan-agent-bridge/
   AGENTS.md                  # Rules for AI agents
   START_HERE.md              # Agent entrypoint
   README.md                  # Chinese documentation (main)
@@ -158,7 +158,7 @@ siyuan-enhance/
   siyuan.ignore.local.json   # Long-term hide rules
   siyuan.allow.local.json    # Temporary allow rules
   source_code/               # Python tool code
-  plugins/siyuan-knowledge/  # Skill and MCP plugin materials
+  plugins/siyuan-agent-bridge/  # Skill and MCP plugin materials
   knowledge_base/            # Generated safe indexes
   ai_workspace/              # Agent workspace
   tests/                     # Tests

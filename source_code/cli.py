@@ -432,7 +432,7 @@ def render_start_packet(root: Path, version: str) -> str:
     index_md = read_optional_text(base / "index.md")
     overview = build_notebook_overview(root)
     parts: list[str] = [
-        "# SiYuan Knowledge Startup Packet",
+        "# SiYuan Agent Bridge Startup Packet",
         "",
         f"SiYuan connection: OK, version {version}",
         "",

@@ -38,7 +38,7 @@ from .indexer import (
 )
 
 
-SERVER_NAME = "siyuan-knowledge"
+SERVER_NAME = "siyuan-agent-bridge"
 SERVER_VERSION = "0.1.0"
 DEFAULT_CHUNK_CHARS = 10000
 MAX_CHUNK_CHARS = 30000
@@ -130,7 +130,7 @@ class McpServer:
         index_md = _read_optional(base / "index.md")
         overview = build_notebook_overview(self.root)
         parts: list[str] = [
-            "# SiYuan Knowledge Startup Packet",
+            "# SiYuan Agent Bridge Startup Packet",
             "",
             f"SiYuan connection: OK, version {version}",
             "",

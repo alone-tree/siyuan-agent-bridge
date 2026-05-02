@@ -1,5 +1,5 @@
 {
-  "name": "siyuan-knowledge",
+  "name": "siyuan-agent-bridge",
   "version": "0.1.0",
   "description": "Private SiYuan personal knowledge-base adapter with a skill workflow and MCP tools.",
   "author": {
@@ -15,7 +15,7 @@
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
-    "displayName": "SiYuan Knowledge",
+    "displayName": "SiYuan Agent Bridge",
     "shortDescription": "Use a private SiYuan notebook as structured AI context.",
     "longDescription": "Provides a skill workflow and MCP tools for reading a private local SiYuan knowledge base through safe indexes, notebook maps, and on-demand document reads.",
     "developerName": "Private Local User",

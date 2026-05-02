@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "siyuan-knowledge": {
+    "siyuan-agent-bridge": {
       "command": "python",
       "args": [
         "./scripts/run_mcp.py"

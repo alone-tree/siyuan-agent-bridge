@@ -8,7 +8,7 @@ The product interface is MCP + Skill. Treat CLI commands as developer diagnostic
 
 1. Read `START_HERE.md` first.
 2. Use MCP tool `siyuan_start`; it refreshes the safe index and returns the notebook overview table, index.md (when it exists), START_HERE.md, and guide.md.
-3. If MCP is unavailable, tell the user the SiYuan knowledge MCP is not registered or not reachable.
+3. If MCP is unavailable, tell the user the SiYuan Agent Bridge MCP is not registered or not reachable.
 4. Read the startup packet before opening broad maps.
 5. Use the notebook overview table from `siyuan_start` to choose relevant notebooks.
 6. Use `siyuan_list` (with `notebook_id`) for one notebook's document tree.

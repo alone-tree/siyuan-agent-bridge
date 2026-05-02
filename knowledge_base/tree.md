@@ -1,4 +1,4 @@
-# SiYuan Knowledge Tree
+# SiYuan Agent Bridge Tree
 
 > 2026-05-02 03:35 | 13 notebooks | 425 docs | 2,665,242 字 | 39604 块
 

@@ -22,7 +22,7 @@ class FakeClient:
         # ALL_CONTENT_SQL: child block content
         if "ORDER BY root_id" in stmt:
             return [
-                {"root_id": "20260429120000-abcdefg", "content": "SiYuan Enhance"},
+                {"root_id": "20260429120000-abcdefg", "content": "SiYuan Agent Bridge"},
                 {"root_id": "20260429120000-abcdefg", "content": "This document has a longer exported body."},
                 {"root_id": "20260429120000-abcdefg", "content": "More content here."},
                 {"root_id": "20260429130000-hijklmn", "content": "Other"},
@@ -33,10 +33,10 @@ class FakeClient:
             {
                 "id": "20260429120000-abcdefg",
                 "box": "nb1",
-                "hpath": "/Projects/SiYuan Enhance",
+                "hpath": "/Projects/SiYuan Agent Bridge",
                 "path": "/20260429120000-abcdefg.sy",
                 "name": "",
-                "content": "SiYuan Enhance",
+                "content": "SiYuan Agent Bridge",
                 "tag": "#ai# #notes#",
                 "created": "20260429120000",
                 "updated": "20260429120100",
@@ -53,7 +53,7 @@ class FakeClient:
 
     def export_markdown(self, block_id):
         markdown = {
-            "20260429120000-abcdefg": "# SiYuan Enhance\n\nThis document has a longer exported body.",
+            "20260429120000-abcdefg": "# SiYuan Agent Bridge\n\nThis document has a longer exported body.",
             "20260429130000-hijklmn": "# Other\n\nShort body.",
             "20260429140000-child": "# Child\n\nChild body.",
         }
@@ -77,7 +77,7 @@ class IndexerTests(unittest.TestCase):
         self.assertFalse((root / "knowledge_base" / "overview.md").exists())
         self.assertFalse((root / "knowledge_base" / "notebooks").exists())
         tree = (root / "knowledge_base" / "tree.md").read_text(encoding="utf-8")
-        self.assertIn("SiYuan Enhance", tree)
+        self.assertIn("SiYuan Agent Bridge", tree)
         self.assertIn("20260429120000-abcdefg", tree)
         self.assertIn("| Notebook | ID | Docs | 字数 | 块数 | 最近更新 |", tree)
         self.assertIn(" 字", tree)
@@ -113,7 +113,7 @@ class IndexerTests(unittest.TestCase):
         matches = find_documents(docs, "siyuan")
         self.assertEqual(matches[0]["id"], "20260429120000-abcdefg")
 
-        status, resolved = resolve_document(docs, "/Projects/SiYuan Enhance")
+        status, resolved = resolve_document(docs, "/Projects/SiYuan Agent Bridge")
         self.assertEqual(status, "ok")
         self.assertEqual(resolved[0]["id"], "20260429120000-abcdefg")
 
@@ -130,7 +130,7 @@ class IndexerTests(unittest.TestCase):
             {
                 "id": "20260429140000-child",
                 "box": "nb1",
-                "hpath": "/Projects/SiYuan Enhance/Child",
+                "hpath": "/Projects/SiYuan Agent Bridge/Child",
                 "path": "/20260429140000-child.sy",
                 "content": "Child",
                 "tag": "",
