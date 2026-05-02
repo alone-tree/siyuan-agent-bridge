@@ -314,9 +314,20 @@ class McpServer:
                 source = str(item.get("source") or "")
                 source_text = f" [{source}]" if source else ""
                 lines.append(f"- `{doc_id}` {hpath} {wc:,}字 {bc}块 {date}{source_text}".rstrip())
-                snippet = item.get("snippet", "")
-                if snippet:
-                    lines.append(f"  > {snippet}")
+                snippets = item.get("snippets")
+                if isinstance(snippets, list):
+                    for snippet in snippets:
+                        if isinstance(snippet, dict):
+                            block_id = str(snippet.get("block_id") or "")
+                            text = str(snippet.get("text") or "")
+                            if block_id and text:
+                                lines.append(f"  > `{block_id}` {text}")
+                            elif text:
+                                lines.append(f"  > {text}")
+                else:
+                    snippet = item.get("snippet", "")
+                    if snippet:
+                        lines.append(f"  > {snippet}")
             lines.append("")
             remaining -= len(items)
             if remaining <= 0:
@@ -337,12 +348,13 @@ class McpServer:
         compiled_ignore = compile_rules(privacy.ignore, indexed_docs)
         compiled_allow = compile_rules(privacy.allow, indexed_docs)
 
-        seen: set[str] = set()
-        results: list[dict[str, Any]] = []
+        results_by_doc: dict[str, dict[str, Any]] = {}
+        seen_blocks: set[str] = set()
 
         for block in blocks:
             doc_id = block_document_id(block)
-            if not doc_id or doc_id in seen:
+            block_id = str(block.get("id") or "")
+            if not doc_id or (block_id and block_id in seen_blocks):
                 continue
 
             doc = live_doc_from_block(block, doc_index, notebook_names)
@@ -352,23 +364,31 @@ class McpServer:
             if not is_live_doc_visible(doc, compiled_ignore, compiled_allow):
                 continue
 
-            seen.add(doc_id)
+            if block_id:
+                seen_blocks.add(block_id)
 
             content = str(block.get("markdown") or block.get("content") or "")
             snippet = extract_snippet(content, keywords)
 
-            results.append({
-                "id": doc_id,
-                "notebook_id": nb_id,
-                "notebook_name": str(doc.get("notebook_name", "")),
-                "hpath": str(doc.get("hpath", "")),
-                "word_count": doc.get("word_count", 0),
-                "block_count": doc.get("block_count", 0),
-                "updated": str(doc.get("updated", "")),
-                "snippet": snippet,
-                "source": "live search",
-            })
+            result = results_by_doc.get(doc_id)
+            if result is None:
+                result = {
+                    "id": doc_id,
+                    "notebook_id": nb_id,
+                    "notebook_name": str(doc.get("notebook_name", "")),
+                    "hpath": str(doc.get("hpath", "")),
+                    "word_count": doc.get("word_count", 0),
+                    "block_count": doc.get("block_count", 0),
+                    "updated": str(doc.get("updated", "")),
+                    "snippet": snippet,
+                    "snippets": [],
+                    "source": "live search",
+                }
+                results_by_doc[doc_id] = result
+            if snippet:
+                result["snippets"].append({"block_id": block_id, "text": snippet})
 
+        results = list(results_by_doc.values())
         results.sort(key=lambda r: (r["notebook_name"].casefold(), r["hpath"].casefold()))
         return results
 

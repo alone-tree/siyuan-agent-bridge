@@ -461,14 +461,25 @@ def search_content(
 ) -> dict[str, Any]:
     types: dict[str, bool] | None = {"document": True, "heading": True} if scope == "headings" else None
     paths: list[str] | None = notebooks if notebooks else None
-    return client.search_full_text(
-        query=query,
-        method=method,
-        types=types,
-        paths=paths,
-        group_by=0,
-        page_size=max(limit * 2, 32),
-    )
+    page_size = max(limit * 20, 64)
+    all_blocks: list[dict[str, Any]] = []
+    page = 1
+    while True:
+        data = client.search_full_text(
+            query=query,
+            method=method,
+            types=types,
+            paths=paths,
+            group_by=0,
+            page=page,
+            page_size=page_size,
+        )
+        blocks = data.get("blocks", []) if isinstance(data, dict) else []
+        all_blocks.extend(blocks)
+        if len(blocks) < page_size:
+            break
+        page += 1
+    return {"blocks": all_blocks}
 
 
 def extract_snippet(text: str, keywords: list[str], context_chars: int = 30) -> str:

@@ -98,6 +98,36 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(client.seen_payloads[0]["paths"], ["nb1"])
         self.assertEqual(client.seen_payloads[0]["group_by"], 0)
 
+    def test_find_documents_keeps_all_matching_blocks_per_document(self):
+        client = FakeSearchClient([
+            {
+                "id": "block1",
+                "rootID": "doc1",
+                "box": "nb1",
+                "type": "NodeParagraph",
+                "markdown": "第一个密匙在这里。",
+                "content": "第一个<mark>密匙</mark>在这里。",
+                "hPath": "/Projects/Doc One",
+                "path": "/doc1.sy",
+            },
+            {
+                "id": "block2",
+                "rootID": "doc1",
+                "box": "nb1",
+                "type": "NodeParagraph",
+                "markdown": "第二个密匙也在这里。",
+                "content": "第二个<mark>密匙</mark>也在这里。",
+                "hPath": "/Projects/Doc One",
+                "path": "/doc1.sy",
+            },
+        ])
+        output = self.run_find(client, {"keyword": "密匙", "mode": "keyword", "scope": "full", "notebooks": "nb1"})
+
+        self.assertIn("block1", output)
+        self.assertIn("block2", output)
+        self.assertIn("第一个密匙", output)
+        self.assertIn("第二个密匙", output)
+
     def test_find_documents_filters_live_results_with_privacy_rules(self):
         (self.root / "siyuan.ignore.local.json").write_text(
             json.dumps({"ignore": [{"scope": "document", "id": "doc2"}]}, ensure_ascii=False),
