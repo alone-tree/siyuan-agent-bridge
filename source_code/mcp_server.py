@@ -641,6 +641,9 @@ class McpServer:
             plural = "s" if count != 1 else ""
             return f"# Privacy: close temporary allow\n\nCleared {count} temporary allow rule{plural}. Hidden items are closed again."
 
+        confirmed = bool(args.get("confirmed"))
+        if not confirmed:
+            raise ValueError("confirmed=true is required for open. Only set after explicit user approval.")
         scope = str(args.get("scope") or "").strip()
         if scope not in ("notebook", "document", "subtree"):
             raise ValueError("scope must be notebook, document, or subtree")
@@ -861,7 +864,7 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_temporary_allow",
-            "description": "Manage temporary allow rules for hidden content. action='open': temporarily allow a hidden notebook, document, or subtree (expires in N minutes). action='close': immediately clear all temporary allow rules. Items become hidden again after expiry or close.",
+            "description": "Manage temporary allow rules for hidden content. action='open': temporarily allow a hidden notebook, document, or subtree (expires in N minutes, requires confirmed=true). action='close': immediately clear all temporary allow rules. Items become hidden again after expiry or close.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -870,6 +873,7 @@ def tool_specs() -> list[dict[str, Any]]:
                     "locator": {"type": "string", "description": "Notebook name/id, document id, exact hpath, title, or unique partial match. Required for action='open'."},
                     "minutes": {"type": "integer", "default": 60, "description": "How many minutes before the allow expires. Only for action='open'."},
                     "reason": {"type": "string", "description": "Optional reason for the temporary allow."},
+                    "confirmed": {"type": "boolean", "description": "Must be true for action='open'. Only set after explicit user approval."},
                 },
                 "additionalProperties": False,
             },

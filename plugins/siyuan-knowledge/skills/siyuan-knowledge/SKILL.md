@@ -33,7 +33,7 @@ If MCP tools are unavailable, tell the user the SiYuan knowledge MCP is not regi
 - `siyuan_propose_guide_update`: save a suggested guide improvement in `ai_workspace/` without modifying the guide.
 - `siyuan_apply_guide_update`: update `knowledge_base/guide.md` only after explicit user approval.
 - `siyuan_privacy`: manage persistent hide rules. `action="hide"` hides a notebook/document/subtree and refreshes. `action="unhide"` removes the rule and refreshes. Both require `confirmed=true`. Changes persist across sessions.
-- `siyuan_temporary_allow`: manage temporary allow rules. `action="open"` temporarily allows a hidden item (expires in N minutes, no index refresh). `action="close"` immediately clears all temporary allows.
+- `siyuan_temporary_allow`: manage temporary allow rules. `action="open"` temporarily allows a hidden item (expires in N minutes, no index refresh, requires `confirmed=true`). `action="close"` immediately clears all temporary allows.
 
 ## Safety Rules
 
@@ -44,4 +44,4 @@ If MCP tools are unavailable, tell the user the SiYuan knowledge MCP is not regi
 - Do not scan all of `knowledge_base/tree.md` — use the notebook overview table from `siyuan_start`.
 - Do not force long documents into one response — use the `chunk` parameter on `siyuan_read_document`.
 - Put derived analysis and drafts in `ai_workspace/`.
-- Always require `confirmed=true` for `siyuan_privacy`; never auto-confirm.
+- Always require `confirmed=true` for `siyuan_privacy` and `siyuan_temporary_allow` (open); never auto-confirm.
