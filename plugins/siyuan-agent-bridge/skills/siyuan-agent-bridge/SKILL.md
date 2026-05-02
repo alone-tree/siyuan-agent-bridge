@@ -25,8 +25,8 @@ description: Use when the user wants to read or search their private SiYuan note
 
 - `siyuan_start` —— 始终最先调用。
 - `siyuan_find_documents` —— 搜索知识库，通过思源 API 实时搜索后经隐私规则过滤返回结果。
-- `siyuan_read_document` —— 附件（图片、PDF 等）自动提取到 `ai_workspace/attachments/<doc-id>/`，保留原始引用。
-- `siyuan_privacy` / `siyuan_temporary_allow`（open）—— 必须 `confirmed=true`，仅在用户明确批准后设置。
+- `siyuan_read_document` —— 只读取可见文档；隐藏文档即使已知 ID 也不会被读取，除非先显式临时开放。附件（图片、PDF 等）自动提取到 `ai_workspace/attachments/<doc-id>/`，保留原始引用。
+- `siyuan_privacy` / `siyuan_temporary_allow`（open）—— 必须 `confirmed=true`，仅在用户明确批准后设置。`document` 表示该文档及其所有子文档。
 
 ## Safety Rules
 

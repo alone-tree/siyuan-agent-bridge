@@ -22,7 +22,7 @@ IGNORE_TEMPLATE = {
         {
             "scope": "document",
             "id": "document-id-to-hide",
-            "reason": "Hide exactly one document.",
+            "reason": "Hide this document and all child documents under it.",
         },
         {
             "scope": "subtree",
@@ -193,9 +193,9 @@ def make_privacy_rule(
 
 
 def rules_equivalent(left: dict[str, Any], right: dict[str, Any]) -> bool:
-    if _scope(left) != _scope(right):
+    if _equivalent_scope(_scope(left)) != _equivalent_scope(_scope(right)):
         return False
-    scope = _scope(left)
+    scope = _equivalent_scope(_scope(left))
     if scope == "notebook":
         left_id = str(left.get("id") or left.get("notebook_id") or "")
         right_id = str(right.get("id") or right.get("notebook_id") or "")
@@ -250,7 +250,7 @@ def compile_rules(rules: Iterable[dict[str, Any]], docs: list[dict[str, Any]]) -
     for rule in rules:
         normalized = dict(rule)
         scope = _scope(normalized)
-        if scope == "subtree" and normalized.get("id") and not normalized.get("hpath"):
+        if scope in ("document", "subtree") and normalized.get("id") and not normalized.get("hpath"):
             root = by_id.get(str(normalized["id"]))
             if root:
                 normalized["notebook_id"] = root.get("notebook_id")
@@ -275,7 +275,7 @@ def rule_matches_doc(rule: dict[str, Any], doc: dict[str, Any]) -> bool:
         notebook = {"id": doc.get("notebook_id"), "name": doc.get("notebook_name")}
         return rule_matches_notebook(rule, notebook)
     if scope == "document":
-        return _matches_document_identity(rule, doc)
+        return _matches_subtree(rule, doc)
     if scope == "subtree":
         return _matches_subtree(rule, doc)
     return False
@@ -319,6 +319,10 @@ def _matches_subtree(rule: dict[str, Any], doc: dict[str, Any]) -> bool:
 
 def _scope(rule: dict[str, Any]) -> str:
     return str(rule.get("scope") or rule.get("type") or "").strip().casefold()
+
+
+def _equivalent_scope(scope: str) -> str:
+    return "document" if scope == "subtree" else scope
 
 
 def _normalize_hpath(value: Any) -> str:

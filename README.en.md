@@ -54,12 +54,12 @@ If MCP is unavailable, register or repair the MCP server first. The Python CLI i
 - `siyuan_start`: refresh the safe index and return the startup packet with notebook overview table, index.md (when it exists), START_HERE.md, and guide.md. Always call first.
 - `siyuan_refresh_index`: refresh safe indexes mid-session when the user explicitly asks. Also cleans `ai_workspace/` (preserves README.md).
 - `siyuan_list`: list visible notebooks (no args) or return the document tree for one notebook (with `notebook_id`), including word counts and update times.
-- `siyuan_find_documents`: search safe-index titles/paths/tags plus live SiYuan block content when available, with 4 modes (`keyword`/`query`/`regex`/`sql`), 2 scopes (`headings`/`full`), optional notebook filter.
-- `siyuan_read_document`: read a document with outline. Short docs return full text; long docs return one chunk; use `chunk=N` to navigate. Attachments (images, PDFs, spreadsheets, etc.) are automatically extracted to `ai_workspace/`, preserving original references unchanged.
+- `siyuan_find_documents`: search through SiYuan search APIs, then apply privacy rules before returning results. Supports 4 modes (`keyword`/`query`/`regex`/`sql`), 2 scopes (`headings`/`full`), and optional notebook filters.
+- `siyuan_read_document`: read a visible document with outline. Hidden documents are not readable through MCP even when their IDs are known, unless they are explicitly opened with a temporary allow rule first. Short docs return full text; long docs return one chunk; use `chunk=N` to navigate. Attachments (images, PDFs, spreadsheets, etc.) are automatically extracted to `ai_workspace/`, preserving original references unchanged.
 - `siyuan_propose_guide_update`: save a proposed guide update in `ai_workspace/`.
 - `siyuan_apply_guide_update`: update `knowledge_base/guide.md` only after explicit user approval (requires `confirmed=true`).
-- `siyuan_privacy`: manage persistent hide rules. `action="hide"` or `"unhide"`, requires `confirmed=true`.
-- `siyuan_temporary_allow`: manage temporary allow rules. `action="open"` (expires in N minutes, requires `confirmed=true`), `action="close"` (clear all).
+- `siyuan_privacy`: manage persistent hide rules. `action="hide"` or `"unhide"`, requires `confirmed=true`. Hiding a `document` hides that document and all child documents.
+- `siyuan_temporary_allow`: manage temporary allow rules. `action="open"` (expires in N minutes, requires `confirmed=true`), `action="close"` (clear all). Temporarily allowing a `document` allows that document and all child documents.
 
 ## Long Documents
 

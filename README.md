@@ -34,7 +34,7 @@ SiYuan Agent Bridge 是一个私有、本地优先的思源笔记适配器。它
 2. 如果某些内容要隐藏，告诉 AI：“隐藏xx笔记本/xx文档”。对于文档，建议告诉AI文档ID而非文档名称，因为名称可能重复但ID不会。
 3. AI会将指定内容加入隐藏规则，在AI看来，被隐藏的内容几乎相当于不存在。
 
-**当前隐私保护功能缺陷：**不在文档树列表、检索会提示无结果、使用文档ID强制阅读会提示不存在。但如果可见文档中引用了该文档，会留下引用痕迹，比如引用的块ID或者文档ID等。在极端情况下，AI可能拿到文档ID并自行解除隐藏。目前暂时没有想到很好的办法，未来可能会开发图形化界面，将文档隐藏功能转为人工设定，不对AI开放任何接口（但现在还没有实现）。
+**当前隐私保护功能缺陷：**不在文档树列表、检索会提示无结果、使用文档ID强制阅读会提示不存在。但如果可见文档中引用了该隐藏的文档，会留下引用痕迹，比如引用的块ID或者文档ID等。AI通过拿到隐藏文档的ID直接读取是不可行的。但在极端情况下，AI可能拿到文档ID并自行解除隐藏（通过使用MCP工具），进而能够阅读。目前暂时没有想到很好的办法，未来可能会开发图形化界面，将文档隐藏功能转为人工设定，不对AI开放任何接口（但现在还没有将其提上日程）。
 
 ## Agent 启动流程
 
@@ -60,11 +60,11 @@ siyuan_start
 - `siyuan_refresh_index`：在用户明确要求时，在会话中途刷新安全索引（siyuan_start 已在启动时刷新）。
 - `siyuan_list`：无参数时列出所有可见笔记本；给定 `notebook_id` 时返回文档树，含字数和更新时间。
 - `siyuan_find_documents`：通过思源搜索 API 检索标题/大纲/正文块，返回前应用隐藏规则过滤；搜索时会临时打开关闭的笔记本并在结束后恢复。支持 4 种模式（`keyword`/`query`/`regex`/`sql`）、2 种范围（`headings`/`full`），可选限定笔记本。同一文档默认展示前 5 个命中块，可用 `max_snippets_per_doc` 调整，并会报告总命中块数。
-- `siyuan_read_document`：读取文档，始终返回大纲。短文档返回全文，长文档每次返回一个分段，用 `chunk=N` 跳转。自动提取文档中的附件（图片、PDF、表格等）到 `ai_workspace/`，保留原始引用不变。
+- `siyuan_read_document`：读取可见文档，始终返回大纲。隐藏文档即使已知 ID 也不会被读取，除非先显式临时开放。短文档返回全文，长文档每次返回一个分段，用 `chunk=N` 跳转。自动提取文档中的附件（图片、PDF、表格等）到 `ai_workspace/`，保留原始引用不变。
 - `siyuan_propose_guide_update`：把建议的指南更新保存到 `ai_workspace/`，不直接修改指南。
 - `siyuan_apply_guide_update`：只有在用户明确批准后，才追加或替换 `knowledge_base/guide.md`（需 `confirmed=true`）。
-- `siyuan_privacy`：管理持久隐藏规则。`action="hide"` 隐藏，`action="unhide"` 取消，需 `confirmed=true`。
-- `siyuan_temporary_allow`：管理临时开放规则。`action="open"`（N分钟后过期，需 `confirmed=true`），`action="close"`（清除全部）。
+- `siyuan_privacy`：管理持久隐藏规则。`action="hide"` 隐藏，`action="unhide"` 取消，需 `confirmed=true`。隐藏 `document` 会隐藏该文档及其所有子文档。
+- `siyuan_temporary_allow`：管理临时开放规则。`action="open"`（N分钟后过期，需 `confirmed=true`），`action="close"`（清除全部）。临时开放 `document` 会开放该文档及其所有子文档。
 
 ## 长文档
 

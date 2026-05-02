@@ -71,6 +71,18 @@ class McpServerTests(unittest.TestCase):
                 "block_count": 2,
                 "updated": "20260501010102",
             },
+            {
+                "id": "doc3",
+                "notebook_id": "nb1",
+                "notebook_name": "Main",
+                "hpath": "/Projects/Doc One/Child",
+                "title": "Child",
+                "path": "/doc3.sy",
+                "tags": [],
+                "word_count": 30,
+                "block_count": 1,
+                "updated": "20260501010103",
+            },
         ]
         (base / "docs.jsonl").write_text(
             "".join(json.dumps(doc, ensure_ascii=False) + "\n" for doc in docs),
@@ -197,6 +209,28 @@ class McpServerTests(unittest.TestCase):
 
         self.assertIn("No matching visible documents", output)
         self.assertNotIn("doc2", output)
+
+    def test_find_documents_document_privacy_hides_child_live_results(self):
+        (self.root / "siyuan.ignore.local.json").write_text(
+            json.dumps({"ignore": [{"scope": "document", "id": "doc1"}]}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        client = FakeSearchClient([
+            {
+                "id": "block3",
+                "rootID": "doc3",
+                "box": "nb1",
+                "type": "NodeParagraph",
+                "markdown": "子文档里有密匙。",
+                "content": "子文档里有<mark>密匙</mark>。",
+                "hPath": "/Projects/Doc One/Child",
+                "path": "/doc1/doc3.sy",
+            }
+        ])
+        output = self.run_find(client, {"keyword": "密匙", "mode": "keyword", "scope": "full", "notebooks": "nb1"})
+
+        self.assertIn("No matching visible documents", output)
+        self.assertNotIn("doc3", output)
 
     def test_find_documents_filters_notebook_name_rules_with_live_names(self):
         (self.root / "siyuan.ignore.local.json").write_text(

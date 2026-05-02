@@ -85,7 +85,7 @@ def build_parser() -> argparse.ArgumentParser:
     read.add_argument("locator", help="Document id, exact hpath, title, or unique partial match.")
     read.set_defaults(func=cmd_read)
 
-    hide = sub.add_parser("hide", help="Hide a notebook, document, or document subtree, then refresh indexes.")
+    hide = sub.add_parser("hide", help="Hide a notebook, document tree, or explicit subtree, then refresh indexes.")
     hide.add_argument("scope", choices=("notebook", "document", "subtree"))
     hide.add_argument("locator", help="Notebook name/id, document id, exact hpath, title, or unique partial match.")
     hide.add_argument("--reason", default="")
@@ -96,7 +96,7 @@ def build_parser() -> argparse.ArgumentParser:
     unhide.add_argument("locator", help="Notebook name/id, document id, exact hpath, title, or unique partial match.")
     unhide.set_defaults(func=cmd_unhide)
 
-    allow = sub.add_parser("allow", help="Temporarily allow a hidden notebook, document, or subtree.")
+    allow = sub.add_parser("allow", help="Temporarily allow a hidden notebook, document tree, or explicit subtree.")
     allow.add_argument("scope", choices=("notebook", "document", "subtree"))
     allow.add_argument("locator", help="Notebook name/id, document id, exact hpath, title, or unique partial match.")
     allow.add_argument("--minutes", type=int, default=60)
@@ -113,7 +113,7 @@ def build_parser() -> argparse.ArgumentParser:
     ignore_status.add_argument("--verbose", action="store_true", help="Print rule details.")
     ignore_status.set_defaults(func=cmd_ignore_status)
 
-    ignore_allow = ignore_sub.add_parser("allow", help="Temporarily allow an ignored notebook/document/subtree.")
+    ignore_allow = ignore_sub.add_parser("allow", help="Temporarily allow an ignored notebook/document tree/subtree.")
     ignore_allow.add_argument("locator", help="Notebook id, document id, exact hpath, title, or unique partial match.")
     ignore_allow.add_argument("--scope", choices=("notebook", "document", "subtree"), default="document")
     ignore_allow.add_argument("--minutes", type=int, default=60)

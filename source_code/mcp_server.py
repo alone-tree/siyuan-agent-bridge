@@ -713,7 +713,7 @@ def is_live_doc_visible(
 def rule_matches_live_doc(rule: dict[str, Any], doc: dict[str, Any]) -> bool:
     if rule_matches_doc(rule, doc):
         return True
-    if str(rule.get("scope") or "").strip().casefold() != "subtree":
+    if str(rule.get("scope") or "").strip().casefold() not in ("document", "subtree"):
         return False
     root_id = str(rule.get("id") or "")
     path = str(doc.get("path") or "")
@@ -881,12 +881,12 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_privacy",
-            "description": "Manage persistent hide rules. action='hide': hide a notebook, document, or subtree and refresh the index. action='unhide': remove the hide rule and refresh. Both require confirmed=true. Changes persist across sessions.",
+            "description": "Manage persistent hide rules. action='hide': hide a notebook, document tree, or explicit subtree and refresh the index. Document rules hide the document and all child documents under it. action='unhide': remove the hide rule and refresh. Both require confirmed=true. Changes persist across sessions.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "action": {"type": "string", "enum": ["hide", "unhide"], "description": "Whether to add or remove a hide rule."},
-                    "scope": {"type": "string", "enum": ["notebook", "document", "subtree"], "description": "What to hide or unhide."},
+                    "scope": {"type": "string", "enum": ["notebook", "document", "subtree"], "description": "What to hide or unhide. document hides that document and all child documents."},
                     "locator": {"type": "string", "description": "Notebook name/id, document id, exact hpath, title, or unique partial match."},
                     "reason": {"type": "string", "description": "Optional reason for hiding."},
                     "confirmed": {"type": "boolean", "description": "Must be true. This is a destructive privacy action."},
@@ -897,12 +897,12 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_temporary_allow",
-            "description": "Manage temporary allow rules for hidden content. action='open': temporarily allow a hidden notebook, document, or subtree (expires in N minutes, requires confirmed=true). action='close': immediately clear all temporary allow rules. Items become hidden again after expiry or close.",
+            "description": "Manage temporary allow rules for hidden content. action='open': temporarily allow a hidden notebook, document tree, or explicit subtree (expires in N minutes, requires confirmed=true). Document rules allow that document and all child documents. action='close': immediately clear all temporary allow rules. Items become hidden again after expiry or close.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "action": {"type": "string", "enum": ["open", "close"], "default": "open", "description": "open = add a temporary allow rule; close = clear all temporary allow rules."},
-                    "scope": {"type": "string", "enum": ["notebook", "document", "subtree"], "description": "What to temporarily allow. Required for action='open'."},
+                    "scope": {"type": "string", "enum": ["notebook", "document", "subtree"], "description": "What to temporarily allow. document allows that document and all child documents. Required for action='open'."},
                     "locator": {"type": "string", "description": "Notebook name/id, document id, exact hpath, title, or unique partial match. Required for action='open'."},
                     "minutes": {"type": "integer", "default": 60, "description": "How many minutes before the allow expires. Only for action='open'."},
                     "reason": {"type": "string", "description": "Optional reason for the temporary allow."},
