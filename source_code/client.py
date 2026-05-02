@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from typing import Any, Callable
-from urllib import error, request
+from urllib import error, parse, request
 
 
 Transport = Callable[[request.Request, float], Any]
@@ -85,6 +85,23 @@ class SiYuanClient:
         if isinstance(data, str):
             return data
         raise SiYuanApiError("Unexpected kramdown response shape")
+
+    def get_asset(self, asset_path: str) -> bytes:
+        """Download an asset file from SiYuan's HTTP asset server."""
+        parts = asset_path.lstrip("/").split("/")
+        encoded = "/".join(parse.quote(p, safe="") for p in parts)
+        url = f"{self.base_url}/{encoded}"
+        req = request.Request(url, method="GET")
+        if self.token:
+            req.add_header("Authorization", f"Token {self.token}")
+        try:
+            opener = self.transport or request.urlopen
+            with opener(req, timeout=self.timeout) as response:
+                return response.read()
+        except error.HTTPError as exc:
+            raise SiYuanApiError(f"Asset not found: {asset_path}", status=exc.code) from exc
+        except error.URLError as exc:
+            raise SiYuanConnectionError(str(exc.reason)) from exc
 
     def search_full_text(
         self,

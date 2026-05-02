@@ -58,7 +58,7 @@ siyuan_start
 - `siyuan_refresh_index`：在用户明确要求时，在会话中途刷新安全索引（siyuan_start 已在启动时刷新）。
 - `siyuan_list`：无参数时列出所有可见笔记本；给定 `notebook_id` 时返回文档树，含字数和更新时间。
 - `siyuan_find_documents`：搜索安全索引里的标题/路径/tag，并在可用时补充思源实时块搜索，支持 4 种模式（`keyword`/`query`/`regex`/`sql`）、2 种范围（`headings`/`full`），可选限定笔记本。
-- `siyuan_read_document`：读取文档，始终返回大纲。短文档返回全文，长文档每次返回一个分段，用 `chunk=N` 跳转。
+- `siyuan_read_document`：读取文档，始终返回大纲。短文档返回全文，长文档每次返回一个分段，用 `chunk=N` 跳转。自动提取文档中的附件（图片、PDF、表格等）到 `ai_workspace/`，保留原始引用不变。
 - `siyuan_propose_guide_update`：把建议的指南更新保存到 `ai_workspace/`，不直接修改指南。
 - `siyuan_apply_guide_update`：只有在用户明确批准后，才追加或替换 `knowledge_base/guide.md`（需 `confirmed=true`）。
 - `siyuan_privacy`：管理持久隐藏规则。`action="hide"` 隐藏，`action="unhide"` 取消，需 `confirmed=true`。

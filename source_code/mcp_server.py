@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .cli import get_working_client, load_live_docs, resolve_privacy_locator
-from .client import SiYuanApiError, SiYuanConnectionError
+from .client import SiYuanApiError, SiYuanClient, SiYuanConnectionError
 from .config import load_config
 from .ignore import (
     add_persistent_ignore,
@@ -487,12 +487,13 @@ class McpServer:
         client = get_working_client(config)
         with ensure_notebooks_open(client, [notebook_id]):
             markdown = client.export_markdown(str(doc["id"]))
+        doc_id = str(doc.get("id"))
+        attachment_count = extract_attachments(markdown, client, doc_id, self.root)
         max_chars = clamp_int(args.get("max_chars"), DEFAULT_CHUNK_CHARS, 2000, MAX_CHUNK_CHARS)
         chunk_param = int(args.get("chunk") or 0)
         chunks = split_markdown_chunks(markdown, max_chars=max_chars)
 
         doc_path = str(doc.get("hpath") or doc.get("title") or doc.get("id"))
-        doc_id = str(doc.get("id"))
         markdown_wc = compute_word_count(markdown)
         date = format_date(str(doc.get("updated", "")))
 
@@ -501,6 +502,8 @@ class McpServer:
             f"Document ID: `{doc_id}`",
             f"字数: {markdown_wc:,} | 块数: {doc.get('block_count', 0)} | 字符: {len(markdown):,} | 更新: {date}",
         ]
+        if attachment_count:
+            header_lines.append(f"附件: {attachment_count} 个已提取到 ai_workspace/attachments/{doc_id}/")
         header = "\n".join(header_lines)
 
         outline = build_outline(markdown, chunks, max_chars)
@@ -949,6 +952,30 @@ def first_heading(markdown: str) -> str:
 
 def find_markdown_images(markdown: str) -> list[str]:
     return re.findall(r"!\[[^\]]*\]\(([^)]+)\)", markdown)
+
+
+def extract_attachments(markdown: str, client: SiYuanClient, doc_id: str, workspace_root: Path) -> int:
+    """Extract all assets (images, PDF, etc.) referenced in markdown to ai_workspace/attachments/<doc_id>/.
+    Preserves the original assets/ directory structure. Returns count of successfully extracted files."""
+    assets = re.findall(r"\]\(assets/([^)]+)\)", markdown)
+    if not assets:
+        return 0
+
+    dest_dir = workspace_root / "ai_workspace" / "attachments" / doc_id / "assets"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    count = 0
+    for filename in assets:
+        try:
+            data = client.get_asset(f"assets/{filename}")
+            filepath = dest_dir / filename
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            filepath.write_bytes(data)
+            count += 1
+        except Exception:
+            pass
+
+    return count
 
 
 def build_outline(markdown: str, chunks: list[str], max_chars: int) -> str:

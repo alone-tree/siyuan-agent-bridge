@@ -15,7 +15,7 @@ It is not a SiYuan plugin, not a public package, and not a vector-search system.
 - Computes full-document word counts from exported Markdown for visible documents, so agents can use length as an importance signal.
 - Provides MCP tools for Claude Code, Codex, OpenCode, and similar agents.
 - Chunks long documents. The default chunk size is 10,000 characters and can be adjusted with `max_chars`.
-- Preserves Markdown image references inside document chunks, so image-heavy notes keep surrounding text context.
+- Automatically extracts attachments (images, PDFs, spreadsheets, etc.) referenced in documents to `ai_workspace/` so AI can read them alongside the text. Original Markdown references are preserved unchanged.
 - Supports CC Switch skill import and MCP registration.
 
 ## Normal Workflow
@@ -52,14 +52,14 @@ If MCP is unavailable, register or repair the MCP server first. The Python CLI i
 ## MCP Tools
 
 - `siyuan_start`: refresh the safe index and return the startup packet with notebook overview table, index.md (when it exists), START_HERE.md, and guide.md. Always call first.
-- `siyuan_refresh_index`: refresh safe indexes mid-session when the user explicitly asks.
+- `siyuan_refresh_index`: refresh safe indexes mid-session when the user explicitly asks. Also cleans `ai_workspace/` (preserves README.md).
 - `siyuan_list`: list visible notebooks (no args) or return the document tree for one notebook (with `notebook_id`), including word counts and update times.
 - `siyuan_find_documents`: search safe-index titles/paths/tags plus live SiYuan block content when available, with 4 modes (`keyword`/`query`/`regex`/`sql`), 2 scopes (`headings`/`full`), optional notebook filter.
-- `siyuan_read_document`: read a document with outline. Short docs return full text; long docs return one chunk; use `chunk=N` to navigate.
+- `siyuan_read_document`: read a document with outline. Short docs return full text; long docs return one chunk; use `chunk=N` to navigate. Attachments (images, PDFs, spreadsheets, etc.) are automatically extracted to `ai_workspace/`, preserving original references unchanged.
 - `siyuan_propose_guide_update`: save a proposed guide update in `ai_workspace/`.
 - `siyuan_apply_guide_update`: update `knowledge_base/guide.md` only after explicit user approval (requires `confirmed=true`).
 - `siyuan_privacy`: manage persistent hide rules. `action="hide"` or `"unhide"`, requires `confirmed=true`.
-- `siyuan_temporary_allow`: manage temporary allow rules. `action="open"` (expires in N minutes) or `"close"` (clear all).
+- `siyuan_temporary_allow`: manage temporary allow rules. `action="open"` (expires in N minutes, requires `confirmed=true`), `action="close"` (clear all).
 
 ## Long Documents
 
