@@ -94,7 +94,12 @@ class McpServer:
         try:
             text = tools[name](args)
             return make_result(request_id, {"content": [{"type": "text", "text": text}]})
-        except (SiYuanConnectionError, SiYuanApiError, ValueError, FileNotFoundError) as exc:
+        except SiYuanConnectionError as exc:
+            return make_result(
+                request_id,
+                {"content": [{"type": "text", "text": "思源笔记似乎没有启动，请提示用户手动打开思源笔记后重试。"}], "isError": True},
+            )
+        except (SiYuanApiError, ValueError, FileNotFoundError) as exc:
             return make_result(
                 request_id,
                 {"content": [{"type": "text", "text": f"Tool failed: {exc}"}], "isError": True},
@@ -108,22 +113,38 @@ class McpServer:
         base = self.root / KNOWLEDGE_BASE_DIR
         start_here = _read_optional(self.root / "START_HERE.md")
         guide = _read_optional(base / "guide.md")
+        index_md = _read_optional(base / "index.md")
         overview = build_notebook_overview(self.root)
-        return "\n".join([
+        parts: list[str] = [
             "# SiYuan Knowledge Startup Packet",
             "",
             f"SiYuan connection: OK, version {version}",
             "",
             overview,
+        ]
+        if index_md:
+            parts.extend([
+                "",
+                "## Semantic Index (index.md)",
+                "",
+                index_md.strip(),
+            ])
+        else:
+            parts.extend([
+                "",
+                "> 当前没有导航索引。如果你希望 AI 更快速地定位到相关内容，可以告诉 AI 先快速扫一遍我的笔记本结构，创建一个导航索引。之后每次新会话启动，AI 都能直接拿到这份导航。",
+            ])
+        parts.extend([
             "",
             "## Mandatory Workflow",
             "",
             "1. Use this startup packet first.",
-            "2. Follow `knowledge_base/guide.md` for durable preferences.",
-            "3. Use the notebook overview above to choose relevant notebooks.",
-            "4. Use `siyuan_list_documents` to see one notebook's document tree.",
-            "5. Read documents with `siyuan_read_document`.",
-            "6. Use `siyuan_refresh_index` mid-session only when the user explicitly asks to refresh.",
+            "2. If an index.md was provided above, use its quick navigation table to locate relevant notebooks.",
+            "3. Follow `knowledge_base/guide.md` for durable preferences.",
+            "4. Use the notebook overview table to choose relevant notebooks.",
+            "5. Use `siyuan_list_documents` to see one notebook's document tree.",
+            "6. Read documents with `siyuan_read_document`.",
+            "7. Use `siyuan_refresh_index` mid-session only when the user explicitly asks to refresh.",
             "",
             "## Start Here",
             "",
@@ -134,6 +155,7 @@ class McpServer:
             guide.strip() if guide else "(guide.md is missing — run `python -m source_code refresh`)",
             "",
         ])
+        return "\n".join(parts)
 
     def siyuan_refresh_index(self, _args: dict[str, Any]) -> str:
         config = load_config(self.root)
@@ -633,7 +655,7 @@ def tool_specs() -> list[dict[str, Any]]:
     return [
         {
             "name": "siyuan_start",
-            "description": "Refresh the safe index and return the mandatory startup packet with notebook overview table, START_HERE.md, and guide.md. Always call this first — it ensures the index is up to date.",
+            "description": "Refresh the safe index and return the mandatory startup packet: notebook overview table, index.md (if it exists — an AI-generated semantic navigation map), START_HERE.md, and guide.md. Always call this first — it ensures the index is up to date.",
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
         {

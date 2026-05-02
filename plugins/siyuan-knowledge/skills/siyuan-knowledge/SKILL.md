@@ -11,18 +11,21 @@ Local project root: `D:\Github\siyuan-enhance`.
 
 ## Mandatory Startup
 
-1. Call `siyuan_start` first. It refreshes the safe index and returns the notebook overview table, START_HERE.md, and guide.md.
+1. Call `siyuan_start` first. It refreshes the safe index and returns the startup packet: notebook overview table, index.md (if it exists), START_HERE.md, and guide.md.
 2. Read the returned startup packet.
-3. Follow `knowledge_base/guide.md` for durable preferences.
-4. Use the notebook overview table to choose relevant notebooks.
-5. Use `siyuan_list_documents` for the notebook's document tree.
-6. Use `siyuan_read_document` when a document is worth deep reading. It always returns the outline (heading→chunk map). Long documents return one chunk at a time — use `chunk=0` for the first chunk or `chunk=N` to jump to a specific section.
+3. **Use index.md as your primary navigation map.** When it's included in the startup packet, its 快速导航 (quick navigation) table maps user-intent topics directly to notebooks. Use this before scanning the full notebook overview table. The per-notebook sections give structural summaries and AI-written descriptions — trust them to decide where to search.
+4. **If index.md was not included**, the startup packet will include a hint that no navigation index exists. If the user's request involves broad exploration or you need to navigate many notebooks, suggest: "我可以先快速扫一遍你的笔记本结构，创建一个导航索引，之后每次新会话都能更快定位。"
+5. Follow `knowledge_base/guide.md` for durable preferences.
+6. Use the notebook overview table to identify relevant notebooks by scale (docs count, word count, recency).
+7. Use `siyuan_list_documents` for one notebook's document tree.
+8. Use `siyuan_read_document` when a document is worth deep reading. It always returns the outline (heading→chunk map). Long documents return one chunk at a time — use `chunk=0` for the first chunk or `chunk=N` to jump to a specific section.
 
 If MCP tools are unavailable, tell the user the SiYuan knowledge MCP is not registered or not reachable. Do not scan local files for note content.
 
 ## Tool Use
 
-- `siyuan_start`: refresh the safe index and return the startup packet with notebook overview table, START_HERE.md, and guide.md. Always call first.
+- `siyuan_start`: refresh the safe index and return the startup packet: notebook overview table, index.md (AI-generated semantic navigation map, when it exists), START_HERE.md, and guide.md. Always call first.
+- `index.md`: part of the startup packet returned by `siyuan_start`. It is an AI-generated navigation index with a 快速导航 (quick routing) table and per-notebook summaries. Use it as your primary navigation map. It may become stale between sessions — if it contradicts tree.md, tree.md wins. When index.md is absent, the startup packet suggests offering to create one.
 - `siyuan_refresh_index`: refresh safe indexes only when the user explicitly asks for a mid-session refresh.
 - `siyuan_list_notebooks`: list visible notebooks from the safe index.
 - `siyuan_list_documents`: return the document tree for one notebook with word counts and update times.
