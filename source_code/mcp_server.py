@@ -216,8 +216,9 @@ class McpServer:
         docs.sort(key=lambda d: (str(d.get("hpath", "")).casefold(), str(d.get("id", ""))))
         nb_name = self._notebook_name(notebook_id)
         total_words = sum(d.get("word_count", 0) for d in docs)
+        total_blocks = sum(d.get("block_count", 0) for d in docs)
         lines = [
-            f"# {nb_name} (`{notebook_id}`) | {len(docs)} docs | {total_words:,} 字",
+            f"# {nb_name} (`{notebook_id}`) | {len(docs)} docs | {total_words:,} 字 | {total_blocks} 块",
             "",
         ]
         lines.extend(render_doc_tree(docs))
@@ -314,12 +315,13 @@ class McpServer:
             lines.append(f"## {nb_name} ({len(items)} matches)")
             for item in items[:remaining]:
                 wc = item.get("word_count", 0)
+                bc = item.get("block_count", 0)
                 date = format_date(str(item.get("updated", "")))
                 hpath = str(item.get("hpath") or "/")
                 doc_id = str(item.get("id") or "")
                 source = str(item.get("source") or "")
                 source_text = f" [{source}]" if source else ""
-                lines.append(f"- `{doc_id}` {hpath} {wc:,}字 {date}{source_text}".rstrip())
+                lines.append(f"- `{doc_id}` {hpath} {wc:,}字 {bc}块 {date}{source_text}".rstrip())
                 snippet = item.get("snippet", "")
                 if snippet:
                     lines.append(f"  > {snippet}")
@@ -365,6 +367,7 @@ class McpServer:
                 "notebook_name": str(doc.get("notebook_name", "")),
                 "hpath": str(doc.get("hpath", "")),
                 "word_count": doc.get("word_count", 0),
+                "block_count": doc.get("block_count", 0),
                 "updated": str(doc.get("updated", "")),
                 "snippet": snippet,
                 "source": "safe index",
@@ -413,6 +416,7 @@ class McpServer:
                 "notebook_name": str(doc.get("notebook_name", "")),
                 "hpath": str(doc.get("hpath", "")),
                 "word_count": doc.get("word_count", 0),
+                "block_count": doc.get("block_count", 0),
                 "updated": str(doc.get("updated", "")),
                 "snippet": snippet,
                 "source": "live search",
@@ -459,6 +463,7 @@ class McpServer:
                 "notebook_name": str(doc.get("notebook_name", "")),
                 "hpath": str(doc.get("hpath", "")),
                 "word_count": doc.get("word_count", 0),
+                "block_count": doc.get("block_count", 0),
                 "updated": str(doc.get("updated", "")),
                 "snippet": "",
                 "source": "sql",
@@ -494,7 +499,7 @@ class McpServer:
         header_lines = [
             f"# Document: {doc_path}",
             f"Document ID: `{doc_id}`",
-            f"字数: {markdown_wc:,} | 更新: {date}",
+            f"字数: {markdown_wc:,} | 块数: {doc.get('block_count', 0)} | 字符: {len(markdown):,} | 更新: {date}",
         ]
         header = "\n".join(header_lines)
 

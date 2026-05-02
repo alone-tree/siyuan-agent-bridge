@@ -13,6 +13,22 @@ class FakeClient:
         return [{"id": "nb1", "name": "Main"}]
 
     def query_sql(self, stmt):
+        # BLOCK_STATS_SQL: GROUP BY root_id
+        if "GROUP BY root_id" in stmt:
+            return [
+                {"root_id": "20260429120000-abcdefg", "block_count": 3, "char_count": 100},
+                {"root_id": "20260429130000-hijklmn", "block_count": 2, "char_count": 50},
+            ]
+        # ALL_CONTENT_SQL: child block content
+        if "ORDER BY root_id" in stmt:
+            return [
+                {"root_id": "20260429120000-abcdefg", "content": "SiYuan Enhance"},
+                {"root_id": "20260429120000-abcdefg", "content": "This document has a longer exported body."},
+                {"root_id": "20260429120000-abcdefg", "content": "More content here."},
+                {"root_id": "20260429130000-hijklmn", "content": "Other"},
+                {"root_id": "20260429130000-hijklmn", "content": "Short body."},
+            ]
+        # DOCS_SQL (default for tests passing empty stmt)
         return [
             {
                 "id": "20260429120000-abcdefg",
@@ -63,7 +79,7 @@ class IndexerTests(unittest.TestCase):
         tree = (root / "knowledge_base" / "tree.md").read_text(encoding="utf-8")
         self.assertIn("SiYuan Enhance", tree)
         self.assertIn("20260429120000-abcdefg", tree)
-        self.assertIn("| Notebook | ID | Docs | 字数 | 最近更新 |", tree)
+        self.assertIn("| Notebook | ID | Docs | 字数 | 块数 | 最近更新 |", tree)
         self.assertIn(" 字", tree)
 
     def test_normalize_documents_extracts_tags(self):
@@ -73,8 +89,8 @@ class IndexerTests(unittest.TestCase):
         self.assertEqual(by_id["20260429120000-abcdefg"]["tags"], ["ai", "notes"])
         self.assertEqual(by_id["20260429120000-abcdefg"]["notebook_name"], "Main")
 
-    def test_refresh_uses_exported_markdown_for_word_count(self):
-        root = Path.cwd() / ".test_tmp" / "indexer_word_count"
+    def test_refresh_populates_block_count_and_word_count(self):
+        root = Path.cwd() / ".test_tmp" / "indexer_stats"
         root.mkdir(parents=True, exist_ok=True)
 
         refresh_index(FakeClient(), root)
@@ -86,7 +102,10 @@ class IndexerTests(unittest.TestCase):
             )
         }
 
-        self.assertGreater(docs["20260429120000-abcdefg"]["word_count"], docs["20260429120000-abcdefg"]["index_word_count"])
+        self.assertEqual(docs["20260429120000-abcdefg"]["block_count"], 3)
+        self.assertGreater(docs["20260429120000-abcdefg"]["word_count"], 0)
+        self.assertIn("block_count", docs["20260429120000-abcdefg"])
+        self.assertNotIn("index_word_count", docs["20260429120000-abcdefg"])
 
     def test_find_and_resolve_documents(self):
         docs = normalize_documents(FakeClient().query_sql(""), FakeClient().list_notebooks())

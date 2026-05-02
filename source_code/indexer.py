@@ -123,7 +123,7 @@ def refresh_index(client: SiYuanClient, root: Path) -> RefreshResult:
     with ensure_notebooks_open(client):
         all_docs = normalize_documents(client.query_sql(DOCS_SQL), all_notebooks)
         docs = filter_documents(all_docs, privacy)
-        update_document_word_counts(client, docs)
+        update_document_stats(client, docs)
 
     write_json(cache_dir / "notebooks.json", notebooks)
     write_jsonl(cache_dir / "docs.jsonl", docs)
@@ -156,6 +156,10 @@ def compute_word_count(text: str | None) -> int:
 
 def format_word_count(count: int) -> str:
     return f"{count:,} 字"
+
+
+def format_block_count(count: int) -> str:
+    return f"{count} 块"
 
 
 def format_date(ts: str) -> str:
@@ -191,7 +195,6 @@ def normalize_documents(
                 "tags": parse_tags(row.get("tag")),
                 "alias": str(row.get("alias") or "").strip(),
                 "memo": str(row.get("memo") or "").strip(),
-                "index_word_count": compute_word_count(row.get("content")),
                 "word_count": compute_word_count(row.get("content")),
                 "created": str(row.get("created") or "").strip(),
                 "updated": str(row.get("updated") or "").strip(),
@@ -201,11 +204,62 @@ def normalize_documents(
     return docs
 
 
-def update_document_word_counts(client: SiYuanClient, docs: list[dict[str, Any]]) -> None:
+BLOCK_STATS_SQL = """
+SELECT
+  root_id,
+  COUNT(*) AS block_count,
+  SUM(LENGTH(markdown)) AS char_count
+FROM blocks
+WHERE type != 'd' AND root_id IS NOT NULL
+GROUP BY root_id
+LIMIT 100000
+""".strip()
+
+ALL_CONTENT_SQL = """
+SELECT
+  root_id, content
+FROM blocks
+WHERE type != 'd' AND root_id IS NOT NULL
+ORDER BY root_id
+LIMIT 1000000
+""".strip()
+
+
+def _fetch_block_stats(client: SiYuanClient) -> dict[str, dict[str, int]]:
+    rows = client.query_sql(BLOCK_STATS_SQL)
+    stats: dict[str, dict[str, int]] = {}
+    for row in rows:
+        rid = str(row.get("root_id", ""))
+        if rid:
+            stats[rid] = {
+                "block_count": int(row.get("block_count") or 0),
+                "char_count": int(row.get("char_count") or 0),
+            }
+    return stats
+
+
+def _compute_word_counts_from_blocks(
+    client: SiYuanClient, doc_ids: set[str]
+) -> dict[str, int]:
+    rows = client.query_sql(ALL_CONTENT_SQL)
+    groups: dict[str, list[str]] = {}
+    for row in rows:
+        rid = str(row.get("root_id", ""))
+        if rid and rid in doc_ids:
+            groups.setdefault(rid, []).append(str(row.get("content") or ""))
+    return {rid: compute_word_count("\n".join(pieces)) for rid, pieces in groups.items()}
+
+
+def update_document_stats(client: SiYuanClient, docs: list[dict[str, Any]]) -> None:
+    stats = _fetch_block_stats(client)
+    doc_ids = {str(doc["id"]) for doc in docs}
+    word_counts = _compute_word_counts_from_blocks(client, doc_ids)
     for doc in docs:
-        markdown = client.export_markdown(str(doc["id"]))
-        doc["word_count"] = compute_word_count(markdown)
-        doc["markdown_chars"] = len(markdown)
+        did = str(doc["id"])
+        s = stats.get(did, {})
+        doc["block_count"] = s.get("block_count", 0)
+        doc["char_count"] = s.get("char_count", 0)
+        doc["word_count"] = word_counts.get(did, 0)
 
 
 def parse_tags(value: Any) -> list[str]:
@@ -234,41 +288,43 @@ def render_tree(notebooks: Iterable[dict[str, Any]], docs: Iterable[dict[str, An
         notebook_list.append({"id": notebook_id, "name": notebook_id or "Unknown Notebook"})
 
     # Compute per-notebook stats
-    def _stats(nid: str) -> tuple[int, int, str]:
+    def _stats(nid: str) -> tuple[int, int, int, str]:
         ndocs = docs_by_notebook.get(nid, [])
         nwords = sum(d.get("word_count", 0) for d in ndocs)
+        nblocks = sum(d.get("block_count", 0) for d in ndocs)
         nupdated = max((d.get("updated", "") for d in ndocs), default="")
-        return len(ndocs), nwords, nupdated
+        return len(ndocs), nwords, nblocks, nupdated
 
     total_docs = sum(len(ndocs) for ndocs in docs_by_notebook.values())
     total_words = sum(sum(d.get("word_count", 0) for d in ndocs) for ndocs in docs_by_notebook.values())
+    total_blocks = sum(sum(d.get("block_count", 0) for d in ndocs) for ndocs in docs_by_notebook.values())
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
     lines = [
         "# SiYuan Knowledge Tree",
         "",
-        f"> {now} | {len(notebook_list)} notebooks | {total_docs} docs | {total_words:,} 字",
+        f"> {now} | {len(notebook_list)} notebooks | {total_docs} docs | {total_words:,} 字 | {total_blocks} 块",
         "",
     ]
 
     # Layer 1: notebook overview table
-    lines.append("| Notebook | ID | Docs | 字数 | 最近更新 |")
-    lines.append("|----------|----|------|------|----------|")
+    lines.append("| Notebook | ID | Docs | 字数 | 块数 | 最近更新 |")
+    lines.append("|----------|----|------|------|------|----------|")
     for nb in notebook_list:
         nid = str(nb.get("id", ""))
         name = str(nb.get("name") or nid or "Unknown Notebook")
-        count, words, updated = _stats(nid)
+        count, words, blocks, updated = _stats(nid)
         date = format_date(updated) if updated else "-"
-        lines.append(f"| {name} | `{nid}` | {count} | {words:,} | {date} |")
+        lines.append(f"| {name} | `{nid}` | {count} | {words:,} | {blocks} | {date} |")
     lines.append("")
 
     # Layer 2: per-notebook document tree
     for nb in notebook_list:
         nid = str(nb.get("id", ""))
         name = str(nb.get("name") or nid or "Unknown Notebook")
-        count, words, updated = _stats(nid)
+        count, words, blocks, updated = _stats(nid)
         date = format_date(updated) if updated else "-"
-        lines.append(f"## {name} (`{nid}`) | {count} docs | {words:,} 字 | 最近 {date}")
+        lines.append(f"## {name} (`{nid}`) | {count} docs | {words:,} 字 | {blocks} 块 | 最近 {date}")
         lines.append("")
         if count > 0:
             nb_docs = sorted(
@@ -290,29 +346,31 @@ def render_notebook_overview(notebooks: Iterable[dict[str, Any]], docs: Iterable
     for doc in doc_list:
         docs_by_notebook.setdefault(str(doc.get("notebook_id", "")), []).append(doc)
 
-    def _stats(nid: str) -> tuple[int, int, str]:
+    def _stats(nid: str) -> tuple[int, int, int, str]:
         ndocs = docs_by_notebook.get(nid, [])
         nwords = sum(d.get("word_count", 0) for d in ndocs)
+        nblocks = sum(d.get("block_count", 0) for d in ndocs)
         nupdated = max((d.get("updated", "") for d in ndocs), default="")
-        return len(ndocs), nwords, nupdated
+        return len(ndocs), nwords, nblocks, nupdated
 
     total_words = sum(d.get("word_count", 0) for d in doc_list)
+    total_blocks = sum(d.get("block_count", 0) for d in doc_list)
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
 
     lines = [
         "# SiYuan Knowledge Tree",
         "",
-        f"> {now} | {len(notebook_list)} notebooks | {len(doc_list)} docs | {total_words:,} 字",
+        f"> {now} | {len(notebook_list)} notebooks | {len(doc_list)} docs | {total_words:,} 字 | {total_blocks} 块",
         "",
-        "| Notebook | ID | Docs | 字数 | 最近更新 |",
-        "|----------|----|------|------|----------|",
+        "| Notebook | ID | Docs | 字数 | 块数 | 最近更新 |",
+        "|----------|----|------|------|------|----------|",
     ]
     for nb in notebook_list:
         nid = str(nb.get("id", ""))
         name = str(nb.get("name") or nid or "Unknown Notebook")
-        count, words, updated = _stats(nid)
+        count, words, blocks, updated = _stats(nid)
         date = format_date(updated) if updated else "-"
-        lines.append(f"| {name} | `{nid}` | {count} | {words:,} | {date} |")
+        lines.append(f"| {name} | `{nid}` | {count} | {words:,} | {blocks} | {date} |")
     lines.append("")
     return "\n".join(lines)
 
@@ -337,10 +395,11 @@ def _render_node(node: dict[str, Any], depth: int) -> list[str]:
         if docs:
             for doc in docs:
                 wc = format_word_count(doc.get("word_count", 0))
+                bc = format_block_count(doc.get("block_count", 0))
                 date = format_date(doc.get("updated", ""))
                 tags = ",".join(doc.get("tags", []))
                 tag_text = f" tags:{tags}" if tags else ""
-                lines.append(f"{indent}- /{name} `{doc['id']}` {wc} {date}{tag_text}".rstrip())
+                lines.append(f"{indent}- /{name} `{doc['id']}` {wc} {bc} {date}{tag_text}".rstrip())
         else:
             lines.append(f"{indent}- /{name}")
         lines.extend(_render_node(child, depth + 1))
