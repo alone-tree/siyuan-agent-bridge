@@ -11,7 +11,7 @@ The product interface is MCP + Skill. Treat CLI commands as developer diagnostic
 3. If MCP is unavailable, tell the user the SiYuan knowledge MCP is not registered or not reachable.
 4. Read the startup packet before opening broad maps.
 5. Use the notebook overview table from `siyuan_start` to choose relevant notebooks.
-6. Use `siyuan_list_documents` for one notebook's document tree.
+6. Use `siyuan_list` (with `notebook_id`) for one notebook's document tree.
 7. Use MCP `siyuan_read_document` when full document Markdown is needed. The tool always returns the outline; long documents return one chunk at a time. Use `chunk=0` for the first chunk or `chunk=N` to jump to a specific chunk.
 9. Put derived analysis, task context, drafts, and outputs in `ai_workspace/`.
 
@@ -45,8 +45,7 @@ python -m source_code ignore status
 
 - `siyuan_start`: refresh the safe index and return the startup packet with notebook overview table, START_HERE.md, and guide.md. Always call first.
 - `siyuan_refresh_index`: explicit mid-session index refresh (siyuan_start already refreshes on startup).
-- `siyuan_list_notebooks`: visible notebooks from the safe index.
-- `siyuan_list_documents`: document tree for one notebook, with word counts and update times.
+- `siyuan_list`: list visible notebooks (no args) or document tree for one notebook (with `notebook_id`), includes word counts and update times.
 - `siyuan_find_documents`: search safe-index titles/paths/tags plus live SiYuan block content when available, with 4 modes (`keyword`/`query`/`regex`/`sql`), 2 scopes (`headings`/`full`), optional notebook filter.
 - `siyuan_read_document`: read a document with outline (heading→chunk mapping). Short docs return full text; long docs return one chunk at a time via `chunk` parameter.
 - `siyuan_propose_guide_update`: save proposed guide changes in `ai_workspace/`.

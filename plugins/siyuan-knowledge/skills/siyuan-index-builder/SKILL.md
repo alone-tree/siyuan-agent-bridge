@@ -52,7 +52,7 @@ Call `siyuan_start` to get the notebook overview table (tree.md layer 1). Identi
 
 ### Step 2 — Read notebook maps and hub documents
 
-For each visible notebook with >0 documents, call `siyuan_list_documents`
+For each visible notebook with >0 documents, call `siyuan_list`
 with its notebook ID. As you read the map, classify the internal structure:
 
 - **Deep tree**: 3+ path levels, regular sub-structures (e.g., companies under
@@ -166,7 +166,7 @@ When the user asks to update the index:
 
 1. If the index may be stale, call `siyuan_refresh_index` first.
 2. Call `siyuan_start` to get the current notebook overview table and detect new or removed notebooks.
-3. For notebooks that may have changed, use `siyuan_list_documents` with their notebook ID.
+3. For notebooks that may have changed, use `siyuan_list` with their notebook ID.
 4. For any new or likely-changed documents, read them with
    `siyuan_read_document` to produce or refresh summaries. Do not rewrite
    summaries for unchanged documents — only update what is stale.

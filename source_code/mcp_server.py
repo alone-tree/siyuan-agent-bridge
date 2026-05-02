@@ -94,16 +94,13 @@ class McpServer:
         tools: dict[str, Callable[[dict[str, Any]], str]] = {
             "siyuan_start": self.siyuan_start,
             "siyuan_refresh_index": self.siyuan_refresh_index,
-            "siyuan_list_notebooks": self.siyuan_list_notebooks,
-            "siyuan_list_documents": self.siyuan_list_documents,
+            "siyuan_list": self.siyuan_list,
             "siyuan_find_documents": self.siyuan_find_documents,
             "siyuan_read_document": self.siyuan_read_document,
             "siyuan_propose_guide_update": self.siyuan_propose_guide_update,
             "siyuan_apply_guide_update": self.siyuan_apply_guide_update,
-            "siyuan_hide": self.siyuan_hide,
-            "siyuan_unhide": self.siyuan_unhide,
+            "siyuan_privacy": self.siyuan_privacy,
             "siyuan_temporary_allow": self.siyuan_temporary_allow,
-            "siyuan_close_temporary_allow": self.siyuan_close_temporary_allow,
         }
         if name not in tools:
             return make_error(request_id, -32602, f"Unknown tool: {name}")
@@ -158,7 +155,7 @@ class McpServer:
             "2. If an index.md was provided above, use its quick navigation table to locate relevant notebooks.",
             "3. Follow `knowledge_base/guide.md` for durable preferences.",
             "4. Use the notebook overview table to choose relevant notebooks.",
-            "5. Use `siyuan_list_documents` to see one notebook's document tree.",
+            "5. Use `siyuan_list` with a `notebook_id` to see one notebook's document tree.",
             "6. Read documents with `siyuan_read_document`.",
             "7. Use `siyuan_refresh_index` mid-session only when the user explicitly asks to refresh.",
             "",
@@ -196,22 +193,22 @@ class McpServer:
             "Run `siyuan_start` before using the refreshed index."
         )
 
-    def siyuan_list_notebooks(self, _args: dict[str, Any]) -> str:
-        notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
-        lines = ["# Visible SiYuan Notebooks", ""]
-        for notebook in notebooks:
-            lines.append(f"- `{notebook.get('id', '')}` {notebook.get('name', '')}")
-        lines.append("")
-
-        return "\n".join(lines)
-
-    def siyuan_list_documents(self, args: dict[str, Any]) -> str:
+    def siyuan_list(self, args: dict[str, Any]) -> str:
         notebook_id = str(args.get("notebook_id") or "").strip()
         notebook_name = str(args.get("notebook_name") or "").strip()
+
+        if not notebook_id and not notebook_name:
+            # List all notebooks
+            notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
+            lines = ["# Visible SiYuan Notebooks", ""]
+            for notebook in notebooks:
+                lines.append(f"- `{notebook.get('id', '')}` {notebook.get('name', '')}")
+            lines.append("")
+            return "\n".join(lines)
+
+        # List documents for one notebook
         if not notebook_id and notebook_name:
             notebook_id = self.resolve_notebook_id(notebook_name)
-        if not notebook_id:
-            raise ValueError("Provide notebook_id or notebook_name")
         docs = [d for d in load_docs(self.root) if str(d.get("notebook_id", "")) == notebook_id]
         if not docs:
             raise FileNotFoundError(f"No visible documents found for notebook {notebook_id}")
@@ -588,39 +585,13 @@ class McpServer:
             raise ValueError("mode must be append or replace")
         return f"Guide updated at {path}. Run siyuan_start before using the updated guide."
 
-    def siyuan_hide(self, args: dict[str, Any]) -> str:
+    def siyuan_privacy(self, args: dict[str, Any]) -> str:
+        action = str(args.get("action") or "").strip()
+        if action not in ("hide", "unhide"):
+            raise ValueError("action must be 'hide' or 'unhide'")
         confirmed = bool(args.get("confirmed"))
         if not confirmed:
-            raise ValueError("confirmed=true is required. Hiding content makes it permanently invisible to AI. Only set confirmed after explicit user approval.")
-        scope = str(args.get("scope") or "").strip()
-        if scope not in ("notebook", "document", "subtree"):
-            raise ValueError("scope must be notebook, document, or subtree")
-        locator = str(args.get("locator") or "").strip()
-        if not locator:
-            raise ValueError("locator is required")
-        reason = str(args.get("reason") or "").strip()
-
-        initialize_ignore_files(self.root)
-        config = load_config(self.root)
-        client = get_working_client(config)
-        resolved = resolve_privacy_locator(client, scope, locator)
-        rule = make_privacy_rule(scope, locator, reason=reason, resolved=resolved)
-        added = add_persistent_ignore(self.root, rule)
-        result = refresh_index(client, self.root)
-
-        target = str(resolved.get("title") or resolved.get("name") or locator) if resolved else locator
-        status = "Added" if added else "Already exists"
-        return (
-            f"# Privacy: hide {scope}\n\n"
-            f"**{status}** hide rule for {scope}: {target}\n\n"
-            f"Refreshed safe index. Visible: {result.document_count}/{result.total_document_count} documents. "
-            f"Hidden: {result.hidden_document_count}."
-        )
-
-    def siyuan_unhide(self, args: dict[str, Any]) -> str:
-        confirmed = bool(args.get("confirmed"))
-        if not confirmed:
-            raise ValueError("confirmed=true is required. Only unhide after explicit user approval.")
+            raise ValueError("confirmed=true is required. Only set after explicit user approval.")
         scope = str(args.get("scope") or "").strip()
         if scope not in ("notebook", "document", "subtree"):
             raise ValueError("scope must be notebook, document, or subtree")
@@ -631,19 +602,43 @@ class McpServer:
         config = load_config(self.root)
         client = get_working_client(config)
         resolved = resolve_privacy_locator(client, scope, locator)
-        rule = make_privacy_rule(scope, locator, resolved=resolved)
-        removed = remove_persistent_ignore(self.root, rule)
-        result = refresh_index(client, self.root)
 
-        target = str(resolved.get("title") or resolved.get("name") or locator) if resolved else locator
-        return (
-            f"# Privacy: unhide {scope}\n\n"
-            f"**Removed {removed} hide rule(s)** for {scope}: {target}\n\n"
-            f"Refreshed safe index. Visible: {result.document_count}/{result.total_document_count} documents. "
-            f"Hidden: {result.hidden_document_count}."
-        )
+        if action == "hide":
+            reason = str(args.get("reason") or "").strip()
+            initialize_ignore_files(self.root)
+            rule = make_privacy_rule(scope, locator, reason=reason, resolved=resolved)
+            added = add_persistent_ignore(self.root, rule)
+            result = refresh_index(client, self.root)
+            target = str(resolved.get("title") or resolved.get("name") or locator) if resolved else locator
+            status = "Added" if added else "Already exists"
+            return (
+                f"# Privacy: hide {scope}\n\n"
+                f"**{status}** hide rule for {scope}: {target}\n\n"
+                f"Refreshed safe index. Visible: {result.document_count}/{result.total_document_count} documents. "
+                f"Hidden: {result.hidden_document_count}."
+            )
+        else:
+            rule = make_privacy_rule(scope, locator, resolved=resolved)
+            removed = remove_persistent_ignore(self.root, rule)
+            result = refresh_index(client, self.root)
+            target = str(resolved.get("title") or resolved.get("name") or locator) if resolved else locator
+            return (
+                f"# Privacy: unhide {scope}\n\n"
+                f"**Removed {removed} hide rule(s)** for {scope}: {target}\n\n"
+                f"Refreshed safe index. Visible: {result.document_count}/{result.total_document_count} documents. "
+                f"Hidden: {result.hidden_document_count}."
+            )
 
     def siyuan_temporary_allow(self, args: dict[str, Any]) -> str:
+        action = str(args.get("action") or "open").strip()
+        if action not in ("open", "close"):
+            raise ValueError("action must be 'open' or 'close'")
+
+        if action == "close":
+            count = close_temporary_allow(self.root)
+            plural = "s" if count != 1 else ""
+            return f"# Privacy: close temporary allow\n\nCleared {count} temporary allow rule{plural}. Hidden items are closed again."
+
         scope = str(args.get("scope") or "").strip()
         if scope not in ("notebook", "document", "subtree"):
             raise ValueError("scope must be notebook, document, or subtree")
@@ -668,11 +663,6 @@ class McpServer:
             f"Expires in {minutes} minutes.\n\n"
             "This does not rewrite `knowledge_base/`. The item will be hidden again after expiry."
         )
-
-    def siyuan_close_temporary_allow(self, _args: dict[str, Any]) -> str:
-        count = close_temporary_allow(self.root)
-        plural = "s" if count != 1 else ""
-        return f"# Privacy: close temporary allow\n\nCleared {count} temporary allow rule{plural}. Hidden items are closed again."
 
     def resolve_notebook_id(self, notebook_name: str) -> str:
         notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
@@ -787,18 +777,13 @@ def tool_specs() -> list[dict[str, Any]]:
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
         {
-            "name": "siyuan_list_notebooks",
-            "description": "List visible SiYuan notebooks from the existing safe index.",
-            "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
-        },
-        {
-            "name": "siyuan_list_documents",
-            "description": "Return the document tree for one visible notebook, generated dynamically from the safe index with word counts and update times.",
+            "name": "siyuan_list",
+            "description": "List visible notebooks (no arguments) or return the document tree for one notebook (provide notebook_id or notebook_name). When listing documents, word counts and update times are included.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "notebook_id": {"type": "string"},
-                    "notebook_name": {"type": "string"},
+                    "notebook_id": {"type": "string", "description": "Notebook ID. Omit to list all notebooks."},
+                    "notebook_name": {"type": "string", "description": "Notebook name. Omit to list all notebooks."},
                 },
                 "additionalProperties": False,
             },
@@ -857,55 +842,33 @@ def tool_specs() -> list[dict[str, Any]]:
             },
         },
         {
-            "name": "siyuan_hide",
-            "description": "Hide a notebook, document, or document subtree from the safe index, then refresh. Requires confirmed=true. This is destructive and persists across sessions.",
+            "name": "siyuan_privacy",
+            "description": "Manage persistent hide rules. action='hide': hide a notebook, document, or subtree and refresh the index. action='unhide': remove the hide rule and refresh. Both require confirmed=true. Changes persist across sessions.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "scope": {"type": "string", "enum": ["notebook", "document", "subtree"], "description": "What to hide."},
+                    "action": {"type": "string", "enum": ["hide", "unhide"], "description": "Whether to add or remove a hide rule."},
+                    "scope": {"type": "string", "enum": ["notebook", "document", "subtree"], "description": "What to hide or unhide."},
                     "locator": {"type": "string", "description": "Notebook name/id, document id, exact hpath, title, or unique partial match."},
                     "reason": {"type": "string", "description": "Optional reason for hiding."},
                     "confirmed": {"type": "boolean", "description": "Must be true. This is a destructive privacy action."},
                 },
-                "required": ["scope", "locator", "confirmed"],
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "siyuan_unhide",
-            "description": "Remove a persistent hide rule for a notebook, document, or subtree, then refresh the safe index. Requires confirmed=true.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "scope": {"type": "string", "enum": ["notebook", "document", "subtree"], "description": "What to unhide."},
-                    "locator": {"type": "string", "description": "Notebook name/id, document id, exact hpath, title, or unique partial match."},
-                    "confirmed": {"type": "boolean", "description": "Must be true. Only unhide after explicit user approval."},
-                },
-                "required": ["scope", "locator", "confirmed"],
+                "required": ["action", "scope", "locator", "confirmed"],
                 "additionalProperties": False,
             },
         },
         {
             "name": "siyuan_temporary_allow",
-            "description": "Temporarily allow a hidden notebook, document, or subtree to appear in subsequent searches. Does NOT refresh the index; the effect is applied at query time. Expires automatically; use siyuan_close_temporary_allow to revoke early.",
+            "description": "Manage temporary allow rules for hidden content. action='open': temporarily allow a hidden notebook, document, or subtree (expires in N minutes). action='close': immediately clear all temporary allow rules. Items become hidden again after expiry or close.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "scope": {"type": "string", "enum": ["notebook", "document", "subtree"], "description": "What to temporarily allow."},
-                    "locator": {"type": "string", "description": "Notebook name/id, document id, exact hpath, title, or unique partial match."},
-                    "minutes": {"type": "integer", "default": 60, "description": "How many minutes before the allow expires. Must be > 0."},
+                    "action": {"type": "string", "enum": ["open", "close"], "default": "open", "description": "open = add a temporary allow rule; close = clear all temporary allow rules."},
+                    "scope": {"type": "string", "enum": ["notebook", "document", "subtree"], "description": "What to temporarily allow. Required for action='open'."},
+                    "locator": {"type": "string", "description": "Notebook name/id, document id, exact hpath, title, or unique partial match. Required for action='open'."},
+                    "minutes": {"type": "integer", "default": 60, "description": "How many minutes before the allow expires. Only for action='open'."},
                     "reason": {"type": "string", "description": "Optional reason for the temporary allow."},
                 },
-                "required": ["scope", "locator"],
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "siyuan_close_temporary_allow",
-            "description": "Immediately clear all temporary allow rules. Hidden items are closed again. Does not require confirmation.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {},
                 "additionalProperties": False,
             },
         },

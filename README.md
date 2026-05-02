@@ -53,8 +53,7 @@ If MCP is unavailable, register or repair the MCP server first. The Python CLI i
 
 - `siyuan_start`: refresh the safe index and return the startup packet with notebook overview table, START_HERE.md, and guide.md. Always call first.
 - `siyuan_refresh_index`: refresh safe indexes mid-session when the user explicitly asks.
-- `siyuan_list_notebooks`: list visible notebooks from the safe index.
-- `siyuan_list_documents`: return the document tree for one notebook, with word counts and update times.
+- `siyuan_list`: list visible notebooks (no args) or return the document tree for one notebook (with `notebook_id`), including word counts and update times.
 - `siyuan_find_documents`: search safe-index titles/paths/tags plus live SiYuan block content when available, with 4 modes (`keyword`/`query`/`regex`/`sql`), 2 scopes (`headings`/`full`), optional notebook filter.
 - `siyuan_read_document`: read a document with outline. Short docs return full text; long docs return one chunk; use `chunk=N` to navigate.
 - `siyuan_propose_guide_update`: save a proposed guide update in `ai_workspace/`.

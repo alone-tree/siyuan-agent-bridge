@@ -443,7 +443,7 @@ def render_start_packet(root: Path, version: str) -> str:
             "1. Use this startup packet first.",
             "2. Follow `knowledge_base/guide.md` for durable preferences.",
             "3. Use the notebook overview above to choose relevant notebooks.",
-            "4. Use `siyuan_list_documents` to see one notebook's document tree.",
+            "4. Use `siyuan_list` to see one notebook's document tree.",
             "5. Read documents with `siyuan_read_document`.",
             "6. Use `siyuan_refresh_index` mid-session only when the user explicitly asks to refresh.",
             "",
