@@ -1,334 +1,173 @@
-# 思源笔记知识库索引
+# Knowledge Base Index
+> Generated 2026-05-02 | Update: tell AI "更新索引" or "rebuild the index"
 
-> 生成时间: 2026-05-01 | 更新方式: 告诉AI"更新索引"或"rebuild the index"
-> 总览: 12个笔记本 | 365篇可见文档 | 思源笔记 3.6.5
+## Quick Route
+| Question area | Notebook(s) |
+|--------------|-------------|
+| 光模块/数据中心/算力芯片/科技股 | 光模块行业研究 |
+| 投资/理财/资产配置/估值 | 投资实践 |
+| 个人成长/心理学/情绪/关系 | 自己写的文章, 日记随笔 |
+| AI工具/大模型/提示词/AI编程 | AI使用, 文章收藏, 自己写的文章 |
+| 写作/自媒体/个人IP/营销 | 自己写的文章, 学习笔记, 文章收藏 |
+| 小说/故事创作 | 故事 |
+| 商业尝试/副业复盘/创业 | 商业尝试 |
+| 宏观经济/政策 | 光模块行业研究 |
+| 对标案例/参考 | 对标参考, 文章收藏 |
 
----
+## 光模块行业研究 (170 docs)
 
-## 快速导航
+> Structure: Six top-level sections, each company gets a root doc + daily news tracker + earnings call transcripts. Heavily nested: company daily news sub-pages contain quarterly earnings calls (some with en/tr bilingual versions). The index page is a full research command center.
+> Priority:
 
-| 需求方向 | 对应笔记本 |
-|----------|-----------|
-| 投资策略/资产配置/估值分析 | 投资实践, 自己写的文章 |
-| 光模块/算力芯片/数据中心/AI产业 | 光模块行业研究 |
-| AI使用技巧/提示词/工具 | AI使用, 自己写的文章 |
-| 个人成长/哲学/自我觉察 | 日记随笔, 自己写的文章 |
-| 写作/自媒体/内容创作 | 自己写的文章 |
-| 小说创作/故事构思 | 故事 |
-| 商业探索/副业/创业复盘 | 商业尝试, 日记随笔 |
-| 投资标的(REITs/黄金/BTC/桥水) | 投资实践 |
-| AI社会影响/人的价值/未来展望 | 日记随笔, 自己写的文章 |
-| 田野调研/即兴采访/实地调查 | 碎片搜集 |
-| 营销方法论/文案写作 | 商业尝试, AI使用 |
-| 用户个人背景理解 | AI使用(AI记忆), 投资实践(给AI的项目背景) |
+- `20251212154252-rrabjl9` index
+  - Hub: Comprehensive research dashboard with company tracking table, earnings calendar, useful links, and a detailed AI research prompt template defining the user's investment analyst role and output standards.
 
----
+### /一、数据中心与大模型
+10 companies: 腾讯, 百度, 阿里, Apple, Amazon, Google, Meta, Microsoft, Oracle, Tesla — each with daily news trackers and quarterly earnings call transcripts. Also covers OpenAI, 字节跳动, and 其他AI公司 (MiniMax, 智谱AI).
 
-## 笔记本详情
+### /二、算力芯片
+5 companies: NVIDIA (含技术路线图, 营收与出货), AMD, TSMC, Broadcom, and 其他芯片公司.
 
-### 1. 投资实践 (`20260207195319-sgpvbyx`) — 40篇文档
+### /三、光模块公司
+10+ companies: 中际旭创, 新易盛, Coherent, 光迅科技, 剑桥科技 (含深度分析报告), 华工科技, 联特科技, 索尔思光电, 钧恒科技, 恩达通, 其他光模块公司. Plus `/市场规模及技术路线` with extensive daily market news (70K words).
 
-**结构**: 两大主干 —— `/投资研究笔记`（系统性投资研究）和 `/投资纪律与原则`（投资纪律和策略框架）。研究分支涵盖专题研究笔记、投资标的认识与评估、投资方法学习、定期更新数据。
+### /四、光模块上游供应链
+天孚通信, 源杰科技, Lumentum (with 4 quarterly earnings calls), plus DSP/EML/硅光/光隔离器 summary pages. Also `/其他上游公司`.
 
-**阅读优先级**: 极高 —— 用户的核心投资笔记本。
+### /五、国内及国际宏观政策
+Macro policy daily news tracker.
 
-#### /投资纪律与原则（项目框架）
-- `20260207195324-ivjvoyv` **投资纪律与原则** — 完整投资框架：三层体系（市场趋势+交易规则+仓位控制）、大类资产目标仓位（现金/固收/权益/另类）、三档情景仓位（平衡/稳健/进攻）、基于欧拉方程和生命周期假说的消费与投资平衡模型。核心理念：把个人资金按机构基金管理。
-- `20260411091351-36i15wm` **给AI的项目背景** — 项目总览：个人基金+自媒体双线运作，品牌"清醒杂货店"（微信+小红书+知乎+雪球+Substack），已发布5篇文章，当前仓位不足10%（3万元本金）。
-- `20260411104637-be8n9wu` **交易策略（暂行办法）20260411** — 具体交易执行规则。
-- `20260410212844-s0bmfv6` **个人情况梳理** — 个人财务状况整理。
+### /专题研究 (10 docs)
+Deep dives: 光芯片行业梳理 (24K words), 罗博特科重组ficonTEC (25K), DeepSeek技术介绍, 网络架构与光模块用量, 光连接与铜连接差异, 中际旭创重组, 人工智能投资地图, etc.
 
-#### /投资研究笔记/专题研究笔记（深度专题）
-- `20260331153648-d9ml40b` **桥水全天候：真实持仓与底层原理** — 桥水ALLW ETF深度拆解：债券39%、股票22%、TIPS 21%、商品17%（约1倍杠杆），增长/通胀敏感因子数学模型，策略的美元体系依赖性批判，中国投资者复制方案探讨。
-- `20260313210738-qmneejs` **A股指数与个股收益情况** — 2011-2026年全部A股收益率分布数据分析，含Excel原始数据和多张图表。核心结论：个股大部分年份跑输指数。
-- `20260207203920-hk74mbw` **早期投资历史复盘** — 个人早期投资经历回顾。
-- `20260221221550-ex5jtdz` **跨市场核心资产定价逻辑对比：估值、盈利与ROE的历史复盘**
-- `20260428160040-1m6rd04` **REITs** — 中国REITs市场全面数据分析：80只基金、10类资产、2247亿元总市值，含分类指数图表。
-- `20260402112315-betl2xw` **人工智能投资，我怎么看** — AI领域个人投资观点。
-- `20260311152918-wcpdwwu` **A股：低利率下的估值矛盾**
-- `20260225201339-6tz2q35` **A股：市场水位与热度观察**
-- `20260222171537-fp56ntf` **A股：沪深300估值交易策略分析**
-- `20260307193657-nsgh4da` **国债与股市关系**
-- `20260329123232-4akbwa3` **基金在涨，基民赚钱吗**
-- `20260415204456-r0t85es` **市场热度与发行募资**
-- `20260416211249-s13gpkh` **资产比较**
-- `20260327163459-0d94s8n` **资金池**
+### /每日新闻汇总 & /汇总文档
+Cross-cutting aggregated news and summary documents.
 
-#### /投资研究笔记/投资标的认识与评估（具体资产）
-- `20260326203853-149abo3` **评估一项新资产的基本流程** — 标准化尽调清单：回归增长率分析、滚动回撤指标、估值指标（PE/PCF/PS/PB/股息率/风险溢价vs债券）。
-- `20260412220209-sjwiu28` **A股：中证红利**
-- `20260412203644-vmavb03` **A股：沪深300**（含子文档 `20260226204525-3oi10jn` 估值水位与历史回顾）
-- `20260411211625-339gq8g` **A股：红利低波100&50**
-- `20260313130326-c6l3rf9` **A股：红利低波指数**
-- `20260402145534-4s0mgly` **美股：SPX全历史回顾**（含子文档 `20260223162058-7b7lfur` SPX百年回顾）
-- `20260324164922-wiaeywt` **美股：纳指100**
-- `20260409222606-871n0j7` **美股：纳指100**（另一篇）
-- `20260207195454-yiw4lg0` **BTC**
-- `20260328120945-awz1lpq` **Gold：长历史回撤与波动**
-- `20260311183449-rf91cjj` **债基：易方达增强债券A**
+### /旧存储芯片行业研究报告
+Archived storage chip sector research (113K words).
 
-#### /投资研究笔记/其他
-- `20260312141828-r1bjujr` 投资方法学习
-- `20260312141751-7yy5xo2` 如何快速发现低估标的（方法论转载）
-- `20260308141045-lvqfufc` 定期更新数据
-- `20260317122104-qshkepo` 潜在想法
-- `20260227200503-xcly2ow` 净值记录
-- `20260420092301-7zcn7j1` 各种预测兑现
+## 自己写的文章 (78 docs)
 
----
+> Structure: Flat collection of standalone essays at root level. Topics cluster around personal growth, psychology, AI, money, relationships, and society. One exceptional sub-tree under 桥水全天候 (with English translation).
+> Priority:
 
-### 2. 光模块行业研究 (`20251212154043-0n11tla`) — 170篇文档（最大笔记本）
-
-**结构**: 深度行业投研体系，五大板块+专题研究。每家公司含每日快讯（新闻追踪）和季度财报电话会记录（中英双语）。已发布为网站：transceiver-market.netlify.app。
-
-**阅读优先级**: 极高 —— 用户的核心工作领域和研究方向。
-
-#### 总入口
-- `20251212154252-rrabjl9` **index（总索引）** — 笔记本入口：含全部子文档链接表、2025Q4/Q1财报披露日程表、常用网站链接（科技媒体/光通讯行业/宏观新闻/查询工具）、关注公司AI产品链接、OceanPress发布流程、标准AI投研提示词模板（客观中立、数据可追溯、不推测、精确时间）。
-- `20260106101341-tm2v3t5` 每日新闻汇总（最新至2026-04-30）
-- `20260228102319-1eolzd2` 汇总文档
-
-#### 一、数据中心与大模型（AI需求侧，10+家科技巨头全覆盖）
-每家公司包含：公司概况 + 每日快讯 + 季度财报电话会记录（中英双语）
-
-**美国科技巨头:**
-- `20251215093315-h32ynkj` [GOOG.O] 谷歌 Google — Q2-Q4 2025 + Q1 2026 财报电话会
-- `20251215093346-zmg761b` [MSFT.O] 微软 Microsoft — FY25Q4-FY26Q3 财报电话会
-- `20251223155954-dshlfee` [META.O] Meta — Q2 2025 - Q1 2026 财报+Follow Up Call
-- `20251223160001-a28qjqz` [AMZN.O] 亚马逊 AWS — Q2 2025 - Q1 2026 财报电话会
-- `20251224111114-l8tk5fp` [ORCL.N] Oracle 甲骨文 — Q4 2025 - Q2 2026 财报电话会
-- `20251224111052-gd99b2e` [AAPL.O] Apple 苹果 — Q3 2025 - Q1 2026 财报电话会
-- `20251224111059-dh7y22d` [TSLA.O] Tesla 特斯拉 — Q4 2025 财报, xAI
-
-**AI公司:**
-- `20251215093437-nwa3raa` OpenAI — 每日快讯 + 深度文章（万亿估值代价）
-- `20251224143041-3ztzbmm` 其他AI公司 — 含MiniMax [0100.HK]、智谱AI [2513.HK]
-
-**中国科技巨头:**
-- `20251215093538-akyrsgn` 字节跳动 — 每日快讯
-- `20251215093445-9xrxapy` [09988.HK] 阿里巴巴 — FY25Q4-FY26Q2 财报电话会
-- `20251224111045-5furiuj` [00700.HK] 腾讯
-- `20251224111109-xw2c4wn` [09888.HK] 百度 — Q4 2025 财报电话会
-
-#### 二、算力芯片（AI算力核心）
-- `20251215093548-ms22nef` [NVDA.O] 英伟达 NVIDIA — 技术路线图, Q3-Q4 2025财报, 营收与出货数据
-- `20251215093610-yf4y2ug` [AMD.O] AMD 超威半导体
-- `20251215093652-fo9rgoh` [TSM.N] 台积电 TSMC — 2025Q4 说法会
-- `20251215095402-if1pjho` [AVGO.O] 博通 Broadcom
-- `20251230093218-pqgsaz8` 其他芯片公司
-
-#### 三、光模块公司（供给端核心，10家厂商全覆盖）
-**A股光模块厂商:**
-- `20251215093815-9algfjo` [300308.SZ] 中际旭创 Innolight — **最核心标的**，含3次投资者调研记录（20251030, 20260131, 25年报）
-- `20251215093840-mse8zzc` [300502.SZ] 新易盛 Eoptolink
-- `20251215093920-mij8xqr` [COHR.N] Coherent/II-VI/Finisar/高意 — Q4 2025 - Q2 2026 财报
-- `20251215102138-w3lkqbj` [002281.SZ] 光迅科技 AcceLink
-- `20251215134516-ktd06js` [603083.SH] 剑桥科技 CIG — 投资者关系记录(2份) + 深度分析报告 + 上游供应链梳理
-- `20251223095215-rhy42qq` [000988.SZ] 华工科技 HGTECH — 2025年报电话会
-- `20251223095225-zei3w7n` [301205.SZ] 联特科技 Linktel
-
-**其他光模块相关:**
-- 索尔思光电（[002384.SZ]东山精密）、钧恒科技（[001267.SZ]汇绿生态，含公司概况）、恩达通（[688388.SZ]嘉元科技）
-- 市场规模及技术路线 — 含Nvidia CPO供应链解析
-- 其他光模块公司
-
-#### 四、光模块上游供应链
-- `20251215095407-do6elmv` [300394.SZ] 天孚通信
-- `20251215095352-ebho0h7` [688498.SH] 源杰科技
-- `20251215100135-bvz917j` [LITE.O] Lumentum — Q2-Q4 2025财报 + "全线售罄"分析
-- DSP汇总、EML汇总、光隔离器汇总、硅光、其他上游公司
-
-#### 五、国内及国际宏观政策
-- `20251225145130-bq73nxb` 宏观政策 — 含每日快讯
-
-#### 专题研究（10个专项课题）
-- `20260202110209-tnc1wvz` 2025年光模块相关公司业绩预告汇总比较
-- `20260109131043-0bu127m` DeepSeek技术介绍与市场影响 — V3($5.6M训练成本) + R1(推理能力媲美o1)，市场冲击(NVIDIA -17%, Coherent -19%)
-- `20260109133233-b3qgp2d` 中际旭创重组苏州旭创
-- `20260109140423-dmmmwew` 人工智能投资地图 — 从算力芯片到应用的完整价值链Xmind
-- `20260109143351-aw05xzi` 光芯片涨价影响
-- `20260109141251-82h8o0n` 光芯片行业梳理
-- `20260109112955-8fzwks5` 光连接与铜连接的使用场景差异
-- `20260109135606-jzi7yxn` 汇绿生态收购钧恒科技
-- `20260109144733-x71gjl8` 网络架构与光模块用量
-- `20260109133736-rfg9wgu` 罗博特科重组ficonTEC
-
-#### 旧研究报告
-- `20260321225332-dnlw1kv` 旧存储芯片行业研究报告
-- `20260410151510-asfsc6w` 存储芯片行业研究报告
-
----
-
-### 3. 自己写的文章 (`20251127205952-eqi1tp3`) — 78篇文档
-
-**结构**: 扁平化集合，78篇已发布/独立文章。主题涵盖个人成长、投资财经、AI科技、社会观察、心理学。多篇在微信公众平台、知乎、雪球、小红书同步发布。
-
-**阅读优先级**: 高 —— 理解用户写作风格和思想体系的核心来源。
-
-#### AI与科技主题（代表性文章）
-- `20251202091815-i7f4pp7` **大模型的核心缺陷，2000年前就有人说** — 深度长文：引用Scale AI PRBench测试结果（GPT-5金融39分/法律37分，人类专家80+），分析AI"高分低能"根源——缺乏现实反馈循环。引入LTCM案例，核心论点"痛感是人类的护城河"，呼唤走入真实世界。
-- `20251203144531-qp8z2lm` **别学编程了！用AI暴力编程法，3天做出你的程序** — 爆款文章，阅读量数千。AI编程普及。
-- `20251206115102-8i4ki9o` **小心！你这样用AI，正在废掉自己** — AI使用警示。
-- `20260110150705-y4k6k8w` **受够了每次和AI都从头聊起？这是我的"AI记忆库"终极大招** — 介绍使用思源笔记+结构化文档构建AI长期记忆的方案（即本知识库的前身）。
-- `20251214142201-evhc8fb` 大模型时代的内容与真相
-- `20251214141945-muapf13` AI写论文给AI读的闭环出现了
-- `20251214141944-foqut6l` 文科生的AI编程，不要一点技术
-- `20251214142200-r8n6fa3` 普通人如何使用大模型AI
-- `20251214141806-hpm19oh` 原来便宜GPT/Claude是这样搞的
-- `20260201212218-yq80u59` 我在AI编程里沉迷太久，忘记了为什么出发
-
-#### 投资与财经主题
-- `20260319204848-mkq28y0` **八年投资，两轮牛熊，我在干什么** — 2018-2026投资心路历程自白：从天真长期持有者到过度自信到杠杆BTC交易到"924"行情首日止损离场。决心以数据和规则重建投资体系。
-- `20260328161739-c53z7ax` **我做了一套不能骗自己的投资账本** — 介绍用Excel自建基金记账系统（净值追踪、盈亏记录、交易日志），核心洞察：自建账本消除自我欺骗空间。
-- `20260405105625-63i6ijl` **桥水全天候的真实持仓与底层原理** — 桥水策略公开版科普（含英文版 `20260401193556-ix3ebtg` 发布在Substack）。
-- `20260325201550-6roygg9` 如果当初看一眼数据，股市能少亏点吗
+Key investment/finance articles:
 - `20260407201356-esto9oy` 你以为自己能承受风险，其实未必
-- `20251214142847-fx37nd7` 买基金，看历史业绩的正确姿势？
-- `20251214142907-oyngq4g` 亏很多的ETF，有你的一份吗
-- `20251223195304-dlvgmo5` 我从没见过大钱，你呢？
-- `20251214142846-ym7n59e` 存钱还是买理财
+- `20260405105625-63i6ijl` 桥水全天候的真实持仓与底层原理 (with English version as child doc)
+- `20260325201550-6roygg9` 如果当初看一眼数据，股市能少亏点吗
+- `20260328161739-c53z7ax` 我做了一套不能骗自己的投资账本
+- `20260319204848-mkq28y0` 八年投资，两轮牛熊，我在干什么
 
-#### 个人成长与人性洞察（核心文章）
-- `20251214143413-wltg8e7` **承认自己的私心，同时也看见别人** — 基于《深度关系》的全能自恋理论，分析人际关系矛盾根源。含"夫妻客厅小剧场"案例。结论：改变的起点是反思自己是否真的想要不一样的生活。
-- `20251214142200-8asfv8m` 你讨厌的就是你渴望的
-- `20251214142200-qud81z3` 为什么你应该学会自私
-- `20251214142842-tvteefi` 认识自己的欲望
-- `20251214142842-ozfmrwo` 对自己真诚
-- `20251214142201-66rsf0a` 允许一切，获得自由
-- `20251214143413-6duxk13` 打开自己真是一个很强的buff
-- `20251214142845-u3uy5rp` 不以占有为己任
-- `20251214142846-64jmz9i` 我，观察者
+Key AI/tech articles:
+- `20260201212218-yq80u59` 我在AI编程里沉迷太久，忘记了为什么出发
+  - AI summary: Reflects on getting lost in AI-assisted coding projects while losing sight of original goals. Honest self-critique about tool enthusiasm vs. purpose.
+- `20260110150705-y4k6k8w` 受够了每次和AI都从头聊起？这是我的"AI记忆库"终极大招
+- `20251203144531-qp8z2lm` 别学编程了！用AI暴力编程法，3天做出你的程序
+- `20251202091815-i7f4pp7` 大模型的核心缺陷，2000年前就有人说
+
+Key personal growth articles:
 - `20251214142846-cylo8bu` 情绪管理？不，是情绪觉察
+- `20251214142906-j1ncmhi` 谈修行 (7.7K words)
 - `20251214142905-e148a4m` 自我觉察的丢失，和空心病
-- `20251214142906-j1ncmhi` 谈修行
-- `20251214143415-x8nr5im` 自由意志与对所有事负责
 
-#### 人际关系与社会观察（共约25篇）
-涵盖愤怒管理系列（4篇）、人际关系、沟通技巧、社会批判等。
-- 为什么你说话，对方不听？ / 为什么发脾气在家庭中更常见？ / 发脾气的真正含义 / 发脾气的账要如何算？ / 如何驾驭情绪 / 面对自己的脾气 / 当你说"你有问题"时 / 爱与控制 / 生命只有想不想要 / 过年如何搞定妈妈 / 适合自己的而非适合别人的
+Remaining ~65 articles cover psychology, society, relationships, money mindset, AI, and self-reflection. All standalone, no deep hierarchy.
 
-#### 社会现象评论及其他（共约15篇）
-- 个性化推荐->信息茧房->社会对立？ / 主观的客观的真实想象的（一/二） / 多管"闲事"带来的矛盾 / 阴虚阳虚社会的体质 / 关掉手机所有通知之后 / 浙大毕业去摆摊 / 读点历史 / 早餐店吃饭权争夺战 / 等等
+## 投资实践 (40 docs)
 
----
+> Structure: Three branches — net value tracking, research notes (deep sub-tree), and investment discipline. "给AI的项目背景" is the key entry document for AI agents.
+> Priority:
 
-### 4. 日记随笔 (`20251207121559-ukh1vvw`) — 27篇文档
+### /投资纪律与原则
+- `20260411091351-36i15wm` 给AI的项目背景
+  - Hub: Defines a two-part personal project: (1) running a self-funded "personal fund" with institutional management approach, and (2) sharing the journey as a finance self-media creator across WeChat, Xiaohongshu, Zhihu, Xueqiu, and Substack. Currently early-stage with 3万元 deployed at <10% position.
+- `20260410212844-s0bmfv6` 个人情况梳理 (4.8K words)
+- `20260411104637-be8n9wu` 交易策略（暂行办法）(5.4K words)
 
-**结构**: 以 `20251127222627-mitxssc`（2025年11月19日关于AI的思考）为核心枢纽，产生了多篇子文档。其余为独立随笔。
+### /净值记录
+- `20260227200503-xcly2ow` 净值记录 — fund NAV tracking with `/各种预测兑现` sub-log
 
-**阅读优先级**: 中高 —— 了解用户思考过程和世界观。
+### /投资研究笔记
+- `/专题研究笔记` — 14 docs: A股指数/估值/水位, REITs, 桥水全天候 (7K words), 国债与股市, 市场热度与发行募资, 早期投资历史复盘, 人工智能投资, 基金/基民, 资产比较, 资金池, etc.
+- `/投资标的认识与评估` — 10 assets evaluated: 沪深300, 中证红利, 红利低波, BTC, Gold, SPX (含百年回顾), 纳指100, 债基, etc.
+- `/定期更新数据`, `/投资方法学习`, `/潜在想法`, `/评估一项新资产的基本流程`
 
-#### /2025年11月19日关于AI的思考（枢纽文档及其子文档）
-- `20251127222627-mitxssc` **2025年11月19日关于AI的思考** — 对AI社会影响的宏大反思，三线交织：(1)个人——"人的完备性"即识别自身需求并行动，AI是服务人类的工具；(2)社会——只能执行命令者面临大规模失业风险，导向精英垄断或全民基本收入；(3)环境——资源约束是AI驱动丰裕的终极限。核心结论：需求自觉是AI时代的底层能力。
-- `20251128214034-dy7rvpo` 关于轮回和业力
-- `20251129162916-5oj5wnf` 对生命结构的讨论和思考 — 探讨"生命管家"概念
+## 文章收藏 (37 docs)
 
-#### 独立随笔（代表性）
-- `20251212212247-n57f2fo` **个人经历盘点** — 详尽自传：从小学到浙大研究生毕业（经济学），学生会领导、辩论队、数学建模、ESG咨询实习、早期尝试（写小说、摆冰粉摊）。
-- `20251129161138-w1744at` **商业思考 个人创业出路在哪** — 认为个人创业机会在个性化、非标准化服务（心理咨询、定制旅行、小众体验），大企业无法高效覆盖。
-- `20260126013936-1zc0j5m` **用国家治理的体系来理解人的意识和自我修行** — 创新类比：个人意识管理类比国家治理体系。
+> Structure: `/汇总概括` is a summary hub table covering all collected articles. `/文章拆解` has one detailed analysis. Remaining docs are full-text collected articles.
+> Priority:
+
+### /汇总概括
+- `20251127225827-y696lzu` 汇总概括
+  - Hub: A structured table of 24 collected articles with titles, key takeaways, and dates. Topics: AI benchmarks, personal branding, business models, learning methods, history. Serves as a quick-scan digest of the full-text articles in this notebook.
+
+Notable full-text articles: 刘秀近乎完美为何存在感不高 (35K words), 营销的第一性原理 (5K), 哈佛85年研究, 如何做一个理解你说人话的AI (6K), 想让你的个人IP有记忆点 (6.7K)
+
+## 故事 (29 docs)
+
+> Structure: Single deep tree under `/完美伴侣` — a sci-fi novel about companion robots. Contains character bios, dual plot outlines, chapter drafts, timeline, and auxiliary writing materials.
+> Priority:
+
+### /完美伴侣
+- `20260128205437-ufdrjs1` 思路与立意
+  - Hub: Core concept for a near-future sci-fi novel where realistic companion robots disrupt human relationships. Multi-perspective: a robot company CEO seeking IPO, a female white-collar user escaping difficult family dynamics, and a displaced housekeeper's family struggling with unemployment. Core theme: every character's narcissism and desire for control makes conflict-free robots an inevitable outcome. Set against macro backdrop of US-China robot industry competition.
+- `/人物传记` — 10 character profiles (林思 9.6K, 孙梦雅 9.5K, 周山 9.2K, 张翠花 15K, 马强 11K, 马俊杰 28K, 赵颖 23K, etc.)
+- `/正文` — 9 chapters drafted (第1章-第8章 + 正文合集)
+- `/情节顺序 按小说呈现顺序` (11K), `/情节顺序 按人物世界梳理` (3.8K)
+- `/时间轴` (9.4K), `/故事片段`, `/与AI的交流`, `/辅助文件`
+
+## 日记随笔 (27 docs)
+
+> Structure: Flat collection of personal reflections, often tagged (个人成长, AI, 商业, 未写完). Mix of rough drafts and finished pieces.
+> Priority:
+
+- `20251212212247-n57f2fo` 个人经历盘点
+  - Hub: Detailed autobiography from elementary school to present — Zhejiang University (保研), debate clubs, internships, side ventures. Reveals a pattern of calm under pressure, diverse experimentation, and a steady drift toward writing and personal growth.
+- `20251127222627-mitxssc` 2025年11月19日关于AI的思考 — with sub-docs on 轮回/业力 and 生命结构讨论 (26K words)
 - `20251206164020-4lxjl4e` 如何用AI做个人商业顾问
-- `20260305033034-rwxlpln` 社会关系网
-- `20251206105523-krg7zo9` 如何听到真话
-- `20251221011316-vxrzya7` 拒绝但保持融洽
-- `20251206105605-kwp9b3m` 无限责任与无限权利
-- `20251203112606-4haa4ru` 用AI，让暴力学习变得更暴力
-- 其他：从自己身上找突破口 / 你是一个完备的人吗 / 占有是要付出代价的 / 如何让别人讨厌你 / 未来的商业会是什么样 / 梦的隐喻 / 爱的存在性问题 / 管家角色再思考 / 艺术集市里的店主和员工们 / 道不可离但人的话可以不听 / 丰盛创造丰盛 匮乏创造匮乏 / 看到思源开发者有感
+- `20251129161138-w1744at` 商业思考 个人创业出路在哪
+- `20260126013936-1zc0j5m` 用国家治理的体系来理解人的意识和自我修行
+- `20251229212721-k5jxpho` 梦的隐喻 (15K words, updated 2026-04-13)
 
----
+Other entries cover emotions, truth-telling, relationships, art markets, social networks, tool reflections (思源笔记), and more.
 
-### 5. AI使用 (`20251214170405-wdgvojm`) — 6篇文档
+## 学习笔记 (15 docs)
 
-**结构**: 小型精选集合。AI Agent的工作指南和用户个人记忆库。
+> Structure: Four courses/programs with lecture notes, assignments, and exercises.
 
-**阅读优先级**: 极高 —— 任何AI Agent与此用户交互时必须首先阅读此笔记本。
+- `20251128155844-fi3atea` /创造营 — content creation bootcamp. Key sub-docs: W5 营销 (23K words), 路演分享 AI对话 (31K words), 喵泥路演提示
+- `20251208195150-5s4mebk` /肖厂长商业课 — personal branding. Key sub-doc: 如何撰写强人设文档 with 90K-word SOP supplement
+- `20251202172827-jt4bjlm` /沧海AI培训 — AI training marketing
+- `20251202165611-7goz44g` /莉莉安木马查杀 — money mindset exercise (金钱木马18问)
 
-- `20251214170410-1uilke0` **0-必读** — AI Agent使用思源笔记的基础流程：三种AI使用场景（投资研究助理/文章写作助手/思考对话伙伴），根据任务上下文选择阅读区域而非通扫所有笔记。
-- `20251204140054-2l4wypm` **AI常用提示词** — 投资研究提示词模板：买方视角、客观中立、数据可追溯（需附链接）、禁止推测、精确时间（x年x月）、禁止情绪化用词、信息冲突时完整呈现两面。
-- `20251227161310-m5z05ky` **AI记忆** — 用户个人档案：1998年生，贵州人，浙大经济学本硕，2023年毕业。现职杭州私营房地产企业投资分析，研究AI产业配套网络硬件（光模块）。公众号"清醒杂货店"（200+粉丝、70+篇文章）。副业AI编程工坊（带0基础小白3小时上手AI编程）。参加过勤勤的"人生事业创造营"。
-- `20260111190730-l9mrysz` **商业创作指南** — 营销文案方法论大全：标题公式（小成本+大回报/反差关键词+揭示主题）、转化类标题公式（恐惧/求快/获得）、短文案四步法（抓住眼球->激发兴趣->赢得信任->引导行动）、营销第一性原理（降低客户决策成本=感知价值/(价格+沟通+决策成本)）、认知节能型UX设计（社会认同启发/权威启发/稀缺启发）。含大量案例和迭代分析。
-- `20260114155834-lu4qv2z` AI测评比较
-- `20260428183357-4on60hh` 公司AI培训
+## 商业尝试 (12 docs)
 
----
+> Structure: Flat with `/牛畅的客户故事` sub-branch (7 workplace psychology articles). `/尝试的各种事情复盘` is the central retrospective document.
+> Priority:
 
-### 6. 故事 (`20260128205307-0p9xzik`) — 29篇文档
-
-**结构**: 小说创作项目"完美伴侣"，设在未来约10年后（人形伴侣机器人普及的时代）。
-
-**阅读优先级**: 中 —— 理解用户的创造性写作。
-
-#### /完美伴侣（主项目）
-- `20260128205437-ufdrjs1` **思路与立意** — 创作蓝图：科幻小说，核心主题是"人类自恋与对环境的完全控制欲"，AI伴侣成为人类回避真实关系摩擦的必然产物。3条人物主线：创业制造机器人的CEO、逃避复杂人际关系的女白领、被机器人替代的中年保姆。
-- `20260128205437-3w7j6ti` **正文合集** — 前4章全文。第1章：林思辞退保姆张翠花，领取伴侣机器人"启元"。第2章：CEO周山醉酒回家，三台机器人无缝照料。第3章：张翠花失业返乡，丈夫和儿子都不来接。第4章：林思与启元发生亲密关系，肉体满足后感到意外情感空虚。
-- 第5-8章：周山路演面向政府投资人、张翠花家庭关系、马俊杰酒后意外、林思闺蜜之间
-- **人物传记**: 10个人物（林思、周山、张翠花、马强、马俊杰、孙梦雅、赵颖、赵宇、猴子 + 人物模板）
-- **辅助材料**: 情节顺序（按人物世界/按小说呈现）、时间轴、故事片段、与AI的交流
-
----
-
-### 7. 商业尝试 (`20251204095028-2aztrdb`) — 12篇文档
-
-**结构**: 小型扁平集合，商业探索记录。
-
-**阅读优先级**: 中 —— 了解用户的商业思维和副业探索。
-
-- `20260102105420-8tl5neo` **尝试的各种事情复盘** — 10+个商业/副业尝试的结构化回顾（模板：起因+计划+行动+结果+评估）。记录项目：小红书读书博主（1个月14篇，一篇爆款2万+阅读但零变现）、AI生成猫咪视频（YouTube 12个视频$0收入）、AI编程工坊（仅1人报名取消）、冰粉摆摊（2天100元收入vs 1100元成本）。关键教训：热情若无系统跟进和数据分析，终会消退。
-- `20251208111505-8f9ix8x` **牛畅的客户故事** — 职业发展案例集（7个子文档）："不稳定"的求职者/团队管理/职场配得感/目标完成/执行力/目标善变者/给高潜力者建议
-- `20251229181413-1ljudo7` **个性化新闻订阅商机** — SaaS产品构想：新闻聚合+AI个性化筛选+邮件交付，含信息源列表（彭博/FT/路透/新浪/集邦/IT之家等）和目标客户分析。
-- `20260112230823-6ez6qfe` 商业思路
+- `20260102105420-8tl5neo` 尝试的各种事情复盘
+  - Hub: Structured retrospective of 12+ side ventures using a consistent template (origin, goals, planned vs. actual actions, results, evaluation). Covers: 小红书读书分享 (brief viral moment), 公众号运营, 回忆录, YouTube AI cat videos, 摆摊卖冰粉, 我的状态App, 每日金句小程序, 健心坊, 小说创作, AI股票研究员, AI氛围编程工坊 (recruited 1 paying student), AI恋爱模拟器, 个人网站. Pattern: quick experimentation with enthusiasm fading when results lag expectations.
 - `20260111184832-50grsvf` 写文章时可以借鉴的内容
+- `20251229181413-1ljudo7` 个性化新闻订阅商机
 
----
+## AI使用 (7 docs)
 
-### 8. 碎片搜集 (`20251201092334-qyfhwwi`) — 3篇文档
+> Structure: Small reference notebook. `/0-必读` defines AI agent reading rules.
+> Priority:
 
-**结构**: 小型扁平集合，实地调研和零散信息。
+- `20251214170410-1uilke0` 0-必读
+  - Hub: Defines three AI usage modes — investment research assistant, article writing assistant (match user style), thinking/dialogue partner. Specifies which notebooks to read for each mode. Marked as read-only for AI.
+- `20251204140054-2l4wypm` AI常用提示词
+- `20260114155834-lu4qv2z` AI测评比较
+- `20251227161310-m5z05ky` AI记忆
+- `20260111190730-l9mrysz` 商业创作指南
+- `20260428183357-4on60hh` 公司AI培训
+- `20260502113615-npvcr5r` 思源AI agent工具
 
-**阅读优先级**: 低-中 —— 特定主题时查阅。
+## 碎片搜集 (3 docs) | 对标参考 (2 docs) | 深度阅读 (1 doc)
 
-- `20251201094611-61v54of` **即兴调研与破圈尝试** — 三项实地微型调研：(1)杭州江南之星4家门店租金调查（7.5-20万/年，约1000元/平米/年）；(2)理发店换招牌吞卡套路揭秘；(3)反向推销营销课给鼻炎馆老板的冷电话实录（含完整通话录音文字稿和详细复盘）。另含杭州延安路店面租金（37万/年, 17.6平米, 2.1万/平米/年）和网约车vs出租车模式比较。
-- `20251201092705-ofrzl0e` 网络新闻
-- `20251204162757-yjenqgd` 测试文档
+> Small reference notebooks.
 
----
-
-### 9-12. 无可见文档的笔记本
-
-以下4个笔记本当前无可见文档（已隐藏、空内容或被ignore规则屏蔽）：
-- `20251130201326-etj8z6d` 深度阅读
-- `20251128155840-ftb7dy0` 学习笔记
-- `20251129093600-qgk9x2x` 对标参考
-- `20251127225808-mvv7db0` 文章收藏
-
----
-
-## 附录
-
-### A. 用户关键信息速查表
-
-| 维度 | 详情 |
-|------|------|
-| 出生 | 1998年，贵州人 |
-| 教育 | 浙江大学经济学（本科+硕士），2023年毕业 |
-| 职业 | 杭州私营房地产企业投资分析，研究AI产业光模块 |
-| 年收入 | 十几万元 |
-| 自媒体 | 公众号"清醒杂货店"，200+粉丝，70+篇文章 |
-| 投资 | 个人基金3万元起步（2026年2月），Excel记账体系 |
-| 副业 | AI编程工坊（带0基础小白上手AI编程） |
-| 课程 | 参加勤勤"人生事业创造营"（生活方式创业） |
-| 工具 | 思源笔记（主力）、Excel（投资记账） |
-| 兴趣 | 个人成长、灵性修行、AI、编程、写作、投资 |
-
-### B. 文档ID格式说明
-- 格式：`yyyyMMddHHmmss-xxxxxxx`（基于创建时间戳）
-- 引用方式：思源笔记块引用格式 `((ID '显示文本'))`
-- 读取方式：`siyuan_read_document` 工具，传入完整ID
-
-### C. AI交互最佳实践
-1. **先读入口文档**：`AI使用/0-必读` → `AI使用/AI记忆` → `投资实践/给AI的项目背景`
-2. **根据场景选择**：投资研究查光模块笔记本 → 写作参考查自己写的文章 → 对话拓展查日记随笔
-3. **长文档分段读**：`siyuan_read_document` 自动返回大纲，用 `chunk=N` 跳转到指定分段
-4. **保留图文上下文**：不单独提取图片，保留原文档图片与文字的相对位置
-5. **不推测不编造**：信息不足时明说，不虚构。数据需附来源链接。
-6. **买方视角**：为用户的钱负责，不推销观点或股票，客观中立完整呈现信息。
+- `20251201094611-61v54of` /碎片搜集/即兴调研与破圈尝试 (6.4K words)
+- `20251129093629-w9c0b4g` /对标参考/100分钟从0入门微信小程序
+- `20251128183954-3zjkn3i` /对标参考/网易云人格主导色刷屏分析
+- `20251130201329-z4x0k89` /深度阅读/毛泽东选集

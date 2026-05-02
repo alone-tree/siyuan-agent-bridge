@@ -1,6 +1,6 @@
 ---
 name: siyuan-index-builder
-description: 创建和更新思源代理桥库的结构化索引文件 knowledge_base/index.md。当用户提到"创建索引"、"更新索引"、"建索引"、"重建索引"、"刷新索引"、"index"，或希望 AI 快速定位知识库中的相关文档时使用此 skill。
+description: 创建和更新思源代理桥库的结构化索引文件 knowledge_base/index.md。当用户提到"创建索引"、"更新索引"、"建索引"、"重建索引"、"刷新索引"时使用此skill。
 ---
 
 # SiYuan Index Builder

@@ -174,6 +174,9 @@ siyuan-agent-bridge/
 - `tree.md`：两层文档树（笔记本概览表 + 各笔记本文档树），默认不要让 AI 全扫第二层。
 - `docs.jsonl`：文档级结构化数据（AI 不应直接读取）。
 - `notebooks.json`：笔记本索引。
+- `index.md`：AI 生成的语义导航索引（由 `siyuan-index-builder` skill 创建）。
+
+> **已知限制**：`index.md` 通过 AI 的 Write/Edit 文件工具创建，因此 AI 会将文件写到**当前 IDE 工作目录**的 `knowledge_base/` 下，而非 bridge 项目目录的 `knowledge_base/`。如果在其他项目下让 AI 重建索引，请手动将生成的 `index.md` 复制到 bridge 项目的 `knowledge_base/` 中，或只在 bridge 项目内让 AI 重建。
 
 `source_code/` 里主要有：
 
