@@ -429,34 +429,49 @@ def render_start_packet(root: Path, version: str) -> str:
     base = root / KNOWLEDGE_BASE_DIR
     start_here = read_optional_text(root / "START_HERE.md")
     guide = read_optional_text(base / "guide.md")
+    index_md = read_optional_text(base / "index.md")
     overview = build_notebook_overview(root)
-    return "\n".join(
-        [
-            "# SiYuan Knowledge Startup Packet",
+    parts: list[str] = [
+        "# SiYuan Knowledge Startup Packet",
+        "",
+        f"SiYuan connection: OK, version {version}",
+        "",
+        overview,
+    ]
+    if index_md:
+        parts.extend([
             "",
-            f"SiYuan connection: OK, version {version}",
+            "## Semantic Index (index.md)",
             "",
-            overview,
+            index_md.strip(),
+        ])
+    else:
+        parts.extend([
             "",
-            "## Mandatory Workflow",
-            "",
-            "1. Use this startup packet first.",
-            "2. Follow `knowledge_base/guide.md` for durable preferences.",
-            "3. Use the notebook overview above to choose relevant notebooks.",
-            "4. Use `siyuan_list` to see one notebook's document tree.",
-            "5. Read documents with `siyuan_read_document`.",
-            "6. Use `siyuan_refresh_index` mid-session only when the user explicitly asks to refresh.",
-            "",
-            "## Start Here",
-            "",
-            start_here.strip() if start_here else "(START_HERE.md is missing)",
-            "",
-            "## Guide",
-            "",
-            guide.strip() if guide else "(guide.md is missing)",
-            "",
-        ]
-    )
+            "> 当前没有导航索引。如果你希望 AI 更快速地定位到相关内容，可以告诉 AI 先快速扫一遍我的笔记本结构，创建一个导航索引。之后每次新会话启动，AI 都能直接拿到这份导航。",
+        ])
+    parts.extend([
+        "",
+        "## Mandatory Workflow",
+        "",
+        "1. Use this startup packet first.",
+        "2. If an index.md was provided above, use its quick navigation table to locate relevant notebooks.",
+        "3. Follow `knowledge_base/guide.md` for durable preferences.",
+        "4. Use the notebook overview table to choose relevant notebooks.",
+        "5. Use `siyuan_list` with a `notebook_id` to see one notebook's document tree.",
+        "6. Read documents with `siyuan_read_document`.",
+        "7. Use `siyuan_refresh_index` mid-session only when the user explicitly asks to refresh.",
+        "",
+        "## Start Here",
+        "",
+        start_here.strip() if start_here else "(START_HERE.md is missing)",
+        "",
+        "## Guide",
+        "",
+        guide.strip() if guide else "(guide.md is missing)",
+        "",
+    ])
+    return "\n".join(parts)
 
 
 def read_optional_text(path: Path) -> str:

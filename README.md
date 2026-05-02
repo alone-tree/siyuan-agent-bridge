@@ -8,7 +8,7 @@ It is not a SiYuan plugin, not a public package, and not a vector-search system.
 
 ## Current Capabilities
 
-- Scans SiYuan notebooks and the full document tree, including child documents.
+- Scans SiYuan notebooks and the full document tree, including child documents. Closed notebooks are automatically opened during scan and restored afterwards.
 - Hides notebooks, single documents, or document subtrees through `siyuan.ignore.local.json`.
 - Temporarily opens hidden items through `siyuan.allow.local.json`.
 - Generates safe indexes, overview files, and notebook maps under `knowledge_base/`.
@@ -45,19 +45,21 @@ When MCP is available, the agent should call:
 siyuan_start
 ```
 
-This refreshes the safe index and returns the startup packet with the notebook overview table, START_HERE.md, and guide.md.
+This refreshes the safe index and returns the startup packet with the notebook overview table, index.md (when it exists), START_HERE.md, and guide.md.
 
 If MCP is unavailable, register or repair the MCP server first. The Python CLI is only a developer diagnostic interface, not the normal AI entrypoint.
 
 ## MCP Tools
 
-- `siyuan_start`: refresh the safe index and return the startup packet with notebook overview table, START_HERE.md, and guide.md. Always call first.
+- `siyuan_start`: refresh the safe index and return the startup packet with notebook overview table, index.md (when it exists), START_HERE.md, and guide.md. Always call first.
 - `siyuan_refresh_index`: refresh safe indexes mid-session when the user explicitly asks.
 - `siyuan_list`: list visible notebooks (no args) or return the document tree for one notebook (with `notebook_id`), including word counts and update times.
 - `siyuan_find_documents`: search safe-index titles/paths/tags plus live SiYuan block content when available, with 4 modes (`keyword`/`query`/`regex`/`sql`), 2 scopes (`headings`/`full`), optional notebook filter.
 - `siyuan_read_document`: read a document with outline. Short docs return full text; long docs return one chunk; use `chunk=N` to navigate.
 - `siyuan_propose_guide_update`: save a proposed guide update in `ai_workspace/`.
-- `siyuan_apply_guide_update`: update `knowledge_base/guide.md` only after explicit user approval.
+- `siyuan_apply_guide_update`: update `knowledge_base/guide.md` only after explicit user approval (requires `confirmed=true`).
+- `siyuan_privacy`: manage persistent hide rules. `action="hide"` or `"unhide"`, requires `confirmed=true`.
+- `siyuan_temporary_allow`: manage temporary allow rules. `action="open"` (expires in N minutes) or `"close"` (clear all).
 
 ## Long Documents
 

@@ -7,7 +7,7 @@ The product interface is MCP + Skill. Treat CLI commands as developer diagnostic
 ## Reading Order
 
 1. Read `START_HERE.md` first.
-2. Use MCP tool `siyuan_start`; it refreshes the safe index and returns the notebook overview table, START_HERE.md, and guide.md.
+2. Use MCP tool `siyuan_start`; it refreshes the safe index and returns the notebook overview table, index.md (when it exists), START_HERE.md, and guide.md.
 3. If MCP is unavailable, tell the user the SiYuan knowledge MCP is not registered or not reachable.
 4. Read the startup packet before opening broad maps.
 5. Use the notebook overview table from `siyuan_start` to choose relevant notebooks.
@@ -49,4 +49,6 @@ python -m source_code ignore status
 - `siyuan_find_documents`: search safe-index titles/paths/tags plus live SiYuan block content when available, with 4 modes (`keyword`/`query`/`regex`/`sql`), 2 scopes (`headings`/`full`), optional notebook filter.
 - `siyuan_read_document`: read a document with outline (heading→chunk mapping). Short docs return full text; long docs return one chunk at a time via `chunk` parameter.
 - `siyuan_propose_guide_update`: save proposed guide changes in `ai_workspace/`.
-- `siyuan_apply_guide_update`: update `knowledge_base/guide.md` only after explicit user approval.
+- `siyuan_apply_guide_update`: update `knowledge_base/guide.md` only after explicit user approval (requires `confirmed=true`).
+- `siyuan_privacy`: manage persistent hide rules. `action="hide"` or `"unhide"`, requires `confirmed=true`.
+- `siyuan_temporary_allow`: manage temporary allow rules. `action="open"` (expires in N minutes) or `"close"` (clear all).

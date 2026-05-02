@@ -26,6 +26,7 @@ from .indexer import (
     KNOWLEDGE_BASE_DIR,
     build_notebook_overview,
     compute_word_count,
+    ensure_notebooks_open,
     extract_snippet,
     find_documents,
     format_date,
@@ -263,7 +264,8 @@ class McpServer:
             config = load_config(self.root)
             client = get_working_client(config)
             try:
-                rows = client.query_sql(keyword)
+                with ensure_notebooks_open(client, notebooks):
+                    rows = client.query_sql(keyword)
             except SiYuanApiError as exc:
                 if "administrator" in str(exc).casefold() or "privilege" in str(exc).casefold():
                     raise ValueError("SQL search requires SiYuan administrator privileges. Use mode=keyword, mode=query, or mode=regex instead.") from exc
@@ -276,14 +278,15 @@ class McpServer:
                 client = get_working_client(config)
                 method_map = {"keyword": 0, "query": 1, "regex": 3}
                 api_method = method_map[mode]
-                data = search_content(
-                    client,
-                    keyword,
-                    method=api_method,
-                    scope=scope,
-                    notebooks=notebooks,
-                    limit=limit,
-                )
+                with ensure_notebooks_open(client, notebooks):
+                    data = search_content(
+                        client,
+                        keyword,
+                        method=api_method,
+                        scope=scope,
+                        notebooks=notebooks,
+                        limit=limit,
+                    )
                 blocks: list[dict[str, Any]] = data.get("blocks", [])
                 keywords = search_terms(keyword, mode)
                 live_hits = self._enrich_search_blocks(blocks, local_docs, keywords, notebooks)
@@ -394,21 +397,10 @@ class McpServer:
 
             doc = doc_index.get(doc_id)
             if doc is None:
-                nb_id = str(block.get("box", ""))
-                if notebook_filter and nb_id not in notebook_filter:
-                    continue
-                doc = {
-                    "id": doc_id,
-                    "notebook_id": nb_id,
-                    "notebook_name": nb_id,
-                    "hpath": str(block.get("hpath", "")),
-                    "word_count": 0,
-                    "updated": "",
-                }
-            else:
-                nb_id = str(doc.get("notebook_id", ""))
-                if notebook_filter and nb_id not in notebook_filter:
-                    continue
+                continue
+            nb_id = str(doc.get("notebook_id", ""))
+            if notebook_filter and nb_id not in notebook_filter:
+                continue
 
             seen.add(doc_id)
 
@@ -485,7 +477,11 @@ class McpServer:
 
     def siyuan_read_document(self, args: dict[str, Any]) -> str:
         doc = self.resolve_visible_document(args)
-        markdown = self.export_document_markdown(str(doc["id"]))
+        notebook_id = str(doc.get("notebook_id", ""))
+        config = load_config(self.root)
+        client = get_working_client(config)
+        with ensure_notebooks_open(client, [notebook_id]):
+            markdown = client.export_markdown(str(doc["id"]))
         max_chars = clamp_int(args.get("max_chars"), DEFAULT_CHUNK_CHARS, 2000, MAX_CHUNK_CHARS)
         chunk_param = int(args.get("chunk") or 0)
         chunks = split_markdown_chunks(markdown, max_chars=max_chars)
@@ -545,7 +541,8 @@ class McpServer:
             if privacy.allow:
                 config = load_config(self.root)
                 client = get_working_client(config)
-                live_docs = filter_documents(load_live_docs(client), privacy)
+                with ensure_notebooks_open(client):
+                    live_docs = filter_documents(load_live_docs(client), privacy)
                 status, matches = resolve_document(live_docs, locator)
         if status != "ok":
             raise ValueError("No matching visible document. It may be hidden, unindexed, or the locator is wrong.")

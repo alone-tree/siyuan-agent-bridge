@@ -50,6 +50,12 @@ class SiYuanClient:
             raise SiYuanApiError("Unexpected notebooks response shape")
         return [item for item in notebooks if isinstance(item, dict)]
 
+    def open_notebook(self, notebook_id: str) -> None:
+        self._post("/api/notebook/openNotebook", {"notebook": notebook_id})
+
+    def close_notebook(self, notebook_id: str) -> None:
+        self._post("/api/notebook/closeNotebook", {"notebook": notebook_id})
+
     def query_sql(self, stmt: str) -> list[dict[str, Any]]:
         data = self._post("/api/query/sql", {"stmt": stmt})
         if not isinstance(data, list):

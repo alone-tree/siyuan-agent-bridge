@@ -126,7 +126,7 @@
     "icon": "",
     "sort": 9,
     "sortMode": 15,
-    "closed": false,
+    "closed": true,
     "newFlashcardCount": 0,
     "dueFlashcardCount": 0,
     "flashcardCount": 0

@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import re
+import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Generator, Iterable
 
 from .client import SiYuanClient
 from .ignore import filter_documents, filter_notebooks, load_privacy_rules
@@ -62,6 +64,52 @@ class RefreshResult:
     cache_dir: Path
 
 
+@contextmanager
+def ensure_notebooks_open(
+    client: SiYuanClient,
+    notebook_ids: Iterable[str] | None = None,
+) -> Generator[None, None, None]:
+    """Temporarily open closed notebooks, restoring original state afterwards.
+
+    If *notebook_ids* is None, all closed notebooks are opened.
+    Otherwise only the specified IDs are opened.
+    """
+    all_notebooks = client.list_notebooks()
+    closed_map: dict[str, bool] = {}
+    for nb in all_notebooks:
+        nid = str(nb.get("id", ""))
+        if nid and nb.get("closed"):
+            closed_map[nid] = True
+
+    to_open: set[str]
+    if notebook_ids is None:
+        to_open = set(closed_map)
+    else:
+        to_open = {str(nid) for nid in notebook_ids} & set(closed_map)
+
+    for nid in to_open:
+        client.open_notebook(nid)
+
+    # SiYuan loads notebook data asynchronously — poll until all are available
+    pending = set(to_open)
+    if pending:
+        deadline = time.monotonic() + 10.0
+        while pending and time.monotonic() < deadline:
+            for nid in list(pending):
+                rows = client.query_sql(
+                    f"SELECT 1 FROM blocks WHERE type='d' AND box='{nid}' LIMIT 1"
+                )
+                if rows:
+                    pending.discard(nid)
+            if pending:
+                time.sleep(0.5)
+    try:
+        yield
+    finally:
+        for nid in to_open:
+            client.close_notebook(nid)
+
+
 def refresh_index(client: SiYuanClient, root: Path) -> RefreshResult:
     cache_dir = root / KNOWLEDGE_BASE_DIR
     workspace_dir = root / AI_WORKSPACE_DIR
@@ -71,9 +119,11 @@ def refresh_index(client: SiYuanClient, root: Path) -> RefreshResult:
     all_notebooks = client.list_notebooks()
     privacy = load_privacy_rules(root, include_temporary=False)
     notebooks = filter_notebooks(all_notebooks, privacy)
-    all_docs = normalize_documents(client.query_sql(DOCS_SQL), all_notebooks)
-    docs = filter_documents(all_docs, privacy)
-    update_document_word_counts(client, docs)
+
+    with ensure_notebooks_open(client):
+        all_docs = normalize_documents(client.query_sql(DOCS_SQL), all_notebooks)
+        docs = filter_documents(all_docs, privacy)
+        update_document_word_counts(client, docs)
 
     write_json(cache_dir / "notebooks.json", notebooks)
     write_jsonl(cache_dir / "docs.jsonl", docs)
