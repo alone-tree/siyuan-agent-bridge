@@ -1,54 +1,69 @@
-# Agent Instructions
+# SiYuan Agent Bridge — Developer Guide
 
-This is a private, read-only adapter for using the owner's SiYuan notes as an AI knowledge base.
+Python 项目，MCP + Skill 架构。产品界面是 MCP 工具和 Skill，CLI 仅供开发诊断。
 
-The product interface is MCP + Skill. Treat CLI commands as developer diagnostics only. Human-facing privacy changes are usually made by editing `siyuan.ignore.local.json`.
+## Project Structure
 
-## Reading Order
-
-1. Read `START_HERE.md` first.
-2. Use MCP tool `siyuan_start`; it refreshes the safe index and returns the notebook overview table, index.md (when it exists), START_HERE.md, and guide.md.
-3. If MCP is unavailable, tell the user the SiYuan Agent Bridge MCP is not registered or not reachable.
-4. Read the startup packet before opening broad maps.
-5. Use the notebook overview table from `siyuan_start` to choose relevant notebooks.
-6. Use `siyuan_list` (with `notebook_id`) for one notebook's document tree.
-7. Use MCP `siyuan_read_document` when full document Markdown is needed. The tool always returns the outline; long documents return one chunk at a time. Use `chunk=0` for the first chunk or `chunk=N` to jump to a specific chunk.
-9. Put derived analysis, task context, drafts, and outputs in `ai_workspace/`.
-
-## Hard Rules
-
-- Do not modify SiYuan notes.
-- Do not call SiYuan write APIs.
-- Do not commit or print API tokens.
-- Do not read `config.local.json`, `siyuan.ignore.local.json`, or `siyuan.allow.local.json` unless the user explicitly asks.
-- Do not run `python -m source_code ignore allow ...` unless the user explicitly asks to temporarily open hidden notes.
-- Do not expose hidden notebook/document names from local privacy files unless the user explicitly asks.
-- Treat `knowledge_base/` and `ai_workspace/` as private personal data.
-- Do not scan all of `knowledge_base/tree.md` by default.
-- Do not refresh or rebuild indexes mid-session unless the user explicitly asks. `siyuan_start` already refreshes on startup.
-- Do not force long documents into one response. Use the `chunk` parameter on `siyuan_read_document` to avoid MCP/client truncation.
-
-## Developer Diagnostic Commands
-
-```bash
-python -m source_code doctor
-python -m source_code notebooks
-python -m source_code start
-python -m source_code refresh
-python -m source_code tree
-python -m source_code find <keyword>
-python -m source_code read <doc-id>
-python -m source_code ignore status
+```
+source_code/         Python 适配层
+  client.py          → 只读 HTTP API 封装
+  indexer.py         → 扫描笔记本 → 生成 tree.md + docs.jsonl
+  mcp_server.py      → MCP stdio server（9 个工具）
+  ignore.py          → 隐私规则管理
+  config.py          → 配置加载
+  cli.py             → 开发诊断 CLI
+plugins/             Skill 打包材料（供 CC Switch 导入）
+  siyuan-agent-bridge/
+    skills/          → siyuan-agent-bridge SKILL.md（使用者工作流）
+    scripts/         → run_mcp.py（MCP stdio 启动脚本）
+knowledge_base/      生成的索引（Git 忽略，仅本地存在）
+  tree.md            → 程序生成，每次 refresh 覆盖
+  docs.jsonl         → 结构化文档元数据
+  guide.md           → 用户维护的阅读指南（ensure，不覆盖）
+  index.md           → AI 生成的语义导航索引
+ai_workspace/        AI 工作区（Git 忽略）
+dist/                构建产物（Skill zip + MCP 配置）
+tests/               测试
+PRO.md               项目思路与各类问题的考虑。
 ```
 
-## MCP Tools
+## Documentation
 
-- `siyuan_start`: refresh the safe index and return the startup packet with notebook overview table, START_HERE.md, and guide.md. Always call first.
-- `siyuan_refresh_index`: explicit mid-session index refresh (siyuan_start already refreshes on startup).
-- `siyuan_list`: list visible notebooks (no args) or document tree for one notebook (with `notebook_id`), includes word counts and update times.
-- `siyuan_find_documents`: search safe-index titles/paths/tags plus live SiYuan block content when available, with 4 modes (`keyword`/`query`/`regex`/`sql`), 2 scopes (`headings`/`full`), optional notebook filter.
-- `siyuan_read_document`: read a document with outline (heading→chunk mapping). Short docs return full text; long docs return one chunk at a time via `chunk` parameter.
-- `siyuan_propose_guide_update`: save proposed guide changes in `ai_workspace/`.
-- `siyuan_apply_guide_update`: update `knowledge_base/guide.md` only after explicit user approval (requires `confirmed=true`).
-- `siyuan_privacy`: manage persistent hide rules. `action="hide"` or `"unhide"`, requires `confirmed=true`.
-- `siyuan_temporary_allow`: manage temporary allow rules. `action="open"` (expires in N minutes) or `"close"` (clear all).
+修改设计决策、发现新问题、完成重要讨论后，必须更新 `PRO.md`。不要遗漏。这是项目知识持续积累的核心机制。
+
+## Architecture
+
+- **MCP-first**：所有用户功能通过 MCP 工具暴露，CLI 可有可无。
+- **只读原则**：不调用思源写 API，不修改笔记。
+- **隐私预过滤**：`docs.jsonl` 生成时已过滤隐藏内容；搜索时以此做门控。
+- **关闭笔记本透明打开**：索引和搜索前自动临时打开关闭的笔记本，完成后恢复。
+
+## Common Commands
+
+```bash
+# 诊断
+python -m source_code doctor
+python -m source_code notebooks
+
+# 索引
+python -m source_code refresh
+python -m source_code start    # 等价于 siyuan_start
+
+# 搜索/阅读
+python -m source_code find <keyword>
+python -m source_code tree
+python -m source_code read <doc-id>
+
+# 隐私
+python -m source_code ignore status
+
+# 测试
+pytest tests/ -v
+```
+
+## Dev Notes
+
+- MCP server 通过 stdin/stdout JSON-RPC 通信，由 `plugins/…/scripts/run_mcp.py` 启动。
+- `config.local.json` 包含思源 API token，已被 Git 忽略。
+- Skill zip 打包脚本在 `dist/` 目录。
+- 索引刷新时 `guide.md` 不会被覆盖（ensure），`tree.md` 和 `docs.jsonl` 会被覆盖。

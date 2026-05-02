@@ -125,8 +125,56 @@ class McpServerTests(unittest.TestCase):
 
         self.assertIn("block1", output)
         self.assertIn("block2", output)
+        self.assertIn("命中块：共 2 个，展示前 2 个。", output)
         self.assertIn("第一个密匙", output)
         self.assertIn("第二个密匙", output)
+
+    def test_find_documents_limits_displayed_blocks_per_document(self):
+        blocks = []
+        for index in range(6):
+            number = index + 1
+            blocks.append({
+                "id": f"block{number}",
+                "rootID": "doc1",
+                "box": "nb1",
+                "type": "NodeParagraph",
+                "markdown": f"第{number}个密匙在这里。",
+                "content": f"第{number}个<mark>密匙</mark>在这里。",
+                "hPath": "/Projects/Doc One",
+                "path": "/doc1.sy",
+            })
+        client = FakeSearchClient(blocks)
+        output = self.run_find(client, {"keyword": "密匙", "mode": "keyword", "scope": "full", "notebooks": "nb1"})
+
+        self.assertIn("命中块：共 6 个，展示前 5 个。", output)
+        self.assertIn("block5", output)
+        self.assertNotIn("block6", output)
+
+    def test_find_documents_allows_adjusting_displayed_blocks_per_document(self):
+        blocks = []
+        for index in range(6):
+            number = index + 1
+            blocks.append({
+                "id": f"block{number}",
+                "rootID": "doc1",
+                "box": "nb1",
+                "type": "NodeParagraph",
+                "markdown": f"第{number}个密匙在这里。",
+                "content": f"第{number}个<mark>密匙</mark>在这里。",
+                "hPath": "/Projects/Doc One",
+                "path": "/doc1.sy",
+            })
+        client = FakeSearchClient(blocks)
+        output = self.run_find(client, {
+            "keyword": "密匙",
+            "mode": "keyword",
+            "scope": "full",
+            "notebooks": "nb1",
+            "max_snippets_per_doc": 6,
+        })
+
+        self.assertIn("命中块：共 6 个，展示前 6 个。", output)
+        self.assertIn("block6", output)
 
     def test_find_documents_filters_live_results_with_privacy_rules(self):
         (self.root / "siyuan.ignore.local.json").write_text(

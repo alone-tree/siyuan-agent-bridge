@@ -48,7 +48,7 @@ siyuan_start
 
 - 刷新安全索引，确保数据是最新的。
 - 检查思源本地服务是否可用。
-- 返回入口材料，包括笔记本概览表、`index.md`（如果存在）、`START_HERE.md` 和 `knowledge_base/guide.md`。
+- 返回入口材料，包括笔记本概览表、`index.md`（如果存在）和 `knowledge_base/guide.md`。
 
 如果 MCP 不可用，请先注册或修复 MCP。Python CLI 只作为开发诊断入口，不作为正常 AI 使用入口。
 
@@ -56,10 +56,10 @@ siyuan_start
 
 当前 MCP 提供这些只读工具：
 
-- `siyuan_start`：刷新安全索引并返回启动包（含笔记本概览表、index.md（如存在）、START_HERE.md、guide.md）。始终最先调用。
+- `siyuan_start`：刷新安全索引并返回启动包（含笔记本概览表、index.md（如存在）、guide.md）。始终最先调用。
 - `siyuan_refresh_index`：在用户明确要求时，在会话中途刷新安全索引（siyuan_start 已在启动时刷新）。
 - `siyuan_list`：无参数时列出所有可见笔记本；给定 `notebook_id` 时返回文档树，含字数和更新时间。
-- `siyuan_find_documents`：通过思源搜索 API 检索标题/大纲/正文块，返回前应用隐藏规则过滤；搜索时会临时打开关闭的笔记本并在结束后恢复。支持 4 种模式（`keyword`/`query`/`regex`/`sql`）、2 种范围（`headings`/`full`），可选限定笔记本。
+- `siyuan_find_documents`：通过思源搜索 API 检索标题/大纲/正文块，返回前应用隐藏规则过滤；搜索时会临时打开关闭的笔记本并在结束后恢复。支持 4 种模式（`keyword`/`query`/`regex`/`sql`）、2 种范围（`headings`/`full`），可选限定笔记本。同一文档默认展示前 5 个命中块，可用 `max_snippets_per_doc` 调整，并会报告总命中块数。
 - `siyuan_read_document`：读取文档，始终返回大纲。短文档返回全文，长文档每次返回一个分段，用 `chunk=N` 跳转。自动提取文档中的附件（图片、PDF、表格等）到 `ai_workspace/`，保留原始引用不变。
 - `siyuan_propose_guide_update`：把建议的指南更新保存到 `ai_workspace/`，不直接修改指南。
 - `siyuan_apply_guide_update`：只有在用户明确批准后，才追加或替换 `knowledge_base/guide.md`（需 `confirmed=true`）。
@@ -154,8 +154,7 @@ dist/siyuan-agent-bridge-mcp-deeplink.txt
 
 ```text
 siyuan-agent-bridge/
-  AGENTS.md                  # 给 AI agent 的仓库规则
-  START_HERE.md              # AI 使用本项目时的入口
+  AGENTS.md                  # 项目开发指南（面向维护者）
   README.md                  # 中文说明（主版本）
   README.en.md               # 英文说明
   config.example.json        # 配置示例

@@ -43,6 +43,7 @@ SERVER_NAME = "siyuan-agent-bridge"
 SERVER_VERSION = "0.1.0"
 DEFAULT_CHUNK_CHARS = 10000
 MAX_CHUNK_CHARS = 30000
+DEFAULT_SNIPPETS_PER_DOC = 5
 
 
 def main() -> int:
@@ -126,7 +127,6 @@ class McpServer:
         refresh_index(client, self.root)
         version = client.version()
         base = self.root / KNOWLEDGE_BASE_DIR
-        start_here = _read_optional(self.root / "START_HERE.md")
         guide = _read_optional(base / "guide.md")
         index_md = _read_optional(base / "index.md")
         overview = build_notebook_overview(self.root)
@@ -147,27 +147,13 @@ class McpServer:
         else:
             parts.extend([
                 "",
-                "> 当前没有导航索引。如果你希望 AI 更快速地定位到相关内容，可以告诉 AI 先快速扫一遍我的笔记本结构，创建一个导航索引。之后每次新会话启动，AI 都能直接拿到这份导航。",
+                "> 当前没有导航索引。告诉 AI 先快速扫一遍笔记本结构创建导航索引，之后每次新会话都能直接定位。",
             ])
         parts.extend([
             "",
-            "## Mandatory Workflow",
-            "",
-            "1. Use this startup packet first.",
-            "2. If an index.md was provided above, use its quick navigation table to locate relevant notebooks.",
-            "3. Follow `knowledge_base/guide.md` for durable preferences.",
-            "4. Use the notebook overview table to choose relevant notebooks.",
-            "5. Use `siyuan_list` with a `notebook_id` to see one notebook's document tree.",
-            "6. Read documents with `siyuan_read_document`.",
-            "7. Use `siyuan_refresh_index` mid-session only when the user explicitly asks to refresh.",
-            "",
-            "## Start Here",
-            "",
-            start_here.strip() if start_here else "(START_HERE.md is missing)",
-            "",
             "## Guide",
             "",
-            guide.strip() if guide else "(guide.md is missing — run `python -m source_code refresh`)",
+            guide.strip() if guide else "(guide.md is empty — use siyuan_propose_guide_update to add content)",
             "",
         ])
         return "\n".join(parts)
@@ -246,6 +232,7 @@ class McpServer:
             raise ValueError("scope must be headings or full")
 
         limit = max(int(args.get("limit") or 20), 1)
+        max_snippets_per_doc = max(int(args.get("max_snippets_per_doc") or DEFAULT_SNIPPETS_PER_DOC), 1)
 
         notebooks_raw = args.get("notebooks")
         notebooks: list[str] | None = None
@@ -316,7 +303,10 @@ class McpServer:
                 lines.append(f"- `{doc_id}` {hpath} {wc:,}字 {bc}块 {date}{source_text}".rstrip())
                 snippets = item.get("snippets")
                 if isinstance(snippets, list):
-                    for snippet in snippets:
+                    shown_snippets = snippets[:max_snippets_per_doc]
+                    match_count = int(item.get("match_count") or len(snippets))
+                    lines.append(f"  命中块：共 {match_count} 个，展示前 {len(shown_snippets)} 个。")
+                    for snippet in shown_snippets:
                         if isinstance(snippet, dict):
                             block_id = str(snippet.get("block_id") or "")
                             text = str(snippet.get("text") or "")
@@ -382,9 +372,11 @@ class McpServer:
                     "updated": str(doc.get("updated", "")),
                     "snippet": snippet,
                     "snippets": [],
+                    "match_count": 0,
                     "source": "live search",
                 }
                 results_by_doc[doc_id] = result
+            result["match_count"] += 1
             if snippet:
                 result["snippets"].append({"block_id": block_id, "text": snippet})
 
@@ -813,7 +805,7 @@ def tool_specs() -> list[dict[str, Any]]:
     return [
         {
             "name": "siyuan_start",
-            "description": "Refresh the safe index and return the mandatory startup packet: notebook overview table, index.md (if it exists — an AI-generated semantic navigation map), START_HERE.md, and guide.md. Always call this first — it ensures the index is up to date.",
+            "description": "Refresh the safe index and return the mandatory startup packet: notebook overview table, index.md (if it exists — an AI-generated semantic navigation map), and guide.md. Always call this first — it ensures the index is up to date.",
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
         {
@@ -843,7 +835,8 @@ def tool_specs() -> list[dict[str, Any]]:
                     "mode": {"type": "string", "enum": ["keyword", "query", "regex", "sql"], "default": "keyword", "description": "Search mode. Must be explicit."},
                     "scope": {"type": "string", "enum": ["headings", "full"], "default": "headings", "description": "headings = document titles and outline headings only. full = all block content."},
                     "notebooks": {"description": "Notebook ID or list of IDs to scope the search. 'ALL' (default) searches all notebooks."},
-                    "limit": {"type": "integer", "default": 20, "description": "Maximum results."},
+                    "limit": {"type": "integer", "default": 20, "description": "Maximum document results."},
+                    "max_snippets_per_doc": {"type": "integer", "default": DEFAULT_SNIPPETS_PER_DOC, "description": "Maximum matching blocks to display per document. The result still reports the total matching block count."},
                 },
                 "required": ["keyword"],
                 "additionalProperties": False,

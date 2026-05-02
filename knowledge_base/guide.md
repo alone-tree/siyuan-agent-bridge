@@ -3,6 +3,8 @@
 This file is the reading map for AI agents. Keep it short, explicit, and personal.
 `siyuan_refresh_index` will not overwrite this file.
 
+这个文档是人类由人类维护，写给AI，用于指导AI如何更好地使用和了解自己的笔记本。该文档不会被程序自动刷新。
+
 ## Startup Rules
 
 1. Read this guide first.

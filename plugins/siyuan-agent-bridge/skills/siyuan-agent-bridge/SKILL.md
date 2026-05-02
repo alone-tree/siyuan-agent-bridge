@@ -5,43 +5,40 @@ description: Use when the user wants to read or search their private SiYuan note
 
 # SiYuan Agent Bridge
 
-Access the user's private SiYuan notes through MCP tools. Never scan the filesystem for note content.
-
-Local project root: `D:\Github\siyuan-agent-bridge`.
+通过 MCP 工具访问用户的思源笔记。不要扫描本地文件系统寻找笔记内容。
 
 ## Mandatory Startup
 
-1. Call `siyuan_start` first. It refreshes the safe index and returns the startup packet: notebook overview table, index.md (if it exists), START_HERE.md, and guide.md.
-2. Read the returned startup packet.
-3. **Use index.md as your primary navigation map.** When it's included in the startup packet, its 快速导航 (quick navigation) table maps user-intent topics directly to notebooks. Use this before scanning the full notebook overview table. The per-notebook sections give structural summaries and AI-written descriptions — trust them to decide where to search.
-4. **If index.md was not included**, the startup packet will include a hint that no navigation index exists. If the user's request involves broad exploration or you need to navigate many notebooks, suggest: "我可以先快速扫一遍你的笔记本结构，创建一个导航索引，之后每次新会话都能更快定位。"
-5. Follow `knowledge_base/guide.md` for durable preferences.
-6. Use the notebook overview table to identify relevant notebooks by scale (docs count, word count, recency).
-7. Use `siyuan_list` for one notebook's document tree (provide `notebook_id`).
-8. Use `siyuan_read_document` when a document is worth deep reading. It always returns the outline (heading→chunk map). Long documents return one chunk at a time — use `chunk=0` for the first chunk or `chunk=N` to jump to a specific section.
+1. 调用 `siyuan_start` —— 刷新安全索引，返回启动包（笔记本概览表、index.md、guide.md）。
+2. 阅读返回的启动包。
+3. **以 index.md 为导航主入口。** 快速导航表将用户意图映射到笔记本，笔记本详情是 AI 扫描后浓缩的结构摘要和判断——信任它来定位相关笔记本。
+4. 若启动包不包含 index.md，提示用户："我可以先快速扫一遍你的笔记本结构，创建一个导航索引，之后每次新会话都能更快定位。"
+5. 用 `siyuan_list`（带 `notebook_id`）查看单个笔记本的文档树，含字数和更新时间。
+6. 用 `siyuan_read_document` 按需深读。始终返回大纲（标题→chunk 映射），长文档每次返回一个 chunk，用 `chunk=N` 跳转。
+7. 遵循 `knowledge_base/guide.md` 中的持久偏好。
 
-If MCP tools are unavailable, tell the user the SiYuan Agent Bridge MCP is not registered or not reachable. Do not scan local files for note content.
+若 MCP 工具不可用，告知用户 SiYuan Agent Bridge MCP 未注册或不可达。不要回退到扫描文件。
 
-## Tool Use
+## Tool Use Hints
 
-- `siyuan_start`: refresh the safe index and return the startup packet: notebook overview table, index.md (AI-generated semantic navigation map, when it exists), START_HERE.md, and guide.md. Always call first.
-- `index.md`: part of the startup packet returned by `siyuan_start`. It is an AI-generated navigation index with a 快速导航 (quick routing) table and per-notebook summaries. Use it as your primary navigation map. It may become stale between sessions — if it contradicts tree.md, tree.md wins. When index.md is absent, the startup packet suggests offering to create one.
-- `siyuan_refresh_index`: refresh safe indexes only when the user explicitly asks for a mid-session refresh.
-- `siyuan_list`: list visible notebooks (no args) or return the document tree for one notebook (with `notebook_id`). Word counts and update times are included.
-- `siyuan_find_documents`: search the knowledge base through SiYuan search APIs, then apply privacy rules before returning results. It temporarily opens closed notebooks while searching and restores them afterwards. 4 modes — `keyword` (space-separated AND), `query` (AND/OR/NOT/`"phrase"`/`prefix*`), `regex`, `sql` (direct SQL, needs admin). Scope: `headings` (titles + headings) or `full` (all block text). Filter with `notebooks` parameter.
-- `siyuan_read_document`: read a document as Markdown. Always returns the outline (heading→chunk mapping). Short docs (≤max_chars) return full text. Long docs return outline + one chunk — use `chunk=0` for the first chunk or `chunk=N` to jump to a specific chunk. Attachments (images, PDFs, spreadsheets, etc.) are automatically extracted to `ai_workspace/attachments/<doc-id>/assets/` with original filenames preserved. The document header reports the attachment count.
-- `siyuan_propose_guide_update`: save a suggested guide improvement in `ai_workspace/` without modifying the guide.
-- `siyuan_apply_guide_update`: update `knowledge_base/guide.md` only after explicit user approval.
-- `siyuan_privacy`: manage persistent hide rules. `action="hide"` hides a notebook/document/subtree and refreshes. `action="unhide"` removes the rule and refreshes. Both require `confirmed=true`. Changes persist across sessions.
-- `siyuan_temporary_allow`: manage temporary allow rules. `action="open"` temporarily allows a hidden item (expires in N minutes, no index refresh, requires `confirmed=true`). `action="close"` immediately clears all temporary allows.
+完整参数说明由 MCP `tools/list` 提供。以下仅标注非显而易见的要点：
+
+- `siyuan_start` —— 始终最先调用。
+- `siyuan_find_documents` —— 搜索知识库，通过思源 API 实时搜索后经隐私规则过滤返回结果。
+- `siyuan_read_document` —— 附件（图片、PDF 等）自动提取到 `ai_workspace/attachments/<doc-id>/`，保留原始引用。
+- `siyuan_privacy` / `siyuan_temporary_allow`（open）—— 必须 `confirmed=true`，仅在用户明确批准后设置。
 
 ## Safety Rules
 
-- Do not modify SiYuan notes.
-- Do not call SiYuan write APIs.
-- Do not read `config.local.json` unless the user explicitly asks.
-- Do not expose hidden notebook or document names unless the user explicitly asks.
-- Do not scan all of `knowledge_base/tree.md` — use the notebook overview table from `siyuan_start`.
-- Do not force long documents into one response — use the `chunk` parameter on `siyuan_read_document`.
-- Put derived analysis and drafts in `ai_workspace/`.
-- Always require `confirmed=true` for `siyuan_privacy` and `siyuan_temporary_allow` (open); never auto-confirm.
+- 不要修改思源笔记内容。
+- 不要调用思源写 API。
+- 不要读取 `config.local.json`、`siyuan.ignore.local.json`、`siyuan.allow.local.json`，除非用户明确要求。
+- 不要暴露被隐藏的笔记本或文档名称，除非用户明确要求。
+- 不要全量扫描 `knowledge_base/tree.md` —— 使用 `siyuan_start` 返回的概览表。
+- 长文档不要一次性塞进回复 —— 使用 `siyuan_read_document` 的 `chunk` 参数分段读取。
+- 派生分析和草稿放在 `ai_workspace/`。
+
+## Cross-References
+
+- **导航索引创建**：触发 `siyuan-index-builder` skill。
+- **项目开发**：见仓库 `AGENTS.md`（面向维护者）。
