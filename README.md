@@ -162,7 +162,7 @@ siyuan-agent-bridge/
   siyuan.ignore.local.json   # 长期隐藏规则
   siyuan.allow.local.json    # 临时开放规则
   source_code/               # Python 工具代码
-  plugins/siyuan-agent-bridge/  # Skill 和 MCP 插件材料
+  plugins/siyuan-agent-bridge/     # Skill 和 MCP 插件（含 skills/、scripts/、MCP 配置）
   knowledge_base/            # 生成的安全索引
   ai_workspace/              # AI 工作区
   tests/                     # 测试
