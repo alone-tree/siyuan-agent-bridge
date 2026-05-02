@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Sequence
 
@@ -72,6 +73,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     refresh = sub.add_parser("refresh", help="Refresh local knowledge-base indexes.")
     refresh.set_defaults(func=cmd_refresh)
+
+    backup = sub.add_parser("backup", help="Create a SiYuan workspace snapshot.")
+    backup.add_argument("--memo", default="")
+    backup.add_argument("--tag", action="append", default=[])
+    backup.set_defaults(func=cmd_backup)
+
+    snapshots = sub.add_parser("snapshots", help="List recent SiYuan workspace snapshots.")
+    snapshots.add_argument("--page", type=int, default=1)
+    snapshots.add_argument("--limit", type=int, default=10)
+    snapshots.set_defaults(func=cmd_snapshots)
 
     tree = sub.add_parser("tree", help="Print knowledge_base/tree.md.")
     tree.set_defaults(func=cmd_tree)
@@ -175,6 +186,43 @@ def cmd_refresh(_args: argparse.Namespace, config: Config) -> int:
     result = refresh_index(client, config.root)
     print(format_refresh_summary(result))
     print(f"Cache: {result.cache_dir}")
+    return 0
+
+
+def cmd_backup(args: argparse.Namespace, config: Config) -> int:
+    client = get_working_client(config)
+    memo = args.memo.strip() or f"siyuan-agent-bridge manual backup {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    tags = args.tag or ["siyuan-agent-bridge", "manual-backup"]
+    snapshot = client.create_snapshot(memo, tags=tags)
+    print("Created SiYuan workspace snapshot.")
+    print(f"Endpoint: {client.base_url}")
+    print(f"Snapshot ID: {snapshot.get('id', '')}")
+    print(f"Created: {snapshot.get('created', '')}")
+    print(f"Memo: {memo}")
+    if tags:
+        print(f"Tags: {', '.join(tags)}")
+    return 0
+
+
+def cmd_snapshots(args: argparse.Namespace, config: Config) -> int:
+    if args.page <= 0:
+        raise ValueError("--page must be greater than 0")
+    if args.limit <= 0:
+        raise ValueError("--limit must be greater than 0")
+    client = get_working_client(config)
+    data = client.get_repo_snapshots(page=args.page)
+    snapshots = data.get("snapshots", [])
+    if not isinstance(snapshots, list):
+        raise SiYuanApiError("Unexpected repo snapshots list shape")
+    print(f"Endpoint: {client.base_url}")
+    print(f"Snapshots page {args.page} | total: {data.get('totalCount', '')} | pages: {data.get('pageCount', '')}")
+    for item in snapshots[: args.limit]:
+        if not isinstance(item, dict):
+            continue
+        print(
+            f"{item.get('id', '')}\t{item.get('hCreated') or item.get('created', '')}\t"
+            f"{item.get('hSize') or item.get('size', '')}\t{item.get('memo', '')}\t{item.get('tag', '')}"
+        )
     return 0
 
 

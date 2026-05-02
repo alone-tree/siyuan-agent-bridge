@@ -133,6 +133,31 @@ class SiYuanClient:
             raise SiYuanApiError("Unexpected search response shape")
         return data
 
+    def create_snapshot(
+        self,
+        memo: str,
+        *,
+        tags: list[str] | None = None,
+        path: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"memo": memo}
+        if tags:
+            payload["tags"] = tags
+        if path:
+            payload["path"] = path
+        data = self._post("/api/repo/createSnapshot", payload)
+        if data is None:
+            return {}
+        if not isinstance(data, dict):
+            raise SiYuanApiError("Unexpected snapshot response shape")
+        return data
+
+    def get_repo_snapshots(self, *, page: int = 1) -> dict[str, Any]:
+        data = self._post("/api/repo/getRepoSnapshots", {"page": page})
+        if not isinstance(data, dict):
+            raise SiYuanApiError("Unexpected repo snapshots response shape")
+        return data
+
     def _post(self, path: str, payload: dict[str, Any]) -> Any:
         body = json.dumps(payload).encode("utf-8")
         headers = {"Content-Type": "application/json"}
