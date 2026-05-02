@@ -13,6 +13,7 @@ from .config import load_config
 from .ignore import (
     add_persistent_ignore,
     close_temporary_allow,
+    compile_rules,
     filter_documents,
     initialize_ignore_files,
     load_privacy_rules,
@@ -20,6 +21,7 @@ from .ignore import (
     make_privacy_rule,
     make_temporary_allow,
     remove_persistent_ignore,
+    rule_matches_doc,
     write_temporary_allow,
 )
 from .indexer import (
@@ -28,7 +30,6 @@ from .indexer import (
     compute_word_count,
     ensure_notebooks_open,
     extract_snippet,
-    find_documents,
     format_date,
     load_docs,
     refresh_index,
@@ -257,13 +258,13 @@ class McpServer:
                 notebooks = None
 
         privacy = load_privacy_rules(self.root)
-        local_docs = filter_documents(load_docs(self.root), privacy)
-        local_hits = self._search_local_index(keyword, mode, local_docs, notebooks, limit)
-        api_error = ""
+        indexed_docs = load_docs(self.root)
+        notebook_names = self.load_notebook_names()
 
         if mode == "sql":
             config = load_config(self.root)
             client = get_working_client(config)
+            notebook_names.update(list_live_notebook_names(client))
             try:
                 with ensure_notebooks_open(client, notebooks):
                     rows = client.query_sql(keyword)
@@ -271,29 +272,25 @@ class McpServer:
                 if "administrator" in str(exc).casefold() or "privilege" in str(exc).casefold():
                     raise ValueError("SQL search requires SiYuan administrator privileges. Use mode=keyword, mode=query, or mode=regex instead.") from exc
                 raise
-            enriched = self._enrich_sql_results(rows, local_docs, notebooks)
+            enriched = self._enrich_sql_results(rows, indexed_docs, notebook_names, privacy, notebooks)
         else:
-            enriched = local_hits
-            try:
-                config = load_config(self.root)
-                client = get_working_client(config)
-                method_map = {"keyword": 0, "query": 1, "regex": 3}
-                api_method = method_map[mode]
-                with ensure_notebooks_open(client, notebooks):
-                    data = search_content(
-                        client,
-                        keyword,
-                        method=api_method,
-                        scope=scope,
-                        notebooks=notebooks,
-                        limit=limit,
-                    )
-                blocks: list[dict[str, Any]] = data.get("blocks", [])
-                keywords = search_terms(keyword, mode)
-                live_hits = self._enrich_search_blocks(blocks, local_docs, keywords, notebooks)
-                enriched = merge_search_results(local_hits, live_hits)
-            except (SiYuanConnectionError, SiYuanApiError) as exc:
-                api_error = str(exc)
+            config = load_config(self.root)
+            client = get_working_client(config)
+            notebook_names.update(list_live_notebook_names(client))
+            method_map = {"keyword": 0, "query": 1, "regex": 3}
+            api_method = method_map[mode]
+            with ensure_notebooks_open(client, notebooks):
+                data = search_content(
+                    client,
+                    keyword,
+                    method=api_method,
+                    scope=scope,
+                    notebooks=notebooks,
+                    limit=limit,
+                )
+            blocks: list[dict[str, Any]] = data.get("blocks", [])
+            keywords = search_terms(keyword, mode)
+            enriched = self._enrich_search_blocks(blocks, indexed_docs, notebook_names, privacy, keywords, notebooks)
 
         if not enriched:
             return f"# Search: \"{keyword}\" ({scope}, {mode})\n\nNo matching visible documents."
@@ -303,11 +300,6 @@ class McpServer:
 
         scope_label = "标题" if scope == "headings" else "全文"
         lines = [f"# Search: \"{keyword}\" ({scope_label}, {mode}, {len(enriched)} matches in {len(grouped)} notebooks)", ""]
-        if api_error:
-            lines.extend([
-                "> Live SiYuan search failed; showing matches from the safe local index.",
-                "",
-            ])
 
         remaining = limit
         for nb_name in sorted(grouped, key=str.casefold):
@@ -332,82 +324,37 @@ class McpServer:
 
         return "\n".join(lines)
 
-    def _search_local_index(
-        self,
-        keyword: str,
-        mode: str,
-        local_docs: list[dict[str, Any]],
-        notebook_filter: list[str] | None,
-        limit: int,
-    ) -> list[dict[str, Any]]:
-        docs = [
-            doc for doc in local_docs
-            if not notebook_filter or str(doc.get("notebook_id", "")) in notebook_filter
-        ]
-        terms = search_terms(keyword, mode)
-        if mode == "keyword":
-            matches = find_documents(docs, keyword, limit=limit)
-        elif mode == "query":
-            matches = [doc for doc in docs if query_matches(local_search_text(doc), keyword)]
-        elif mode == "regex":
-            try:
-                pattern = re.compile(keyword, re.IGNORECASE)
-            except re.error as exc:
-                raise ValueError(f"invalid regex: {exc}") from exc
-            matches = [doc for doc in docs if pattern.search(local_search_text(doc))]
-        else:
-            matches = []
-
-        results = []
-        for doc in matches[:limit]:
-            snippet = extract_snippet(local_search_text(doc), terms)
-            results.append({
-                "id": str(doc.get("id", "")),
-                "notebook_id": str(doc.get("notebook_id", "")),
-                "notebook_name": str(doc.get("notebook_name", "")),
-                "hpath": str(doc.get("hpath", "")),
-                "word_count": doc.get("word_count", 0),
-                "block_count": doc.get("block_count", 0),
-                "updated": str(doc.get("updated", "")),
-                "snippet": snippet,
-                "source": "safe index",
-            })
-        return results
-
     def _enrich_search_blocks(
         self,
         blocks: list[dict[str, Any]],
-        local_docs: list[dict[str, Any]],
+        indexed_docs: list[dict[str, Any]],
+        notebook_names: dict[str, str],
+        privacy: Any,
         keywords: list[str],
         notebook_filter: list[str] | None,
     ) -> list[dict[str, Any]]:
-        doc_index: dict[str, dict[str, Any]] = {}
-        for doc in local_docs:
-            doc_index[str(doc.get("id", ""))] = doc
+        doc_index = {str(doc.get("id", "")): doc for doc in indexed_docs}
+        compiled_ignore = compile_rules(privacy.ignore, indexed_docs)
+        compiled_allow = compile_rules(privacy.allow, indexed_docs)
 
         seen: set[str] = set()
         results: list[dict[str, Any]] = []
 
         for block in blocks:
-            block_type = str(block.get("type", ""))
-            if block_type == "d":
-                doc_id = str(block.get("id", ""))
-            else:
-                doc_id = str(block.get("root_id", ""))
-
+            doc_id = block_document_id(block)
             if not doc_id or doc_id in seen:
                 continue
 
-            doc = doc_index.get(doc_id)
-            if doc is None:
-                continue
+            doc = live_doc_from_block(block, doc_index, notebook_names)
             nb_id = str(doc.get("notebook_id", ""))
             if notebook_filter and nb_id not in notebook_filter:
+                continue
+            if not is_live_doc_visible(doc, compiled_ignore, compiled_allow):
                 continue
 
             seen.add(doc_id)
 
-            content = str(block.get("content") or block.get("markdown") or "")
+            content = str(block.get("markdown") or block.get("content") or "")
             snippet = extract_snippet(content, keywords)
 
             results.append({
@@ -428,32 +375,28 @@ class McpServer:
     def _enrich_sql_results(
         self,
         rows: list[dict[str, Any]],
-        local_docs: list[dict[str, Any]],
+        indexed_docs: list[dict[str, Any]],
+        notebook_names: dict[str, str],
+        privacy: Any,
         notebook_filter: list[str] | None,
     ) -> list[dict[str, Any]]:
-        doc_index: dict[str, dict[str, Any]] = {}
-        for doc in local_docs:
-            doc_index[str(doc.get("id", ""))] = doc
+        doc_index = {str(doc.get("id", "")): doc for doc in indexed_docs}
+        compiled_ignore = compile_rules(privacy.ignore, indexed_docs)
+        compiled_allow = compile_rules(privacy.allow, indexed_docs)
 
         seen: set[str] = set()
         results: list[dict[str, Any]] = []
 
         for row in rows:
-            block_type = str(row.get("type", ""))
-            if block_type == "d":
-                doc_id = str(row.get("id", ""))
-            else:
-                doc_id = str(row.get("root_id", ""))
-
+            doc_id = block_document_id(row)
             if not doc_id or doc_id in seen:
                 continue
 
-            doc = doc_index.get(doc_id)
-            if doc is None:
-                continue
-
+            doc = live_doc_from_block(row, doc_index, notebook_names)
             nb_id = str(doc.get("notebook_id", ""))
             if notebook_filter and nb_id not in notebook_filter:
+                continue
+            if not is_live_doc_visible(doc, compiled_ignore, compiled_allow):
                 continue
 
             seen.add(doc_id)
@@ -479,6 +422,22 @@ class McpServer:
             nb = str(item.get("notebook_name") or "Unknown")
             groups.setdefault(nb, []).append(item)
         return groups
+
+    def load_notebook_names(self) -> dict[str, str]:
+        path = self.root / KNOWLEDGE_BASE_DIR / "notebooks.json"
+        if not path.exists():
+            return {}
+        try:
+            notebooks = read_json(path)
+        except (OSError, json.JSONDecodeError):
+            return {}
+        if not isinstance(notebooks, list):
+            return {}
+        return {
+            str(notebook.get("id", "")): str(notebook.get("name", ""))
+            for notebook in notebooks
+            if isinstance(notebook, dict)
+        }
 
     def siyuan_read_document(self, args: dict[str, Any]) -> str:
         doc = self.resolve_visible_document(args)
@@ -691,6 +650,64 @@ def _read_optional(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def list_live_notebook_names(client: Any) -> dict[str, str]:
+    return {
+        str(notebook.get("id", "")): str(notebook.get("name", ""))
+        for notebook in client.list_notebooks()
+        if isinstance(notebook, dict)
+    }
+
+
+def block_document_id(block: dict[str, Any]) -> str:
+    block_type = str(block.get("type", ""))
+    if block_type in ("d", "NodeDocument"):
+        return str(block.get("id") or block.get("rootID") or block.get("root_id") or "")
+    return str(block.get("rootID") or block.get("root_id") or block.get("id") or "")
+
+
+def live_doc_from_block(
+    block: dict[str, Any],
+    doc_index: dict[str, dict[str, Any]],
+    notebook_names: dict[str, str],
+) -> dict[str, Any]:
+    doc_id = block_document_id(block)
+    indexed = doc_index.get(doc_id, {})
+    notebook_id = str(block.get("box") or indexed.get("notebook_id") or "")
+    hpath = str(block.get("hPath") or block.get("hpath") or indexed.get("hpath") or "")
+    title = str(indexed.get("title") or hpath.strip("/").split("/")[-1] or block.get("content") or doc_id)
+    return {
+        "id": doc_id,
+        "notebook_id": notebook_id,
+        "notebook_name": str(indexed.get("notebook_name") or notebook_names.get(notebook_id) or notebook_id),
+        "hpath": hpath or str(indexed.get("hpath") or title),
+        "path": str(block.get("path") or indexed.get("path") or ""),
+        "title": title,
+        "word_count": indexed.get("word_count", 0),
+        "block_count": indexed.get("block_count", 0),
+        "updated": str(block.get("updated") or indexed.get("updated") or ""),
+    }
+
+
+def is_live_doc_visible(
+    doc: dict[str, Any],
+    compiled_ignore: list[dict[str, Any]],
+    compiled_allow: list[dict[str, Any]],
+) -> bool:
+    ignored = any(rule_matches_live_doc(rule, doc) for rule in compiled_ignore)
+    allowed = any(rule_matches_live_doc(rule, doc) for rule in compiled_allow)
+    return not ignored or allowed
+
+
+def rule_matches_live_doc(rule: dict[str, Any], doc: dict[str, Any]) -> bool:
+    if rule_matches_doc(rule, doc):
+        return True
+    if str(rule.get("scope") or "").strip().casefold() != "subtree":
+        return False
+    root_id = str(rule.get("id") or "")
+    path = str(doc.get("path") or "")
+    return bool(root_id and f"/{root_id}/" in path)
+
+
 def local_search_text(doc: dict[str, Any]) -> str:
     return " ".join([
         str(doc.get("id", "")),
@@ -798,7 +815,7 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_find_documents",
-            "description": "Search the SiYuan knowledge base. Uses the safe local index for document titles, paths, tags, and notebook names, and live SiYuan search for block content when available. Supports 4 modes: keyword (space-separated keywords, AND logic, default), query (AND/OR/NOT/phrase/prefix*), regex, sql (direct SQL, requires admin). Scope: headings (document titles + headings, default) or full (all block text).",
+            "description": "Search the SiYuan knowledge base through SiYuan search APIs, then apply privacy rules before returning results. Temporarily opens closed notebooks while searching and restores them afterwards. Supports 4 modes: keyword (space-separated keywords, AND logic, default), query (AND/OR/NOT/phrase/prefix*), regex, sql (direct SQL, requires admin). Scope: headings (document titles + headings, default) or full (all block text).",
             "inputSchema": {
                 "type": "object",
                 "properties": {

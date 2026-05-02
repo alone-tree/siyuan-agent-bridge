@@ -59,7 +59,7 @@ siyuan_start
 - `siyuan_start`：刷新安全索引并返回启动包（含笔记本概览表、index.md（如存在）、START_HERE.md、guide.md）。始终最先调用。
 - `siyuan_refresh_index`：在用户明确要求时，在会话中途刷新安全索引（siyuan_start 已在启动时刷新）。
 - `siyuan_list`：无参数时列出所有可见笔记本；给定 `notebook_id` 时返回文档树，含字数和更新时间。
-- `siyuan_find_documents`：搜索安全索引里的标题/路径/tag，并在可用时补充思源实时块搜索，支持 4 种模式（`keyword`/`query`/`regex`/`sql`）、2 种范围（`headings`/`full`），可选限定笔记本。
+- `siyuan_find_documents`：通过思源搜索 API 检索标题/大纲/正文块，返回前应用隐藏规则过滤；搜索时会临时打开关闭的笔记本并在结束后恢复。支持 4 种模式（`keyword`/`query`/`regex`/`sql`）、2 种范围（`headings`/`full`），可选限定笔记本。
 - `siyuan_read_document`：读取文档，始终返回大纲。短文档返回全文，长文档每次返回一个分段，用 `chunk=N` 跳转。自动提取文档中的附件（图片、PDF、表格等）到 `ai_workspace/`，保留原始引用不变。
 - `siyuan_propose_guide_update`：把建议的指南更新保存到 `ai_workspace/`，不直接修改指南。
 - `siyuan_apply_guide_update`：只有在用户明确批准后，才追加或替换 `knowledge_base/guide.md`（需 `confirmed=true`）。

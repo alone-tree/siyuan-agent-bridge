@@ -459,13 +459,14 @@ def search_content(
     notebooks: list[str] | None = None,
     limit: int = 20,
 ) -> dict[str, Any]:
-    types: dict[str, bool] | None = {"d": True, "h": True} if scope == "headings" else None
-    paths: list[str] | None = [f"/{nid}/" for nid in notebooks] if notebooks else None
+    types: dict[str, bool] | None = {"document": True, "heading": True} if scope == "headings" else None
+    paths: list[str] | None = notebooks if notebooks else None
     return client.search_full_text(
         query=query,
         method=method,
         types=types,
         paths=paths,
+        group_by=0,
         page_size=max(limit * 2, 32),
     )
 
