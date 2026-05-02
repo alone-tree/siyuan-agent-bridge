@@ -33,6 +33,10 @@ If MCP tools are unavailable, tell the user the SiYuan knowledge MCP is not regi
 - `siyuan_read_document`: read a document as Markdown. Always returns the outline (heading→chunk mapping). Short docs (≤max_chars) return full text. Long docs return outline + one chunk — use `chunk=0` for the first chunk or `chunk=N` to jump to a specific chunk.
 - `siyuan_propose_guide_update`: save a suggested guide improvement in `ai_workspace/` without modifying the guide.
 - `siyuan_apply_guide_update`: update `knowledge_base/guide.md` only after explicit user approval.
+- `siyuan_hide`: hide a notebook, document, or document subtree from the safe index. Requires `confirmed=true`. Persists across sessions.
+- `siyuan_unhide`: remove a persistent hide rule and refresh the index. Requires `confirmed=true`.
+- `siyuan_temporary_allow`: temporarily allow a hidden item to appear in searches. Takes `minutes` (default 60). Does not refresh the index.
+- `siyuan_close_temporary_allow`: immediately clear all temporary allow rules. Hidden items are closed again.
 
 ## Safety Rules
 
@@ -43,3 +47,4 @@ If MCP tools are unavailable, tell the user the SiYuan knowledge MCP is not regi
 - Do not scan all of `knowledge_base/tree.md` — use the notebook overview table from `siyuan_start`.
 - Do not force long documents into one response — use the `chunk` parameter on `siyuan_read_document`.
 - Put derived analysis and drafts in `ai_workspace/`.
+- Always require `confirmed=true` for `siyuan_hide` and `siyuan_unhide`; never auto-confirm.

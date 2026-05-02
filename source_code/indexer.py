@@ -329,6 +329,8 @@ def find_documents(docs: Iterable[dict[str, Any]], keyword: str, limit: int = 20
                 str(doc.get("title", "")),
                 str(doc.get("hpath", "")),
                 str(doc.get("notebook_name", "")),
+                str(doc.get("alias", "")),
+                str(doc.get("memo", "")),
                 " ".join(str(tag) for tag in doc.get("tags", [])),
             ]
         ).casefold()
@@ -349,7 +351,7 @@ def search_content(
     limit: int = 20,
 ) -> dict[str, Any]:
     types: dict[str, bool] | None = {"d": True, "h": True} if scope == "headings" else None
-    paths: list[str] | None = [f"{nid}/" for nid in notebooks] if notebooks else None
+    paths: list[str] | None = [f"/{nid}/" for nid in notebooks] if notebooks else None
     return client.search_full_text(
         query=query,
         method=method,
