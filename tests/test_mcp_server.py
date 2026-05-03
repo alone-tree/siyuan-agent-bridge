@@ -39,7 +39,12 @@ class FakeSearchClient:
     def query_sql(self, _stmt):
         stmt = str(_stmt).casefold() if _stmt else ""
         if "from blocks" in stmt and "root_id" in stmt:
-            # Return the first available blocks set for any document-root query
+            # Extract root_id from WHERE clause for filtering
+            import re
+            m = re.search(r"root_id\s*=\s*'([^']+)'", stmt)
+            if m:
+                doc_id = m.group(1)
+                return self._blocks.get(doc_id, [])
             for blocks in self._blocks.values():
                 if isinstance(blocks, list):
                     return blocks
@@ -69,6 +74,29 @@ class FakeSearchClient:
 
     def push_msg(self, msg, timeout=7000):
         self._push_msgs.append(msg)
+
+    def export_markdown(self, block_id):
+        if block_id in self._docs:
+            return self._docs[block_id]
+        return ""
+
+    def get_asset(self, asset_path):
+        return b""
+
+    def list_document_blocks(self, doc_id):
+        stmt = f"SELECT id, parent_id, root_id, type, subtype, markdown, content, sort FROM blocks WHERE root_id = '{doc_id}' AND type != 'd' ORDER BY sort"
+        return self.query_sql(stmt)
+
+    def get_child_blocks(self, block_id):
+        blocks = self._blocks.get(block_id)
+        if isinstance(blocks, list):
+            return blocks
+        children = []
+        for block_list in self._blocks.values():
+            if isinstance(block_list, list):
+                children.extend(block for block in block_list if str(block.get("parent_id", "")) == block_id)
+        children.sort(key=lambda block: int(block.get("sort", 0)))
+        return children
 
 
 class McpServerTests(unittest.TestCase):
@@ -666,6 +694,220 @@ class McpServerWriteTests(unittest.TestCase):
                     "confirmed": True,
                 })
             self.assertIn("markdown", str(ctx.exception).casefold())
+        finally:
+            mcp_server.get_working_client = original
+
+
+class BlockIdBuildTests(unittest.TestCase):
+    """Tests for build_markdown_from_blocks — builds markdown directly from blocks."""
+
+    def test_builds_markdown_with_comments(self):
+        blocks = [
+            {"id": "block-h1", "type": "h", "subtype": "h2", "markdown": "## My Heading", "content": "My Heading"},
+            {"id": "block-p1", "type": "p", "subtype": "", "markdown": "Some paragraph text here.", "content": "Some paragraph text here."},
+        ]
+        result = mcp_server.build_markdown_from_blocks(blocks)
+        self.assertIn("<!-- siyuan:block id=block-h1 type=h subtype=h2 -->", result)
+        self.assertIn("## My Heading", result)
+        self.assertIn("<!-- siyuan:block id=block-p1 type=p -->", result)
+        self.assertIn("Some paragraph text here.", result)
+
+    def test_skips_list_container_type(self):
+        blocks = [
+            {"id": "list-cont", "type": "l", "subtype": "u", "markdown": "* item 1\n* item 2", "content": ""},
+            {"id": "item-1", "type": "i", "subtype": "u", "markdown": "* item 1", "content": ""},
+        ]
+        result = mcp_server.build_markdown_from_blocks(blocks)
+        self.assertNotIn("list-cont", result)
+        self.assertIn("item-1", result)
+
+    def test_skips_empty_markdown(self):
+        blocks = [
+            {"id": "block1", "type": "p", "subtype": "", "markdown": "Visible text here.", "content": ""},
+            {"id": "block2", "type": "p", "subtype": "", "markdown": "", "content": ""},
+        ]
+        result = mcp_server.build_markdown_from_blocks(blocks)
+        self.assertIn("block1", result)
+        self.assertNotIn("block2", result)
+
+    def test_handles_empty_blocks_list(self):
+        result = mcp_server.build_markdown_from_blocks([])
+        self.assertEqual(result, "")
+
+    def test_skips_document_type(self):
+        blocks = [
+            {"id": "doc-root", "type": "d", "subtype": "", "markdown": "root", "content": ""},
+            {"id": "block-p1", "type": "p", "subtype": "", "markdown": "Body text.", "content": ""},
+        ]
+        result = mcp_server.build_markdown_from_blocks(blocks)
+        self.assertNotIn("doc-root", result)
+        self.assertIn("block-p1", result)
+
+    def test_duplicate_text_each_gets_own_id(self):
+        blocks = [
+            {"id": "block-a", "type": "p", "subtype": "", "markdown": "重复文本", "content": ""},
+            {"id": "block-b", "type": "p", "subtype": "", "markdown": "重复文本", "content": ""},
+        ]
+        result = mcp_server.build_markdown_from_blocks(blocks)
+        self.assertIn("block-a", result)
+        self.assertIn("block-b", result)
+        # Both comments should appear
+        self.assertEqual(result.count("<!-- siyuan:block "), 2)
+
+    def test_tree_order_uses_parent_then_sort(self):
+        blocks = [
+            {"id": "a", "parent_id": "doc1", "root_id": "doc1", "type": "p", "subtype": "", "markdown": "A", "sort": 1},
+            {"id": "b", "parent_id": "doc1", "root_id": "doc1", "type": "p", "subtype": "", "markdown": "B", "sort": 2},
+            {"id": "a1", "parent_id": "a", "root_id": "doc1", "type": "p", "subtype": "", "markdown": "A1", "sort": 1},
+            {"id": "b1", "parent_id": "b", "root_id": "doc1", "type": "p", "subtype": "", "markdown": "B1", "sort": 1},
+        ]
+        result = mcp_server.build_markdown_from_blocks(blocks, root_id="doc1")
+        self.assertLess(result.index("id=a "), result.index("id=a1 "))
+        self.assertLess(result.index("id=a1 "), result.index("id=b "))
+        self.assertLess(result.index("id=b "), result.index("id=b1 "))
+
+    def test_list_item_does_not_duplicate_child_paragraph(self):
+        blocks = [
+            {"id": "list", "parent_id": "doc1", "root_id": "doc1", "type": "l", "subtype": "u", "markdown": "- item", "sort": 1},
+            {"id": "item", "parent_id": "list", "root_id": "doc1", "type": "i", "subtype": "u", "markdown": "- item", "sort": 1},
+            {"id": "leaf", "parent_id": "item", "root_id": "doc1", "type": "p", "subtype": "", "markdown": "item", "sort": 1},
+        ]
+        result = mcp_server.build_markdown_from_blocks(blocks, root_id="doc1")
+        self.assertNotIn("id=list", result)
+        self.assertIn("id=item", result)
+        self.assertNotIn("id=leaf", result)
+
+    def test_superblock_comment_only_then_children(self):
+        blocks = [
+            {"id": "super", "parent_id": "doc1", "root_id": "doc1", "type": "s", "subtype": "", "markdown": "{{{col\nA\n\n}}}", "sort": 1},
+            {"id": "leaf", "parent_id": "super", "root_id": "doc1", "type": "p", "subtype": "", "markdown": "A", "sort": 1},
+        ]
+        result = mcp_server.build_markdown_from_blocks(blocks, root_id="doc1")
+        self.assertIn("id=super", result)
+        self.assertIn("id=leaf", result)
+        self.assertNotIn("{{{col", result)
+
+    def test_child_blocks_builder_uses_api_order(self):
+        class ChildClient:
+            def __init__(self):
+                self.children = {
+                    "doc1": [
+                        {"id": "b", "type": "p", "markdown": "B"},
+                        {"id": "a", "type": "p", "markdown": "A"},
+                    ]
+                }
+
+            def get_child_blocks(self, block_id):
+                return self.children.get(block_id, [])
+
+        result = mcp_server.build_markdown_from_child_blocks(ChildClient(), "doc1")
+        self.assertLess(result.index("id=b "), result.index("id=a "))
+
+
+class McpServerReadBlockIdTests(unittest.TestCase):
+    """Integration tests for siyuan_read_document with include_block_ids."""
+
+    def setUp(self):
+        self.root = Path.cwd() / ".test_tmp" / "mcp_blockid"
+        shutil.rmtree(self.root, ignore_errors=True)
+        base = self.root / "knowledge_base"
+        base.mkdir(parents=True, exist_ok=True)
+        (base / "notebooks.json").write_text(
+            json.dumps([{"id": "nb1", "name": "Main"}], ensure_ascii=False),
+            encoding="utf-8",
+        )
+        self.doc_md = "## Section One\n\nBody paragraph here.\n\nAnother paragraph.\n"
+        docs = [
+            {
+                "id": "doc1",
+                "notebook_id": "nb1",
+                "notebook_name": "Main",
+                "hpath": "/Test Doc",
+                "title": "Test Doc",
+                "path": "/doc1.sy",
+                "tags": [],
+                "word_count": 10,
+                "block_count": 3,
+                "updated": "20260501010101",
+            },
+        ]
+        (base / "docs.jsonl").write_text(
+            "".join(json.dumps(doc, ensure_ascii=False) + "\n" for doc in docs),
+            encoding="utf-8",
+        )
+
+    def _make_client(self, blocks_for_doc=None):
+        client = FakeSearchClient([])
+        if blocks_for_doc:
+            client._blocks = blocks_for_doc
+        client._docs["doc1"] = self.doc_md
+        return client
+
+    def test_default_excludes_block_ids(self):
+        client = self._make_client()
+        server = mcp_server.McpServer(self.root)
+        original = mcp_server.get_working_client
+
+        def fake_client(_config):
+            return client
+
+        mcp_server.get_working_client = fake_client
+        try:
+            result = server.siyuan_read_document({"document_id": "doc1"})
+            self.assertNotIn("<!-- siyuan:block", result)
+            self.assertIn("## Section One", result)
+            self.assertIn("Body paragraph here.", result)
+        finally:
+            mcp_server.get_working_client = original
+
+    def test_include_block_ids_builds_from_blocks(self):
+        blocks = {
+            "doc1": [
+                {"id": "block-h1", "parent_id": "doc1", "type": "h", "subtype": "h2", "markdown": "## Section One", "content": "Section One", "sort": 1},
+                {"id": "block-p1", "parent_id": "doc1", "type": "p", "subtype": "", "markdown": "Body paragraph here.", "content": "Body paragraph here.", "sort": 2},
+            ]
+        }
+        client = self._make_client(blocks_for_doc=blocks)
+        server = mcp_server.McpServer(self.root)
+        original = mcp_server.get_working_client
+
+        def fake_client(_config):
+            return client
+
+        mcp_server.get_working_client = fake_client
+        try:
+            result = server.siyuan_read_document({"document_id": "doc1", "include_block_ids": True})
+            self.assertIn("<!-- siyuan:block id=block-h1 type=h subtype=h2 -->", result)
+            self.assertIn("## Section One", result)
+            self.assertIn("<!-- siyuan:block id=block-p1 type=p -->", result)
+            self.assertIn("Body paragraph here.", result)
+            self.assertIn("块 ID 注入: 2 已注入 (实验模式)", result)
+            # Should NOT contain exported markdown format (uses block-built format)
+            self.assertNotIn(self.doc_md, result)
+        finally:
+            mcp_server.get_working_client = original
+
+    def test_include_block_ids_preserves_outline(self):
+        blocks = {
+            "doc1": [
+                {"id": "block-h1", "parent_id": "doc1", "type": "h", "subtype": "h2", "markdown": "## Section One", "content": "Section One", "sort": 1},
+                {"id": "block-p1", "parent_id": "doc1", "type": "p", "subtype": "", "markdown": "Body paragraph here.", "content": "Body paragraph here.", "sort": 2},
+                {"id": "block-p2", "parent_id": "doc1", "type": "p", "subtype": "", "markdown": "Another paragraph.", "content": "Another paragraph.", "sort": 3},
+            ]
+        }
+        client = self._make_client(blocks_for_doc=blocks)
+        server = mcp_server.McpServer(self.root)
+        original = mcp_server.get_working_client
+
+        def fake_client(_config):
+            return client
+
+        mcp_server.get_working_client = fake_client
+        try:
+            result = server.siyuan_read_document({"document_id": "doc1", "include_block_ids": True})
+            self.assertIn("<!-- siyuan:block", result)
+            self.assertIn("大纲", result)
+            self.assertIn("Section One", result)
         finally:
             mcp_server.get_working_client = original
 

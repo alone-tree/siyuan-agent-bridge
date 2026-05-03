@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import unittest
 
-from source_code.client import SiYuanClient, SiYuanConnectionError
+from source_code.client import SiYuanApiError, SiYuanClient, SiYuanConnectionError
 
 
 class FakeResponse:
@@ -171,6 +171,66 @@ class ClientTests(unittest.TestCase):
 
         self.assertEqual(seen["url"], "http://127.0.0.1:6806/api/notification/pushMsg")
         self.assertEqual(seen["body"], {"msg": "Hello SiYuan", "timeout": 5000})
+
+    def test_list_document_blocks_returns_block_list(self):
+        fake_blocks = [
+            {"id": "block1", "parent_id": "doc1", "root_id": "doc1", "type": "p", "subtype": "", "markdown": "First para.", "content": "", "sort": 1},
+            {"id": "block2", "parent_id": "doc1", "root_id": "doc1", "type": "h", "subtype": "h2", "markdown": "## Heading", "content": "", "sort": 2},
+        ]
+
+        def transport(req, timeout):
+            return FakeResponse({"code": 0, "data": fake_blocks})
+
+        client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
+        blocks = client.list_document_blocks("doc1")
+        self.assertEqual(len(blocks), 2)
+        self.assertEqual(blocks[0]["id"], "block1")
+        self.assertEqual(blocks[1]["type"], "h")
+
+    def test_list_document_blocks_returns_empty_list(self):
+        def transport(req, timeout):
+            return FakeResponse({"code": 0, "data": []})
+
+        client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
+        blocks = client.list_document_blocks("doc1")
+        self.assertEqual(blocks, [])
+
+    def test_list_document_blocks_non_list_raises(self):
+        def transport(req, timeout):
+            return FakeResponse({"code": 0, "data": {"foo": "bar"}})
+
+        client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
+        with self.assertRaises(SiYuanApiError):
+            client.list_document_blocks("doc1")
+
+    def test_get_child_blocks_posts_parent_id(self):
+        seen = {}
+
+        def transport(req, timeout):
+            seen["url"] = req.full_url
+            seen["body"] = json.loads(req.data.decode("utf-8"))
+            return FakeResponse({"code": 0, "data": [{"id": "child1", "type": "p"}]})
+
+        client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
+        blocks = client.get_child_blocks("parent1")
+        self.assertEqual(seen["url"], "http://127.0.0.1:6806/api/block/getChildBlocks")
+        self.assertEqual(seen["body"], {"id": "parent1"})
+        self.assertEqual(blocks, [{"id": "child1", "type": "p"}])
+
+    def test_get_child_blocks_filters_non_dict_items(self):
+        def transport(req, timeout):
+            return FakeResponse({"code": 0, "data": [{"id": "child1"}, "bad"]})
+
+        client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
+        self.assertEqual(client.get_child_blocks("parent1"), [{"id": "child1"}])
+
+    def test_get_child_blocks_non_list_raises(self):
+        def transport(req, timeout):
+            return FakeResponse({"code": 0, "data": {"foo": "bar"}})
+
+        client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
+        with self.assertRaises(SiYuanApiError):
+            client.get_child_blocks("parent1")
 
 
 if __name__ == "__main__":

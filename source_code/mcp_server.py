@@ -62,6 +62,135 @@ def normalize_new_document_markdown(title: str, markdown: str) -> str:
     return markdown
 
 
+SKIP_BLOCK_TYPES = frozenset({"l", "d"})
+SUBTREE_MARKDOWN_BLOCK_TYPES = frozenset({"i", "t"})
+COMMENT_ONLY_BLOCK_TYPES = frozenset({"s"})
+CHILD_TRAVERSAL_BLOCK_TYPES = frozenset({"h", "l", "s"})
+
+
+def block_field(block: dict[str, Any], *names: str) -> str:
+    for name in names:
+        value = block.get(name)
+        if value is not None:
+            return str(value)
+    return ""
+
+
+def block_sort_key(block: dict[str, Any]) -> tuple[int, str]:
+    raw = block.get("sort", 0)
+    try:
+        sort = int(raw)
+    except (TypeError, ValueError):
+        sort = 0
+    return (sort, block_field(block, "id"))
+
+
+def render_block_with_id(block: dict[str, Any]) -> str:
+    block_type = block_field(block, "type")
+    block_id = block_field(block, "id")
+
+    if not block_id or block_type in SKIP_BLOCK_TYPES:
+        return ""
+
+    subtype = block_field(block, "subtype", "subType")
+    subtype_str = f" subtype={subtype}" if subtype else ""
+    comment = f"<!-- siyuan:block id={block_id} type={block_type}{subtype_str} -->"
+
+    if block_type in COMMENT_ONLY_BLOCK_TYPES:
+        return comment
+
+    block_md = block_field(block, "markdown")
+    if not block_md.strip():
+        return ""
+
+    return f"{comment}\n{block_md}"
+
+
+def build_markdown_from_blocks(blocks: list[dict[str, Any]], root_id: str | None = None) -> str:
+    """Build markdown from block records, each prefixed with its block ID comment.
+
+    When root_id is provided, traverse parent_id + sort as a block tree instead of
+    treating sort as a document-global order.
+    """
+    if not root_id:
+        return "\n\n".join(rendered for block in blocks if (rendered := render_block_with_id(block)))
+
+    children: dict[str, list[dict[str, Any]]] = {}
+    for block in blocks:
+        parent_id = block_field(block, "parent_id", "parentID")
+        children.setdefault(parent_id, []).append(block)
+
+    for child_blocks in children.values():
+        child_blocks.sort(key=block_sort_key)
+
+    parts: list[str] = []
+    visited: set[str] = set()
+
+    def mark_descendants_visited(parent_id: str) -> None:
+        for child in children.get(parent_id, []):
+            child_id = block_field(child, "id")
+            if not child_id or child_id in visited:
+                continue
+            visited.add(child_id)
+            mark_descendants_visited(child_id)
+
+    def visit(block: dict[str, Any]) -> None:
+        block_id = block_field(block, "id")
+        if not block_id or block_id in visited:
+            return
+        visited.add(block_id)
+
+        rendered = render_block_with_id(block)
+        if rendered:
+            parts.append(rendered)
+
+        block_type = block_field(block, "type")
+        if block_type in SUBTREE_MARKDOWN_BLOCK_TYPES:
+            mark_descendants_visited(block_id)
+            return
+
+        for child in children.get(block_id, []):
+            visit(child)
+
+    for child in children.get(root_id, []):
+        visit(child)
+
+    for block in sorted(blocks, key=lambda item: (block_field(item, "parent_id", "parentID"), *block_sort_key(item))):
+        visit(block)
+
+    return "\n\n".join(parts)
+
+
+def build_markdown_from_child_blocks(client: Any, root_id: str) -> str:
+    """Build a block-ID diagnostic view using SiYuan's child-block order."""
+    parts: list[str] = []
+    visited: set[str] = set()
+
+    def visit(block: dict[str, Any]) -> None:
+        block_id = block_field(block, "id")
+        if not block_id or block_id in visited:
+            return
+        visited.add(block_id)
+
+        rendered = render_block_with_id(block)
+        if rendered:
+            parts.append(rendered)
+
+        block_type = block_field(block, "type")
+        if block_type in SUBTREE_MARKDOWN_BLOCK_TYPES:
+            return
+        if block_type not in CHILD_TRAVERSAL_BLOCK_TYPES:
+            return
+
+        for child in client.get_child_blocks(block_id):
+            visit(child)
+
+    for child in client.get_child_blocks(root_id):
+        visit(child)
+
+    return "\n\n".join(parts)
+
+
 def main() -> int:
     server = McpServer(Path.cwd())
     for line in sys.stdin:
@@ -477,8 +606,14 @@ class McpServer:
         notebook_id = str(doc.get("notebook_id", ""))
         config = load_config(self.root)
         client = get_working_client(config)
+        include_block_ids = bool(args.get("include_block_ids"))
+        injected_count = 0
         with ensure_notebooks_open(client, [notebook_id]):
-            markdown = client.export_markdown(str(doc["id"]))
+            if include_block_ids:
+                markdown = build_markdown_from_child_blocks(client, str(doc["id"]))
+                injected_count = markdown.count("<!-- siyuan:block ")
+            else:
+                markdown = client.export_markdown(str(doc["id"]))
         doc_id = str(doc.get("id"))
         attachment_count = extract_attachments(markdown, client, doc_id, self.root)
         max_chars = clamp_int(args.get("max_chars"), DEFAULT_CHUNK_CHARS, 2000, MAX_CHUNK_CHARS)
@@ -494,6 +629,8 @@ class McpServer:
             f"Document ID: `{doc_id}`",
             f"字数: {markdown_wc:,} | 块数: {doc.get('block_count', 0)} | 字符: {len(markdown):,} | 更新: {date}",
         ]
+        if include_block_ids:
+            header_lines.append(f"块 ID 注入: {injected_count} 已注入 (实验模式)")
         if attachment_count:
             header_lines.append(f"附件: {attachment_count} 个已提取到 ai_workspace/attachments/{doc_id}/")
         header = "\n".join(header_lines)
@@ -1123,13 +1260,14 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_read_document",
-            "description": "Read a visible SiYuan document as Markdown. Always returns the document outline (heading to chunk mapping). Short documents (≤max_chars) return the full text. Long documents return the outline plus one chunk; use chunk=0 for the first chunk or chunk=N to jump to a specific chunk.",
+            "description": "Read a visible SiYuan document as Markdown. Always returns the document outline (heading to chunk mapping). Short documents (≤max_chars) return the full text. Long documents return the outline plus one chunk; use chunk=0 for the first chunk or chunk=N to jump to a specific chunk. By default returns clean Markdown. Set include_block_ids=true only for precise block reference or edit diagnostics.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "document_id": {"type": "string", "description": "Document id, exact hpath, title, or unique partial match."},
                     "chunk": {"type": "integer", "default": 0, "description": "0=auto (chunk 1 for long docs, full text for short docs), 1..N=specific chunk."},
                     "max_chars": {"type": "integer", "default": DEFAULT_CHUNK_CHARS, "description": "Characters per chunk, 2000–30000."},
+                    "include_block_ids": {"type": "boolean", "default": False, "description": "Experimental. Rebuild a diagnostic Markdown view from the SiYuan block tree and include HTML comments with block IDs. Use only when precise block reference or edit diagnostics are needed."},
                 },
                 "additionalProperties": False,
             },

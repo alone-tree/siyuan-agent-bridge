@@ -134,6 +134,24 @@ class SiYuanClient:
             raise SiYuanApiError("Unexpected search response shape")
         return data
 
+    def list_document_blocks(self, doc_id: str) -> list[dict[str, Any]]:
+        """Return all non-document blocks for a document."""
+        stmt = (
+            f"SELECT id, parent_id, root_id, type, subtype, markdown, content, sort "
+            f"FROM blocks WHERE root_id = '{doc_id}' AND type != 'd' "
+            f"ORDER BY parent_id, sort"
+        )
+        data = self.query_sql(stmt)
+        if not isinstance(data, list):
+            raise SiYuanApiError("Unexpected blocks response shape")
+        return data
+
+    def get_child_blocks(self, block_id: str) -> list[dict[str, Any]]:
+        data = self._post("/api/block/getChildBlocks", {"id": block_id})
+        if not isinstance(data, list):
+            raise SiYuanApiError("Unexpected child blocks response shape")
+        return [item for item in data if isinstance(item, dict)]
+
     def create_snapshot(self, memo: str) -> dict[str, Any]:
         data = self._post("/api/repo/createSnapshot", {"memo": memo})
         if data is None:

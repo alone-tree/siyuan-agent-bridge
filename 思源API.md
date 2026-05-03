@@ -72,6 +72,39 @@ markdown
 confirmed
 ```
 
+## 块树读取与块 ID 诊断视图
+
+思源提供 `/api/block/getChildBlocks`，可按父块 ID 读取直接子块。官方说明中也明确：标题下方的块会被视为标题块的子块。这说明思源文档不是一张仅靠全局 `sort` 就能线性还原的表，而是由 `parent_id + sort` 共同决定阅读顺序的块树。
+
+本项目的 `include_block_ids=true` 诊断视图采用 `/api/block/getChildBlocks` 作为主路径：
+
+```text
+POST /api/block/getChildBlocks
+{ "id": "<parent_block_id>" }
+```
+
+这样做的原因是：实测部分导入长文档中，所有根级段落的 `sort` 都是同一个值（例如全为 `10`），仅靠 SQL 的 `parent_id + sort` 仍无法还原同级阅读顺序；而 `getChildBlocks` 返回值已经按思源内部顺序排列。
+
+SQL 一次性读取仍保留为诊断/备用能力：
+
+```sql
+SELECT id, parent_id, root_id, type, subtype, markdown, content, sort
+FROM blocks
+WHERE root_id = '<doc_id>' AND type != 'd'
+ORDER BY parent_id, sort
+```
+
+但它不能作为长文档块 ID 诊断视图的主顺序来源。
+
+诊断视图仍然不是思源原生结构的完整还原：
+
+- 文档块 `d` 不作为正文渲染；文档 ID 已在工具头部返回。
+- 列表容器块 `l` 不渲染，但会继续遍历其列表项。
+- 列表项 `i` 和表格 `t` 的 Markdown 通常已包含子内容，渲染后不再递归子孙，避免重复。
+- 超级块 `s` 只显示块 ID 注释，不渲染其完整 Markdown，然后继续遍历子块，避免超级块内容和子块内容重复。
+- 空块不渲染。
+- 超级块、数据库、属性视图仍不能靠 Markdown 诊断视图完整表达。
+
 ## 写前快照与手动回滚
 
 每次编辑或创建文档之前，MCP server 必须先调用：
