@@ -933,6 +933,19 @@ class DisplayBlockBuildTests(unittest.TestCase):
         self.assertEqual(len(blocks), 2)
         self.assertEqual(blocks[1].id, "p1")
 
+    def test_superblock_does_not_duplicate_child_content_in_normal_mode(self):
+        client = self._make_client({
+            "doc1": [
+                {"id": "super", "type": "s", "markdown": "{{{col\nA\n\n}}}"},
+            ],
+            "super": [
+                {"id": "p1", "type": "p", "markdown": "A"},
+            ],
+        })
+        blocks = mcp_server.build_display_blocks(client, "doc1")
+        self.assertEqual([b.id for b in blocks], ["p1"])
+        self.assertEqual(blocks[0].markdown, "A")
+
     def test_estimated_tokens_set(self):
         client = self._make_client({
             "doc1": [

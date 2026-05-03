@@ -162,9 +162,12 @@ def _ensure_ai_guide(
     """Find or create the AI Guide document. Never overwrites existing."""
     existing = _find_doc_by_key(docs, "ai_guide")
     if existing:
+        doc_id = str(existing.get("id", ""))
+        # SQL markdown column is empty in SiYuan ≥3.x; use export API instead.
+        markdown = client.export_markdown(doc_id)
         return {
-            "id": str(existing.get("id", "")),
-            "markdown": str(existing.get("markdown", "")),
+            "id": doc_id,
+            "markdown": markdown,
             "exists": True,
         }
 
@@ -192,7 +195,9 @@ def _ensure_about(
     from .indexer import ensure_notebooks_open
 
     if existing:
-        current_md = str(existing.get("markdown", ""))
+        doc_id = str(existing.get("id", ""))
+        # SQL markdown column is empty in SiYuan ≥3.x; use export API instead.
+        current_md = client.export_markdown(doc_id)
         if ABOUT_TEMPLATE_VERSION_MARKER in current_md:
             return {
                 "id": str(existing.get("id", "")),
@@ -257,9 +262,12 @@ def _find_workspace_index(
     """Find the Workspace Index document. Never creates it."""
     existing = _find_doc_by_key(docs, "workspace_index")
     if existing:
+        doc_id = str(existing.get("id", ""))
+        # SQL markdown column is empty in SiYuan ≥3.x; use export API instead.
+        markdown = client.export_markdown(doc_id)
         return {
-            "id": str(existing.get("id", "")),
-            "markdown": str(existing.get("markdown", "")),
+            "id": doc_id,
+            "markdown": markdown,
             "exists": True,
         }
     return {"id": None, "markdown": None, "exists": False}

@@ -286,13 +286,18 @@ def build_display_blocks(client: Any, root_id: str, *, include_block_ids: bool =
             heading_text = block_md.lstrip("#").strip()
 
         display_md = block_md
-        if include_block_ids and block_type not in COMMENT_ONLY_BLOCK_TYPES and block_md.strip():
+        if block_type in COMMENT_ONLY_BLOCK_TYPES:
+            if include_block_ids:
+                subtype_str = f" subtype={subtype}" if subtype else ""
+                display_md = f"<!-- siyuan:block id={block_id} type={block_type}{subtype_str} -->"
+            else:
+                for child in client.get_child_blocks(block_id):
+                    visit(child)
+                return
+        elif include_block_ids and block_md.strip():
             subtype_str = f" subtype={subtype}" if subtype else ""
             comment = f"<!-- siyuan:block id={block_id} type={block_type}{subtype_str} -->"
             display_md = f"{comment}\n{block_md}"
-        elif include_block_ids and block_type in COMMENT_ONLY_BLOCK_TYPES:
-            subtype_str = f" subtype={subtype}" if subtype else ""
-            display_md = f"<!-- siyuan:block id={block_id} type={block_type}{subtype_str} -->"
 
         # Skip blocks with no visible content in normal mode
         if not include_block_ids and not block_md.strip():

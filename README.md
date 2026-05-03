@@ -2,40 +2,41 @@
 
 [English README](README.en.md)
 
-SiYuan Agent Bridge 是一个私有、本地优先的思源笔记适配器。它让外部 AI agent 能像阅读代码仓库一样，先理解你的笔记结构，再按需读取具体文档，并在用户明确确认后写入内容。
+思源代理桥是一个私有、本地优先的思源笔记适配器。它让外部 AI agent 能像阅读代码仓库一样，先理解你的笔记结构，再按需读取具体文档，并在用户明确确认后写入内容。
 
-它不是思源插件，不是公开项目，也不是向量检索系统。你的笔记仍然保存在思源里；这个工具只负责生成结构化索引，并通过 MCP 工具和 Skill 工作流给 AI 一个安全、可控的读写入入口。
+它不是思源插件，而是AI插件。你的笔记仍然保存在思源里；这个工具只负责生成结构化索引，并通过 MCP 工具和 Skill 工作流给 AI 一个安全、可控的读写入口。
+
+思源将本地优先和隐私优先作为主要考虑因素。本插件一脉相承。使用本插件时，思源笔记的工作空间内会生成一个专门的“思源代理桥”笔记本，人类用户可以在其中管理哪些文件对AI开放，将不想被AI发现的笔记本/文档录入“隐私规则”文档。该文档通过底层代码对AI排除，AI无法感知到被隐私规则保护的文档/笔记本。无法检索、无法阅读、无法编辑。隐私规则只有人类用户可以修改。
+
+注：由于该MCP工具运行在本地计算机，因此AI仍然有机会通过修改底层代码来实现。但修改底层代码需要重启MCP，也就是需要重启AI才能生效，因此AI基本不具备自行破解的功能。
 
 ## 当前能力
 
-- 扫描思源笔记本和完整文档树，包括子文档。
-- **特别提示：关闭的笔记本会被自动临时打开，扫描完毕后恢复原状态。如果不想让AI看到，请使用隐藏规则进行管理。**该设计的核心考虑是，关闭与否取决于人类使用的便捷性，但关闭的笔记本不代表内部资料不重要，因此在建立和使用知识库时，仍然应当完整呈现。
-- 按 `siyuan.ignore.local.json` 隐藏笔记本、单篇文档或整棵子文档树。
-- 通过 `siyuan.allow.local.json` 临时开放隐藏内容，到期后自动失效。
-- 生成 `knowledge_base/` 下的安全索引、总览和笔记本地图。
-- 对可见文档计算完整字数，让 AI 可以把文档长度作为重要性信号。
-- 提供 MCP 工具，让 Claude Code、Codex、OpenCode 等 agent 在安全索引范围内读取思源资料。**搜索和阅读时也会临时打开关闭的笔记本，以保持资料完整性。**
-- 长文档按展示块窗口分页返回，以 `block_limit` 和 `token_budget` 控制分段。
-- 图文混排文档会保留 Markdown 图片引用，AI 可以按块读取图片前后的文字上下文。
+- 扫描思源笔记本和完整文档树，包括子文档。关闭的笔记本会被自动临时打开，扫描完毕后恢复原状态。该设计的核心考虑是，关闭与否取决于人类使用的便捷性，但关闭的笔记本不代表内部资料不重要。
+- 隐私规则完全由用户在思源系统笔记本 `思源代理桥` / `SiYuan Agent Bridge` 中的 `隐私规则` / `Privacy Rules` 文档通过 Markdown 表格维护。支持隐藏整个笔记本（按 ID 或名称）、单篇文档或整棵子文档树。AI 不可读取、搜索或编辑隐私规则文档。
+- 隐私规则文档修改后，告诉 AI"刷新一下"即可生效。如需临时开放隐藏内容，将对应行的 `Hide` 改为 `no`，交流完毕后再改回 `yes`。
+- 生成 `knowledge_base/` 下的安全索引，所有数据经隐私规则过滤。
+- 统计每篇文档的块数和字符数，让 AI 可以把文档规模作为重要性信号。
+- 提供 9 个 MCP 工具，让 Claude Code、Codex 等 agent 在安全索引范围内读取和写入思源资料。
+- 长文档按展示块窗口分页返回，以 `block_limit` 和 `token_budget` 控制分段，不截断字符。
+- 文档自动提取附件（图片、PDF、表格等）到 `ai_workspace/`，保留原始引用不变。
 - 支持通过 CC Switch 导入 Skill 压缩包，并手动/JSON/deep link 注册 MCP。
 
 ## 日常怎么用
 
 大多数时候你不需要自己使用命令行。
 
-你主要维护这些文件：
+你主要维护这些：
 
-- `knowledge_base/guide.md`：你维护的知识库阅读指南，告诉 AI 哪些主题、路径、笔记本最重要。
-- `siyuan.ignore.local.json`：长期隐藏规则。
-- `siyuan.allow.local.json`：临时开放规则。
+- 思源系统笔记本中的 `AI 使用指南` / `AI Guide`：你在思源 UI 中编辑的 AI 持久偏好和重点笔记本指引。
+- 思源系统笔记本中的 `隐私规则` / `Privacy Rules`：你在思源 UI 中通过 Markdown 表格维护的隐藏规则。
+- `ai_workspace/`：AI 生成的分析、草稿和输出。
 
 典型流程：
 
 1. 你在思源里正常写笔记。
-2. 如果某些内容要隐藏，告诉 AI：“隐藏xx笔记本/xx文档”。对于文档，建议告诉AI文档ID而非文档名称，因为名称可能重复但ID不会。
-3. AI会将指定内容加入隐藏规则，在AI看来，被隐藏的内容几乎相当于不存在。
-
-**当前隐私保护功能缺陷：**不在文档树列表、检索会提示无结果、使用文档ID强制阅读会提示不存在。但如果可见文档中引用了该隐藏的文档，会留下引用痕迹，比如引用的块ID或者文档ID等。AI通过拿到隐藏文档的ID直接读取是不可行的。但在极端情况下，AI可能拿到文档ID并自行解除隐藏（通过使用MCP工具），进而能够阅读。目前暂时没有想到很好的办法，未来可能会开发图形化界面，将文档隐藏功能转为人工设定，不对AI开放任何接口（但现在还没有将其提上日程）。
+2. 在思源中打开 `思源代理桥` / `SiYuan Agent Bridge` 笔记本，编辑 `隐私规则` / `Privacy Rules` 文档的表格，填写要隐藏的笔记本或文档 ID，将 `Hide` 列设为 `yes`。
+3. 告诉 AI"刷新一下索引"，隐藏内容即对新会话生效。
 
 ## Agent 启动流程
 
@@ -45,29 +46,28 @@ SiYuan Agent Bridge 是一个私有、本地优先的思源笔记适配器。它
 siyuan_start
 ```
 
-这个工具会做三件事：
+这个工具会做：
 
 - 刷新安全索引，确保数据是最新的。
 - 检查思源本地服务是否可用。
-- 返回入口材料，包括笔记本概览表、`index.md`（如果存在）和 `knowledge_base/guide.md`。
+- 确保系统笔记本 `思源代理桥` / `SiYuan Agent Bridge` 及其四份系统文档就绪。
+- 返回启动包：笔记本概览表、Workspace Index（如存在）、AI Guide、隐私规则状态、语言偏好。
 
 如果 MCP 不可用，请先注册或修复 MCP。Python CLI 只作为开发诊断入口，不作为正常 AI 使用入口。
 
 ## MCP 工具
 
-当前 MCP 提供这些工具（默认只读，明确确认后可写入）：
+当前 MCP 提供 9 个工具（默认只读，明确确认后可写入）：
 
-- `siyuan_start`：刷新安全索引并返回启动包（含笔记本概览表、index.md（如存在）、guide.md）。始终最先调用。
-- `siyuan_refresh_index`：在用户明确要求时，在会话中途刷新安全索引（siyuan_start 已在启动时刷新）。
-- `siyuan_list`：无参数时列出所有可见笔记本；给定 `notebook_id` 时返回文档树，含字数和更新时间。
-- `siyuan_find_documents`：通过思源搜索 API 检索标题/大纲/正文块，返回前应用隐藏规则过滤；搜索时会临时打开关闭的笔记本并在结束后恢复。支持 4 种模式（`keyword`/`query`/`regex`/`sql`）、2 种范围（`headings`/`full`），可选限定笔记本。同一文档默认展示前 5 个命中块，可用 `max_snippets_per_doc` 调整，并会报告总命中块数。
-- `siyuan_read_document`：读取可见文档，始终返回大纲（标题→block 位置映射）。默认按展示块窗口返回（`block_limit=200`、`token_budget=50000`），不截断字符。用 `block_start=N` 翻页，`block_limit` 和 `token_budget` 控制窗口大小。`include_block_ids=true` 进入引用阅读模式，自动在块前插入 `<!-- siyuan:block id=... -->` HTML 注释，用于跨文档块引用和精确定位编辑。附件（图片、PDF、表格等）自动提取到 `ai_workspace/`，保留原始引用不变。
+- `siyuan_start`：刷新安全索引并返回启动包（含笔记本概览表、Workspace Index（如存在）、AI Guide、隐私规则状态、语言偏好）。始终最先调用。
+- `siyuan_refresh_index`：手动刷新安全索引并清理 `ai_workspace/`（保留 README.md）。
+- `siyuan_list`：无参数时列出所有可见笔记本；给定 `notebook_id` 或 `notebook_name` 时返回文档树，含字数、块数和更新时间。
+- `siyuan_find_documents`：通过思源搜索 API 检索，返回前应用隐私规则过滤；搜索时会临时打开关闭的笔记本并在结束后恢复。支持 4 种模式（`keyword`/`query`/`regex`/`sql`）、2 种范围（`headings`/`full`），可选限定笔记本。同一文档默认展示前 5 个命中块，可用 `max_snippets_per_doc` 调整。
+- `siyuan_read_document`：读取可见文档，始终返回大纲（标题→block 位置映射）。默认按展示块窗口返回（`block_limit=200`、`token_budget=50000`），不截断字符。用 `block_start=N` 翻页。`include_block_ids=true` 进入引用阅读模式，自动插入 `<!-- siyuan:block id=... -->` HTML 注释，用于跨文档块引用和精确定位编辑。附件自动提取到 `ai_workspace/attachments/`，保留原始引用不变。
 - `siyuan_create_document`：在可见笔记本中创建新文档。写入前自动创建思源工作空间快照；快照失败拒绝写入。必须 `confirmed=true`。用户可手动通过思源快照回滚。
-- `siyuan_edit_document`：用 `old_text` → `new_text` 文本锚点在可见文档中编辑。`old_text=""` 追加到末尾，`new_text=""` 删除匹配文本。仅支持单块编辑，跨块文本需拆成多次调用。写入前自动创建快照。必须 `confirmed=true`。
-- `siyuan_propose_guide_update`：把建议的指南更新保存到 `ai_workspace/`，不直接修改指南。
-- `siyuan_apply_guide_update`：只有在用户明确批准后，才追加或替换 `knowledge_base/guide.md`（需 `confirmed=true`）。
-- `siyuan_privacy`：管理持久隐藏规则。`action="hide"` 隐藏，`action="unhide"` 取消，需 `confirmed=true`。隐藏 `document` 会隐藏该文档及其所有子文档。
-- `siyuan_temporary_allow`：管理临时开放规则。`action="open"`（N分钟后过期，需 `confirmed=true`），`action="close"`（清除全部）。临时开放 `document` 会开放该文档及其所有子文档。
+- `siyuan_edit_document`：用 `old_text` → `new_text` 文本锚点在可见文档中编辑。`old_text=""` 追加到末尾，`new_text=""` 删除匹配文本。仅支持单块编辑，跨块文本返回错误需拆成多次调用。写入前自动创建快照。必须 `confirmed=true`。
+- `siyuan_propose_guide_update`：把建议的指南更新保存到 `ai_workspace/`，不直接修改 AI Guide。
+- `siyuan_apply_guide_update`：只有在用户明确批准后，才追加或替换思源系统笔记本中的 `AI 使用指南` / `AI Guide`（需 `confirmed=true`）。
 
 ## 长文档
 
@@ -75,45 +75,31 @@ siyuan_start
 
 `siyuan_read_document` 始终先返回文档大纲（标题→block 位置映射）。标题少于 5 个且总展示块超过 100 时，会自动提供每 50 块的原文窗口预览片段。
 
-## 隐藏规则
+## 隐私规则
 
-打开：
+隐私规则完全由用户在思源 UI 中维护，存放在系统笔记本 `思源代理桥` / `SiYuan Agent Bridge` 中的 `隐私规则` / `Privacy Rules` 文档，使用 Markdown 表格。
 
-```text
-siyuan.ignore.local.json
-```
+两张表格：
 
-隐藏整个笔记本：
+- `## 隐藏笔记本` / `## Hide Notebooks`：按 Notebook ID（优先）或 Notebook Name 隐藏整个笔记本。
+- `## 隐藏文档` / `## Hide Documents`：按 Document ID 精确隐藏文档及其所有子文档。
 
-```json
-{
-  "scope": "notebook",
-  "name": "笔记本名称",
-  "reason": "隐藏整个笔记本"
-}
-```
+`Hide` 列填 `yes` 启用，`no` 暂不启用。Reason 列仅供人类参考。
 
-隐藏单篇文档：
+隐私规则文档修改后，告诉 AI"刷新一下"或在下次 `siyuan_start` / `siyuan_refresh_index` 时自动生效。如需临时开放，将对应行的 `Hide` 改为 `no`，交流完毕后再改回 `yes`。
 
-```json
-{
-  "scope": "document",
-  "id": "文档ID",
-  "reason": "隐藏这一篇文档"
-}
-```
+> AI 不可读取、搜索、编辑或总结隐私规则文档。该文档被系统硬编码隔离。
 
-隐藏某篇文档和它下面所有子文档：
+## 系统笔记本
 
-```json
-{
-  "scope": "subtree",
-  "id": "父文档ID",
-  "reason": "隐藏这篇文档和它下面的所有子文档"
-}
-```
+在思源中自动创建和维护 `思源代理桥` / `SiYuan Agent Bridge` 笔记本，包含四份系统文档：
 
-改完后让 AI 刷新索引即可。旧索引里之前可见、现在被隐藏的内容会从新的 `knowledge_base/` 索引里移除。
+| 文档 | 说明 |
+|------|------|
+| `AI 使用指南` / `AI Guide` | AI 的持久使用规则和偏好，用户在思源 UI 中编辑。不存在时自动创建，存在后不覆盖。 |
+| `工作空间索引` / `Workspace Index` | AI 生成的语义导航索引，不自动创建。由 `siyuan-index-builder` skill 创建和更新。 |
+| `关于 SiYuan Agent Bridge` / `About SiYuan Agent Bridge` | 给人看的工具说明，模板版本更新时自动覆盖。 |
+| `隐私规则` / `Privacy Rules` | 人类维护的隐藏规则配置，MCP 内部解析，AI 不可读取。 |
 
 ## CC Switch 使用
 
@@ -125,7 +111,7 @@ python pack_skill.py
 
 生成的 zip 在 `dist/` 目录下。
 
-MCP 可以在 CC Switch 的“新增 MCP / 自定义”界面里填入：
+MCP 可以在 CC Switch 的"新增 MCP / 自定义"界面里填入：
 
 ```json
 {
@@ -156,32 +142,29 @@ siyuan-agent-bridge/
   README.en.md               # 英文说明
   config.example.json        # 配置示例
   config.local.json          # 本机 token，已被 Git 忽略
-  siyuan.ignore.local.json   # 长期隐藏规则
-  siyuan.allow.local.json    # 临时开放规则
   source_code/               # Python 工具代码
+    client.py                #   思源 API client（读写）
+    indexer.py               #   索引生成（tree.md + docs.jsonl）
+    ignore.py                #   隐私规则解析（Markdown 表格）与过滤
+    i18n.py                  #   多语言解析、系统名称映射、默认模板
+    agent_notebook.py        #   系统笔记本服务层
+    cli.py                   #   开发诊断入口
+    mcp_server.py            #   MCP stdio server（9 tools）
   plugins/siyuan-agent-bridge/     # Skill 和 MCP 插件（含 skills/、scripts/、MCP 配置）
-  knowledge_base/            # 生成的安全索引
-  ai_workspace/              # AI 工作区
+  knowledge_base/            # 生成的安全索引（tree.md, docs.jsonl, notebooks.json, privacy_rules.json）
+  ai_workspace/              # AI 工作区（分析、草稿、附件）
   tests/                     # 测试
+  dist/                      # 发布产物（Skill zip + MCP 配置）
 ```
 
 `knowledge_base/` 里主要有：
 
-- `guide.md`：你维护的知识库指南。
-- `tree.md`：两层文档树（笔记本概览表 + 各笔记本文档树），默认不要让 AI 全扫第二层。
+- `tree.md`：两层文档树（笔记本概览表 + 各笔记本文档树），程序生成，每次 refresh 覆盖。
 - `docs.jsonl`：文档级结构化数据（AI 不应直接读取）。
 - `notebooks.json`：笔记本索引。
-- `index.md`：AI 生成的语义导航索引（由 `siyuan-index-builder` skill 创建）。
+- `privacy_rules.json`：隐私规则缓存，从思源 Markdown 表格解析，每次 refresh 覆盖。
 
-> **已知限制**：`index.md` 通过 AI 的 Write/Edit 文件工具创建，因此 AI 会将文件写到**当前 IDE 工作目录**的 `knowledge_base/` 下，而非 bridge 项目目录的 `knowledge_base/`。如果在其他项目下让 AI 重建索引，请手动将生成的 `index.md` 复制到 bridge 项目的 `knowledge_base/` 中，或只在 bridge 项目内让 AI 重建。
-
-`source_code/` 里主要有：
-
-- `client.py`：只读思源 API client。
-- `indexer.py`：扫描和生成索引。
-- `ignore.py`：隐藏和临时开放规则。
-- `cli.py`：开发诊断入口。
-- `mcp_server.py`：MCP stdio server。
+> AI Guide 和 Workspace Index 的主副本存放在思源系统笔记本中，跟随工作空间切换。`knowledge_base/` 中的本地文件是索引缓存，不包含用户偏好和导航索引。
 
 ## 隐私边界
 
@@ -189,7 +172,8 @@ siyuan-agent-bridge/
 
 - 不要提交 token。
 - 不要公开 `knowledge_base/` 和 `ai_workspace/`，除非你已经清理个人内容。
-- AI 不应主动读取 `config.local.json`、`siyuan.ignore.local.json` 或 `siyuan.allow.local.json`，除非你明确要求。
+- AI 不应主动读取 `config.local.json`，除非你明确要求。
+- AI 不应读取、搜索、编辑或总结隐私规则文档。
 - AI 不应直接调用底层思源写 API（`updateBlock`、`appendBlock` 等）。只有在用户明确要求写入时，才使用 `siyuan_create_document` 或 `siyuan_edit_document`。
 - 写入工具需要 `confirmed=true` 保护。写入前会自动创建思源工作空间快照，快照失败则拒绝写入。
 

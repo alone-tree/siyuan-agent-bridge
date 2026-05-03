@@ -1473,9 +1473,11 @@ A 和 B 是同一件事的两面：代码返回 index + AI 知道去读它。做
 
 **G（块 ID 嵌入可选模式）已完成** (2026-05-03)。`siyuan_read_document` 新增 `include_block_ids` 参数（默认 `false`），启用后通过 HTML 注释 `<!-- siyuan:block id=... type=... -->` 注入块 ID。这个模式对外应称为“引用阅读”，主要服务跨文档块引用、精确定位和后续编辑辅助。实现已从“全局 `ORDER BY sort` 扁平拼接”改为调用 `/api/block/getChildBlocks`，使用思源返回的真实子块顺序递归遍历。列表容器自身不渲染但会遍历列表项；列表项和表格的 Markdown 已包含子内容，因此渲染后不再递归子孙，避免重复；超级块只显示注释并继续遍历子块，避免超级块 Markdown 和子块重复。详情见 [`块ID阅读实验计划.md`](./块ID阅读实验计划.md)。
 
-下一步：对复杂文档和简单文档进行真实 MCP 读取对比实验，验证块 ID 注入的实际效果，然后根据实验结果决定是否升级 `siyuan_edit_document` 支持 `block_id` 可选参数。
+真实 MCP 读取对比实验已完成 (2026-05-03)：`siyuan_read_document` 的普通阅读、分页、附件提取和引用阅读均可用；实验发现普通阅读模式下超级块会同时输出超级块 Markdown 和子块内容，导致复杂文档重复显示。已修复为普通阅读跳过超级块容器、只递归显示子块；引用阅读保留超级块块 ID 注释并递归显示子块。
 
-剩余待实现：H（系统笔记本初始化与 Guide/Index 迁移）、I（`siyuan_temporary_allow` 修复）。
+注意：Codex 当前已加载的 MCP 工具缓存只暴露 8 个工具，缺少 `siyuan_start`；仓库内 `plugins/siyuan-agent-bridge/scripts/run_mcp.py` 通过本地 JSON-RPC `tools/list` 验证实际暴露 9 个工具。若客户端看不到 `siyuan_start`，需要重新加载/重启 MCP 注册。
+
+剩余待实现：临时开放的更便捷机制；是否给 `siyuan_edit_document` 增加 `block_id` 可选参数仍待设计。
 
 原 F（思源Agent笔记本）已调整为更轻量的系统笔记本方案：不新增 MCP 写索引工具，不把系统笔记本强行排除出普通索引；通过 Skill 约束 AI 不把它当作用户原始知识材料。
 

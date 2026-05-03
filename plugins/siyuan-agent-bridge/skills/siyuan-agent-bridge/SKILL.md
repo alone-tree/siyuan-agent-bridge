@@ -35,6 +35,8 @@ description: Use when the user wants to read, search, or write their private SiY
 - `siyuan_find_documents` —— 搜索知识库，通过思源 API 实时搜索后经隐私规则过滤返回结果。
 - `siyuan_read_document` —— 只读取可见文档；隐藏文档和隐私规则文档即使已知 ID 也不会被读取。
 - `siyuan_list` —— 隐私规则文档不会出现在文档列表中。
+- `siyuan_create_document`、`siyuan_edit_document` —— 写入工具。始终 `confirmed=true`。写入前自动创建思源工作空间快照。默认不写入，除非用户明确要求。
+- `siyuan_refresh_index` —— 会话中途刷新索引并清理 `ai_workspace/`（保留 README.md）。
 - 系统笔记本 `思源代理桥` / `SiYuan Agent Bridge` 及其文档会被自动创建和维护。
 
 ## Safety Rules
