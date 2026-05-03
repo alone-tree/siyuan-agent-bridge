@@ -228,10 +228,12 @@ def _ensure_privacy_rules(
     from .indexer import ensure_notebooks_open
 
     if existing:
-        markdown = str(existing.get("markdown", ""))
+        doc_id = str(existing.get("id", ""))
+        # SQL markdown column is empty in SiYuan ≥3.x; use export API instead.
+        markdown = client.export_markdown(doc_id)
         rules = parse_privacy_rules_markdown(markdown)
         return {
-            "id": str(existing.get("id", "")),
+            "id": doc_id,
             "markdown": markdown,
             "rules": rules,
             "exists": True,
