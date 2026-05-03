@@ -92,6 +92,7 @@ class SiYuanClient:
         encoded = "/".join(parse.quote(p, safe="") for p in parts)
         url = f"{self.base_url}/{encoded}"
         req = request.Request(url, method="GET")
+        req.add_header("Connection", "close")
         if self.token:
             req.add_header("Authorization", f"Token {self.token}")
         try:
@@ -158,11 +159,92 @@ class SiYuanClient:
             raise SiYuanApiError("Unexpected repo snapshots response shape")
         return data
 
+    def create_doc_with_md(self, notebook: str, path: str, markdown: str) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "notebook": notebook,
+            "path": path,
+            "markdown": markdown,
+        }
+        data = self._post("/api/filetree/createDocWithMd", payload)
+        if data is None:
+            return {}
+        if isinstance(data, str):
+            return {"id": data}
+        if not isinstance(data, dict):
+            raise SiYuanApiError("Unexpected createDocWithMd response shape")
+        return data
+
+    def update_block(self, block_id: str, markdown: str) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "id": block_id,
+            "dataType": "markdown",
+            "data": markdown,
+        }
+        data = self._post("/api/block/updateBlock", payload)
+        if data is None:
+            return {}
+        if isinstance(data, list):
+            return {"blocks": data}
+        if not isinstance(data, dict):
+            return {}
+        return data
+
+    def append_block(self, parent_id: str, markdown: str) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "dataType": "markdown",
+            "data": markdown,
+            "parentID": parent_id,
+        }
+        data = self._post("/api/block/appendBlock", payload)
+        if data is None:
+            return {}
+        if isinstance(data, list):
+            return {"blocks": data}
+        if not isinstance(data, dict):
+            return {}
+        return data
+
+    def insert_block_after(self, previous_id: str, markdown: str) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "dataType": "markdown",
+            "data": markdown,
+            "previousID": previous_id,
+        }
+        data = self._post("/api/block/insertBlock", payload)
+        if data is None:
+            return {}
+        if isinstance(data, list):
+            return {"blocks": data}
+        if not isinstance(data, dict):
+            return {}
+        return data
+
+    def push_msg(self, msg: str, timeout: int = 7000) -> None:
+        self._post("/api/notification/pushMsg", {"msg": msg, "timeout": timeout})
+
+    def push_err_msg(self, msg: str, timeout: int = 7000) -> None:
+        self._post("/api/notification/pushErrMsg", {"msg": msg, "timeout": timeout})
+
     def _post(self, path: str, payload: dict[str, Any]) -> Any:
         body = json.dumps(payload).encode("utf-8")
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": "application/json", "Connection": "close"}
         if self.token:
             headers["Authorization"] = f"Token {self.token}"
+
+        last_error: Exception | None = None
+        for attempt in range(3):
+            try:
+                return self._post_once(path, body, headers)
+            except SiYuanConnectionError as exc:
+                last_error = exc
+                if attempt < 2:
+                    import time
+                    time.sleep(0.3 * (attempt + 1))
+            else:
+                break
+        raise last_error  # type: ignore[misc]
+
+    def _post_once(self, path: str, body: bytes, headers: dict[str, str]) -> Any:
         req = request.Request(
             f"{self.base_url}{path}",
             data=body,

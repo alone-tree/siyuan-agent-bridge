@@ -2,9 +2,9 @@
 
 [English README](README.en.md)
 
-SiYuan Agent Bridge 是一个私有、本地优先的思源笔记适配器。它让外部 AI agent 能像阅读代码仓库一样，先理解你的笔记结构，再按需读取具体文档。
+SiYuan Agent Bridge 是一个私有、本地优先的思源笔记适配器。它让外部 AI agent 能像阅读代码仓库一样，先理解你的笔记结构，再按需读取具体文档，并在用户明确确认后写入内容。
 
-它不是思源插件，不是公开项目，也不是向量检索系统。你的笔记仍然保存在思源里；这个工具只负责生成结构化索引，并通过 MCP 工具和 Skill 工作流给 AI 一个安全、可控的只读入口。
+它不是思源插件，不是公开项目，也不是向量检索系统。你的笔记仍然保存在思源里；这个工具只负责生成结构化索引，并通过 MCP 工具和 Skill 工作流给 AI 一个安全、可控的读写入入口。
 
 ## 当前能力
 
@@ -54,13 +54,15 @@ siyuan_start
 
 ## MCP 工具
 
-当前 MCP 提供这些只读工具：
+当前 MCP 提供这些工具（默认只读，明确确认后可写入）：
 
 - `siyuan_start`：刷新安全索引并返回启动包（含笔记本概览表、index.md（如存在）、guide.md）。始终最先调用。
 - `siyuan_refresh_index`：在用户明确要求时，在会话中途刷新安全索引（siyuan_start 已在启动时刷新）。
 - `siyuan_list`：无参数时列出所有可见笔记本；给定 `notebook_id` 时返回文档树，含字数和更新时间。
 - `siyuan_find_documents`：通过思源搜索 API 检索标题/大纲/正文块，返回前应用隐藏规则过滤；搜索时会临时打开关闭的笔记本并在结束后恢复。支持 4 种模式（`keyword`/`query`/`regex`/`sql`）、2 种范围（`headings`/`full`），可选限定笔记本。同一文档默认展示前 5 个命中块，可用 `max_snippets_per_doc` 调整，并会报告总命中块数。
 - `siyuan_read_document`：读取可见文档，始终返回大纲。隐藏文档即使已知 ID 也不会被读取，除非先显式临时开放。短文档返回全文，长文档每次返回一个分段，用 `chunk=N` 跳转。自动提取文档中的附件（图片、PDF、表格等）到 `ai_workspace/`，保留原始引用不变。
+- `siyuan_create_document`：在可见笔记本中创建新文档。写入前自动创建思源工作空间快照；快照失败拒绝写入。必须 `confirmed=true`。用户可手动通过思源快照回滚。
+- `siyuan_edit_document`：用 `old_text` → `new_text` 文本锚点在可见文档中编辑。`old_text=""` 追加到末尾，`new_text=""` 删除匹配文本。仅支持单块编辑，跨块文本需拆成多次调用。写入前自动创建快照。必须 `confirmed=true`。
 - `siyuan_propose_guide_update`：把建议的指南更新保存到 `ai_workspace/`，不直接修改指南。
 - `siyuan_apply_guide_update`：只有在用户明确批准后，才追加或替换 `knowledge_base/guide.md`（需 `confirmed=true`）。
 - `siyuan_privacy`：管理持久隐藏规则。`action="hide"` 隐藏，`action="unhide"` 取消，需 `confirmed=true`。隐藏 `document` 会隐藏该文档及其所有子文档。
@@ -193,6 +195,7 @@ siyuan-agent-bridge/
 - 不要提交 token。
 - 不要公开 `knowledge_base/` 和 `ai_workspace/`，除非你已经清理个人内容。
 - AI 不应主动读取 `config.local.json`、`siyuan.ignore.local.json` 或 `siyuan.allow.local.json`，除非你明确要求。
-- AI 不应修改思源笔记，也不应调用思源写 API。
+- AI 不应直接调用底层思源写 API（`updateBlock`、`appendBlock` 等）。只有在用户明确要求写入时，才使用 `siyuan_create_document` 或 `siyuan_edit_document`。
+- 写入工具需要 `confirmed=true` 保护。写入前会自动创建思源工作空间快照，快照失败则拒绝写入。
 
 如果未来要公开这个项目，需要重新设计隐私策略，并清理所有个人笔记索引和工作区材料。

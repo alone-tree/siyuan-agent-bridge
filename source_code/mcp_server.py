@@ -4,6 +4,7 @@ import json
 import re
 import shutil
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -104,6 +105,8 @@ class McpServer:
             "siyuan_apply_guide_update": self.siyuan_apply_guide_update,
             "siyuan_privacy": self.siyuan_privacy,
             "siyuan_temporary_allow": self.siyuan_temporary_allow,
+            "siyuan_create_document": self.siyuan_create_document,
+            "siyuan_edit_document": self.siyuan_edit_document,
         }
         if name not in tools:
             return make_error(request_id, -32602, f"Unknown tool: {name}")
@@ -111,9 +114,12 @@ class McpServer:
             text = tools[name](args)
             return make_result(request_id, {"content": [{"type": "text", "text": text}]})
         except SiYuanConnectionError as exc:
+            reason = str(exc).strip()
+            if not reason:
+                reason = "无法连接到思源笔记"
             return make_result(
                 request_id,
-                {"content": [{"type": "text", "text": "思源笔记似乎没有启动，请提示用户手动打开思源笔记后重试。"}], "isError": True},
+                {"content": [{"type": "text", "text": f"思源连接失败：{reason}\n\n请提示用户手动打开思源笔记后重试。"}], "isError": True},
             )
         except (SiYuanApiError, ValueError, FileNotFoundError) as exc:
             return make_result(
@@ -643,6 +649,245 @@ class McpServer:
             "This does not rewrite `knowledge_base/`. The item will be hidden again after expiry."
         )
 
+    def siyuan_create_document(self, args: dict[str, Any]) -> str:
+        confirmed = bool(args.get("confirmed"))
+        if not confirmed:
+            raise ValueError("confirmed=true is required. Writing to SiYuan requires explicit user approval.")
+
+        notebook_id = str(args.get("notebook_id") or "").strip()
+        if not notebook_id:
+            raise ValueError("notebook_id is required")
+
+        title = str(args.get("title") or "").strip()
+        if not title:
+            raise ValueError("title is required")
+
+        markdown = str(args.get("markdown") or "").strip()
+        if not markdown:
+            raise ValueError("markdown is required")
+
+        path = str(args.get("path") or "").strip()
+        if not path:
+            path = f"/{title}"
+        elif not path.startswith("/"):
+            path = f"/{path}"
+
+        # Check notebook is visible
+        notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
+        nb = next((n for n in notebooks if str(n.get("id", "")) == notebook_id), None)
+        if nb is None:
+            raise ValueError(f"Notebook {notebook_id} is not visible. It may be hidden by privacy rules.")
+
+        config = load_config(self.root)
+        client = get_working_client(config)
+
+        # Create snapshot before writing
+        memo = f"siyuan-agent-bridge before siyuan_create_document: {title} {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}"
+        try:
+            client.create_snapshot(memo, tags=["siyuan-agent-bridge", "write"])
+            snapshot_status = "created"
+        except SiYuanApiError as exc:
+            msg = str(exc)
+            if "数据仓库密钥" in msg or "data repo key" in msg.casefold() or "key" in msg.casefold():
+                raise ValueError(
+                    "Snapshot creation failed: data repo key is not initialized. "
+                    "Please open SiYuan → Settings → About → Data Repo Key, initialize the key, then retry."
+                ) from exc
+            raise ValueError(f"Snapshot creation failed, refusing to write. Error: {msg}") from exc
+
+        # Create document
+        with ensure_notebooks_open(client, [notebook_id]):
+            result = client.create_doc_with_md(notebook_id, path, markdown)
+
+        doc_id = str(result.get("id") or result.get("docID") or result.get("doc_id") or "")
+        if not doc_id:
+            # Try to resolve by path
+            try:
+                live_docs = load_live_docs(client)
+                for doc in live_docs:
+                    if str(doc.get("hpath", "")).strip("/") == path.strip("/") and str(doc.get("notebook_id", "")) == notebook_id:
+                        doc_id = str(doc.get("id", ""))
+                        break
+            except Exception:
+                pass
+
+        # Notify
+        try:
+            client.push_msg(f"SiYuan Agent Bridge: created \"{title}\"")
+        except Exception:
+            pass
+
+        parts = [
+            "# Document Created",
+            "",
+            f"**Title:** {title}",
+            f"**Path:** {path}",
+            f"**Notebook:** {nb.get('name', notebook_id)} (`{notebook_id}`)",
+        ]
+        if doc_id:
+            parts.append(f"**Document ID:** `{doc_id}`")
+        parts.extend([
+            f"**Endpoint:** {client.base_url}",
+            f"**Snapshot:** {snapshot_status}",
+            "",
+            "The user can manually roll back via SiYuan snapshots if needed.",
+            "",
+            "Run `siyuan_refresh_index` to update the safe index with this new document.",
+        ])
+        return "\n".join(parts)
+
+    def siyuan_edit_document(self, args: dict[str, Any]) -> str:
+        confirmed = bool(args.get("confirmed"))
+        if not confirmed:
+            raise ValueError("confirmed=true is required. Editing SiYuan documents requires explicit user approval.")
+
+        doc = self.resolve_visible_document(args)
+        doc_id = str(doc.get("id", ""))
+        doc_title = str(doc.get("hpath") or doc.get("title") or doc_id)
+        notebook_id = str(doc.get("notebook_id", ""))
+
+        old_text = str(args.get("old_text") or "")
+        new_text = str(args.get("new_text") or "")
+
+        if not old_text and not new_text:
+            raise ValueError("old_text and new_text cannot both be empty")
+
+        config = load_config(self.root)
+        client = get_working_client(config)
+
+        if not old_text:
+            # Append mode: old_text is empty, append new_text to document end
+            memo = f"siyuan-agent-bridge before siyuan_edit_document append: {doc_title} {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}"
+            try:
+                client.create_snapshot(memo, tags=["siyuan-agent-bridge", "write"])
+                snapshot_status = "created"
+            except SiYuanApiError as exc:
+                msg = str(exc)
+                if "数据仓库密钥" in msg or "data repo key" in msg.casefold() or "key" in msg.casefold():
+                    raise ValueError(
+                        "Snapshot creation failed: data repo key is not initialized. "
+                        "Please open SiYuan → Settings → About → Data Repo Key, initialize the key, then retry."
+                    ) from exc
+                raise ValueError(f"Snapshot creation failed, refusing to write. Error: {msg}") from exc
+
+            with ensure_notebooks_open(client, [notebook_id]):
+                result = client.append_block(doc_id, new_text)
+
+            try:
+                client.push_msg(f"SiYuan Agent Bridge: appended to \"{doc_title}\"")
+            except Exception:
+                pass
+
+            return "\n".join([
+                "# Document Edited (append)",
+                "",
+                f"**Document:** {doc_title} (`{doc_id}`)",
+                f"**Operation:** appended new block to end of document",
+                f"**Endpoint:** {client.base_url}",
+                f"**Snapshot:** {snapshot_status}",
+                "",
+                "The user can manually roll back via SiYuan snapshots if needed.",
+            ])
+
+        # Text anchor mode: search for old_text in document blocks
+        with ensure_notebooks_open(client, [notebook_id]):
+            match_result = self._match_old_text(client, doc_id, old_text)
+
+        match_type = match_result[0]
+
+        if match_type == "not_found":
+            raise ValueError(
+                f"old_text not found in document \"{doc_title}\". "
+                "The document may have been modified since you last read it. "
+                "Please re-read the document with siyuan_read_document and provide the exact current text."
+            )
+
+        if match_type == "ambiguous":
+            matches = match_result[3]
+            context_lines = ["old_text matches multiple blocks. Provide a longer old_text to disambiguate:\n"]
+            for i, (bid, md, _) in enumerate(matches[:5], 1):
+                preview = md[:80].replace("\n", " ")
+                context_lines.append(f"  {i}. block `{bid}`: \"{preview}...\"")
+            raise ValueError("\n".join(context_lines))
+
+        # Single match
+        block_id = str(match_result[1])
+        block_md = str(match_result[2])
+
+        # Create snapshot before writing
+        memo = f"siyuan-agent-bridge before siyuan_edit_document: {doc_title} {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}"
+        try:
+            client.create_snapshot(memo, tags=["siyuan-agent-bridge", "write"])
+            snapshot_status = "created"
+        except SiYuanApiError as exc:
+            msg = str(exc)
+            if "数据仓库密钥" in msg or "data repo key" in msg.casefold() or "key" in msg.casefold():
+                raise ValueError(
+                    "Snapshot creation failed: data repo key is not initialized. "
+                    "Please open SiYuan → Settings → About → Data Repo Key, initialize the key, then retry."
+                ) from exc
+            raise ValueError(f"Snapshot creation failed, refusing to write. Error: {msg}") from exc
+
+        # Execute the edit
+        if old_text.strip() == block_md.strip():
+            # Full block replacement
+            new_block_md = new_text
+        else:
+            # Substring replacement within the block
+            new_block_md = block_md.replace(old_text, new_text)
+
+        with ensure_notebooks_open(client, [notebook_id]):
+            client.update_block(block_id, new_block_md)
+
+        try:
+            client.push_msg(f"SiYuan Agent Bridge: edited \"{doc_title}\"")
+        except Exception:
+            pass
+
+        preview = new_text[:200] if new_text else "(text deleted)"
+        return "\n".join([
+            "# Document Edited",
+            "",
+            f"**Document:** {doc_title} (`{doc_id}`)",
+            f"**Changed block:** `{block_id}`",
+            f"**Changed block count:** 1",
+            f"**Endpoint:** {client.base_url}",
+            f"**Snapshot:** {snapshot_status}",
+            f"**Preview:** {preview}",
+            "",
+            "The user can manually roll back via SiYuan snapshots if needed.",
+        ])
+
+    @staticmethod
+    def _match_old_text(
+        client: Any, doc_id: str, old_text: str
+    ) -> tuple[str, str | None, str | None, list[tuple[str, str, bool]]]:
+        """Search for old_text in document blocks.
+
+        Returns:
+            ("found", block_id, block_markdown, matches)  — single match
+            ("not_found", None, None, [])                 — no match
+            ("ambiguous", None, None, matches)            — multiple matches, each (block_id, markdown, is_full)
+        """
+        rows = client.query_sql(
+            f"SELECT id, markdown FROM blocks WHERE root_id = '{doc_id}' "
+            "AND type != 'd' AND markdown IS NOT NULL AND markdown != '' "
+            "ORDER BY sort"
+        )
+
+        matches: list[tuple[str, str, bool]] = []
+        for row in rows:
+            block_id = str(row.get("id", ""))
+            md = str(row.get("markdown", ""))
+            if old_text in md:
+                matches.append((block_id, md, md.strip() == old_text.strip()))
+
+        if not matches:
+            return ("not_found", None, None, [])
+        if len(matches) > 1:
+            return ("ambiguous", None, None, matches)
+        return ("found", matches[0][0], matches[0][1], matches)
+
     def resolve_notebook_id(self, notebook_name: str) -> str:
         notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
         exact = [item for item in notebooks if str(item.get("name", "")).casefold() == notebook_name.casefold()]
@@ -908,6 +1153,37 @@ def tool_specs() -> list[dict[str, Any]]:
                     "reason": {"type": "string", "description": "Optional reason for the temporary allow."},
                     "confirmed": {"type": "boolean", "description": "Must be true for action='open'. Only set after explicit user approval."},
                 },
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "siyuan_create_document",
+            "description": "Create a new SiYuan document in the specified notebook. Creates a SiYuan workspace snapshot before writing. Refuses to write if the snapshot fails, if the notebook is hidden, or if confirmed is not true. The user can manually roll back via SiYuan snapshots if needed.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "notebook_id": {"type": "string", "description": "Notebook ID to create the document in."},
+                    "title": {"type": "string", "description": "Document title."},
+                    "path": {"type": "string", "description": "Optional path within the notebook. Defaults to /<title>."},
+                    "markdown": {"type": "string", "description": "Markdown content for the new document."},
+                    "confirmed": {"type": "boolean", "description": "Must be true. Writing to SiYuan requires explicit user approval."},
+                },
+                "required": ["notebook_id", "title", "markdown", "confirmed"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "siyuan_edit_document",
+            "description": "Edit a visible SiYuan document using an exact old_text -> new_text anchor. Creates a SiYuan workspace snapshot before writing. Refuses ambiguous, missing, hidden, or unconfirmed edits. old_text=\"\" appends new_text to document end. old_text=\"原文\", new_text=\"\" deletes matching text. Only single-block edits are supported in this phase; cross-block text returns an error asking the AI to re-read and make multiple single-block edits.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "string", "description": "Document id, exact hpath, title, or unique partial match."},
+                    "old_text": {"type": "string", "default": "", "description": "Exact text to find (from the Markdown you just read). Empty = append new_text to document end."},
+                    "new_text": {"type": "string", "default": "", "description": "Replacement text. Empty with non-empty old_text = delete the matching text."},
+                    "confirmed": {"type": "boolean", "description": "Must be true. Editing SiYuan documents requires explicit user approval."},
+                },
+                "required": ["document_id", "old_text", "new_text", "confirmed"],
                 "additionalProperties": False,
             },
         },

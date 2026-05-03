@@ -13,9 +13,17 @@ class FakeSearchClient:
     def __init__(self, blocks: list[dict[str, Any]], *, closed: bool = False):
         self.blocks = blocks
         self.closed = closed
+        self.base_url = "http://127.0.0.1:6806"
         self.opened: list[str] = []
         self.closed_again: list[str] = []
         self.seen_payloads: list[dict[str, Any]] = []
+        self._snapshots: list[dict[str, Any]] = []
+        self._docs: dict[str, str] = {}  # doc_id -> markdown
+        self._blocks: dict[str, dict[str, Any]] = {}  # block_id -> block info
+        self._push_msgs: list[str] = []
+
+    def version(self):
+        return "3.0.0"
 
     def list_notebooks(self):
         return [{"id": "nb1", "name": "Main", "closed": self.closed}]
@@ -29,11 +37,38 @@ class FakeSearchClient:
         self.closed = True
 
     def query_sql(self, _stmt):
+        stmt = str(_stmt).casefold() if _stmt else ""
+        if "from blocks" in stmt and "root_id" in stmt:
+            # Return the first available blocks set for any document-root query
+            for blocks in self._blocks.values():
+                if isinstance(blocks, list):
+                    return blocks
+            return []
         return [{"exists": 1}]
 
     def search_full_text(self, **payload):
         self.seen_payloads.append(payload)
         return {"blocks": self.blocks}
+
+    # Write methods
+    def create_snapshot(self, memo, *, tags=None, path=None):
+        snap = {"memo": memo, "tags": tags or [], "created": "20260503000000"}
+        self._snapshots.append(snap)
+        return snap
+
+    def create_doc_with_md(self, notebook, path, markdown):
+        doc_id = f"new-doc-{len(self._docs)}"
+        self._docs[doc_id] = markdown
+        return {"id": doc_id}
+
+    def update_block(self, block_id, markdown):
+        pass
+
+    def append_block(self, parent_id, markdown):
+        pass
+
+    def push_msg(self, msg, timeout=7000):
+        self._push_msgs.append(msg)
 
 
 class McpServerTests(unittest.TestCase):
@@ -283,6 +318,283 @@ class McpServerTests(unittest.TestCase):
         mcp_server.get_working_client = fake_client
         try:
             return server.siyuan_find_documents(args)
+        finally:
+            mcp_server.get_working_client = original
+
+
+class McpServerWriteTests(unittest.TestCase):
+    def setUp(self):
+        self.root = Path.cwd() / ".test_tmp" / "mcp_write"
+        shutil.rmtree(self.root, ignore_errors=True)
+        base = self.root / "knowledge_base"
+        base.mkdir(parents=True, exist_ok=True)
+        (base / "notebooks.json").write_text(
+            json.dumps([{"id": "nb1", "name": "Main"}], ensure_ascii=False),
+            encoding="utf-8",
+        )
+        docs = [
+            {
+                "id": "doc1",
+                "notebook_id": "nb1",
+                "notebook_name": "Main",
+                "hpath": "/Projects/Doc One",
+                "title": "Doc One",
+                "path": "/doc1.sy",
+                "tags": [],
+                "word_count": 123,
+                "block_count": 2,
+                "updated": "20260501010101",
+            },
+        ]
+        (base / "docs.jsonl").write_text(
+            "".join(json.dumps(doc, ensure_ascii=False) + "\n" for doc in docs),
+            encoding="utf-8",
+        )
+
+    def _make_client(self, query_sql_blocks=None):
+        """Create a FakeSearchClient with optional block data for SQL queries."""
+        client = FakeSearchClient([])
+        if query_sql_blocks:
+            doc_id = list(query_sql_blocks.keys())[0] if query_sql_blocks else "doc1"
+            client._blocks = query_sql_blocks
+        return client
+
+    def _server_and_client(self, query_sql_blocks=None):
+        client = self._make_client(query_sql_blocks)
+        server = mcp_server.McpServer(self.root)
+        original = mcp_server.get_working_client
+
+        def fake_client(_config):
+            return client
+
+        mcp_server.get_working_client = fake_client
+        return server, client, original
+
+    def test_create_document_refuses_unconfirmed(self):
+        server, client, original = self._server_and_client()
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_create_document({
+                    "notebook_id": "nb1",
+                    "title": "New Doc",
+                    "markdown": "# Hello",
+                    "confirmed": False,
+                })
+            self.assertIn("confirmed", str(ctx.exception))
+        finally:
+            mcp_server.get_working_client = original
+
+    def test_create_document_refuses_hidden_notebook(self):
+        server, client, original = self._server_and_client()
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_create_document({
+                    "notebook_id": "nb-hidden",
+                    "title": "New Doc",
+                    "markdown": "# Hello",
+                    "confirmed": True,
+                })
+            self.assertIn("not visible", str(ctx.exception))
+        finally:
+            mcp_server.get_working_client = original
+
+    def test_create_document_creates_snapshot_before_write(self):
+        server, client, original = self._server_and_client()
+        try:
+            result = server.siyuan_create_document({
+                "notebook_id": "nb1",
+                "title": "New Doc",
+                "markdown": "# Hello\n\nWorld",
+                "confirmed": True,
+            })
+            self.assertIn("New Doc", result)
+            self.assertIn("created", result)
+            self.assertEqual(len(client._snapshots), 1)
+            self.assertIn("siyuan_create_document", client._snapshots[0]["memo"])
+            self.assertIn("siyuan-agent-bridge", client._snapshots[0]["tags"])
+            self.assertIn("write", client._snapshots[0]["tags"])
+            self.assertIn("New Doc", client._push_msgs[0])
+        finally:
+            mcp_server.get_working_client = original
+
+    def test_create_document_uses_given_path(self):
+        server, client, original = self._server_and_client()
+        try:
+            result = server.siyuan_create_document({
+                "notebook_id": "nb1",
+                "title": "My Doc",
+                "path": "/custom/path",
+                "markdown": "content",
+                "confirmed": True,
+            })
+            self.assertIn("custom/path", result)
+        finally:
+            mcp_server.get_working_client = original
+
+    def test_edit_document_refuses_unconfirmed(self):
+        server, client, original = self._server_and_client()
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_edit_document({
+                    "document_id": "doc1",
+                    "old_text": "hello",
+                    "new_text": "world",
+                    "confirmed": False,
+                })
+            self.assertIn("confirmed", str(ctx.exception))
+        finally:
+            mcp_server.get_working_client = original
+
+    def test_edit_document_old_text_not_found(self):
+        blocks = {
+            "doc1": [
+                {"id": "block1", "markdown": "This is some text."},
+                {"id": "block2", "markdown": "Another paragraph."},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_edit_document({
+                    "document_id": "doc1",
+                    "old_text": "nonexistent text",
+                    "new_text": "replacement",
+                    "confirmed": True,
+                })
+            self.assertIn("not found", str(ctx.exception))
+        finally:
+            mcp_server.get_working_client = original
+
+    def test_edit_document_old_text_ambiguous(self):
+        blocks = {
+            "doc1": [
+                {"id": "block1", "markdown": "重复文字在这里。"},
+                {"id": "block2", "markdown": "这里也有重复文字。"},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_edit_document({
+                    "document_id": "doc1",
+                    "old_text": "重复文字",
+                    "new_text": "替换",
+                    "confirmed": True,
+                })
+            self.assertIn("multiple blocks", str(ctx.exception).casefold())
+            self.assertIn("block1", str(ctx.exception))
+            self.assertIn("block2", str(ctx.exception))
+        finally:
+            mcp_server.get_working_client = original
+
+    def test_edit_document_single_block_full_replace(self):
+        blocks = {
+            "doc1": [
+                {"id": "block1", "markdown": "Original full text."},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            result = server.siyuan_edit_document({
+                "document_id": "doc1",
+                "old_text": "Original full text.",
+                "new_text": "Replaced text.",
+                "confirmed": True,
+            })
+            self.assertIn("Document Edited", result)
+            self.assertIn("block1", result)
+            self.assertIn("Replaced text.", result)
+            self.assertEqual(len(client._snapshots), 1)
+            self.assertIn("siyuan_edit_document", client._snapshots[0]["memo"])
+        finally:
+            mcp_server.get_working_client = original
+
+    def test_edit_document_single_block_substring_replace(self):
+        blocks = {
+            "doc1": [
+                {"id": "block1", "markdown": "这里包含旧文字和其他内容。"},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            result = server.siyuan_edit_document({
+                "document_id": "doc1",
+                "old_text": "旧文字",
+                "new_text": "新文字",
+                "confirmed": True,
+            })
+            self.assertIn("Document Edited", result)
+            self.assertIn("block1", result)
+        finally:
+            mcp_server.get_working_client = original
+
+    def test_edit_document_append_mode(self):
+        blocks = {
+            "doc1": [
+                {"id": "block1", "markdown": "Existing text."},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            result = server.siyuan_edit_document({
+                "document_id": "doc1",
+                "old_text": "",
+                "new_text": "Appended paragraph.",
+                "confirmed": True,
+            })
+            self.assertIn("append", result.casefold())
+            self.assertEqual(len(client._snapshots), 1)
+            self.assertIn("siyuan_edit_document", client._snapshots[0]["memo"])
+        finally:
+            mcp_server.get_working_client = original
+
+    def test_edit_document_delete_mode(self):
+        blocks = {
+            "doc1": [
+                {"id": "block1", "markdown": "待删除的错误文字在这里。"},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            result = server.siyuan_edit_document({
+                "document_id": "doc1",
+                "old_text": "待删除的错误文字",
+                "new_text": "",
+                "confirmed": True,
+            })
+            self.assertIn("Document Edited", result)
+        finally:
+            mcp_server.get_working_client = original
+
+    def test_edit_document_refuses_hidden_document(self):
+        (self.root / "siyuan.ignore.local.json").write_text(
+            json.dumps({"ignore": [{"scope": "document", "id": "doc1"}]}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        server, client, original = self._server_and_client()
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_edit_document({
+                    "document_id": "doc1",
+                    "old_text": "hello",
+                    "new_text": "world",
+                    "confirmed": True,
+                })
+            self.assertIn("visible", str(ctx.exception).casefold())
+        finally:
+            mcp_server.get_working_client = original
+
+    def test_edit_document_both_empty_rejected(self):
+        server, client, original = self._server_and_client()
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_edit_document({
+                    "document_id": "doc1",
+                    "old_text": "",
+                    "new_text": "",
+                    "confirmed": True,
+                })
+            self.assertIn("cannot both be empty", str(ctx.exception).casefold())
         finally:
             mcp_server.get_working_client = original
 

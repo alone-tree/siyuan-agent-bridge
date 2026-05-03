@@ -85,5 +85,93 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(data["totalCount"], 0)
 
 
+    def test_create_doc_with_md_payload(self):
+        seen = {}
+
+        def transport(req, timeout):
+            seen["url"] = req.full_url
+            seen["body"] = json.loads(req.data.decode("utf-8"))
+            return FakeResponse({"code": 0, "data": {"id": "20260503090000-newdoc"}})
+
+        client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
+
+        result = client.create_doc_with_md("nb1", "/Test Doc", "# Hello\n\nWorld")
+
+        self.assertEqual(seen["url"], "http://127.0.0.1:6806/api/filetree/createDocWithMd")
+        self.assertEqual(seen["body"], {"notebook": "nb1", "path": "/Test Doc", "markdown": "# Hello\n\nWorld"})
+        self.assertEqual(result["id"], "20260503090000-newdoc")
+
+    def test_create_doc_with_md_accepts_null_data(self):
+        def transport(req, timeout):
+            return FakeResponse({"code": 0, "data": None})
+
+        client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
+        self.assertEqual(client.create_doc_with_md("nb1", "/Test", "# Hi"), {})
+
+    def test_create_doc_with_md_accepts_string_id(self):
+        def transport(req, timeout):
+            return FakeResponse({"code": 0, "data": "20260503090000-newdoc-string"})
+
+        client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
+        result = client.create_doc_with_md("nb1", "/Test", "# Hi")
+        self.assertEqual(result["id"], "20260503090000-newdoc-string")
+
+    def test_update_block_payload(self):
+        seen = {}
+
+        def transport(req, timeout):
+            seen["url"] = req.full_url
+            seen["body"] = json.loads(req.data.decode("utf-8"))
+            return FakeResponse({"code": 0, "data": {}})
+
+        client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
+        client.update_block("block123", "new content")
+
+        self.assertEqual(seen["url"], "http://127.0.0.1:6806/api/block/updateBlock")
+        self.assertEqual(seen["body"], {"id": "block123", "dataType": "markdown", "data": "new content"})
+
+    def test_append_block_payload(self):
+        seen = {}
+
+        def transport(req, timeout):
+            seen["url"] = req.full_url
+            seen["body"] = json.loads(req.data.decode("utf-8"))
+            return FakeResponse({"code": 0, "data": {}})
+
+        client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
+        client.append_block("doc1", "appended text")
+
+        self.assertEqual(seen["url"], "http://127.0.0.1:6806/api/block/appendBlock")
+        self.assertEqual(seen["body"], {"dataType": "markdown", "data": "appended text", "parentID": "doc1"})
+
+    def test_insert_block_after_payload(self):
+        seen = {}
+
+        def transport(req, timeout):
+            seen["url"] = req.full_url
+            seen["body"] = json.loads(req.data.decode("utf-8"))
+            return FakeResponse({"code": 0, "data": {}})
+
+        client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
+        client.insert_block_after("prev123", "inserted text")
+
+        self.assertEqual(seen["url"], "http://127.0.0.1:6806/api/block/insertBlock")
+        self.assertEqual(seen["body"], {"dataType": "markdown", "data": "inserted text", "previousID": "prev123"})
+
+    def test_push_msg_payload(self):
+        seen = {}
+
+        def transport(req, timeout):
+            seen["url"] = req.full_url
+            seen["body"] = json.loads(req.data.decode("utf-8"))
+            return FakeResponse({"code": 0, "data": None})
+
+        client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
+        client.push_msg("Hello SiYuan", timeout=5000)
+
+        self.assertEqual(seen["url"], "http://127.0.0.1:6806/api/notification/pushMsg")
+        self.assertEqual(seen["body"], {"msg": "Hello SiYuan", "timeout": 5000})
+
+
 if __name__ == "__main__":
     unittest.main()

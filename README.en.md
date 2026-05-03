@@ -2,9 +2,9 @@
 
 [中文说明](README.md)
 
-SiYuan Agent Bridge is a private, local-first adapter that lets external AI agents use your SiYuan notes as a structured personal knowledge base.
+SiYuan Agent Bridge is a private, local-first adapter that lets external AI agents use your SiYuan notes as a structured personal knowledge base, with write support on explicit user confirmation.
 
-It is not a SiYuan plugin, not a public package, and not a vector-search system. Your notes stay in SiYuan. This project creates safe read-only indexes and exposes them to AI agents through MCP tools and a Skill workflow.
+It is not a SiYuan plugin, not a public package, and not a vector-search system. Your notes stay in SiYuan. This project creates safe indexes and exposes them to AI agents through MCP tools and a Skill workflow.
 
 ## Current Capabilities
 
@@ -51,11 +51,15 @@ If MCP is unavailable, register or repair the MCP server first. The Python CLI i
 
 ## MCP Tools
 
+The MCP server provides these tools (default read-only, write on explicit confirmation):
+
 - `siyuan_start`: refresh the safe index and return the startup packet with notebook overview table, index.md (when it exists), START_HERE.md, and guide.md. Always call first.
 - `siyuan_refresh_index`: refresh safe indexes mid-session when the user explicitly asks. Also cleans `ai_workspace/` (preserves README.md).
 - `siyuan_list`: list visible notebooks (no args) or return the document tree for one notebook (with `notebook_id`), including word counts and update times.
 - `siyuan_find_documents`: search through SiYuan search APIs, then apply privacy rules before returning results. Supports 4 modes (`keyword`/`query`/`regex`/`sql`), 2 scopes (`headings`/`full`), and optional notebook filters.
 - `siyuan_read_document`: read a visible document with outline. Hidden documents are not readable through MCP even when their IDs are known, unless they are explicitly opened with a temporary allow rule first. Short docs return full text; long docs return one chunk; use `chunk=N` to navigate. Attachments (images, PDFs, spreadsheets, etc.) are automatically extracted to `ai_workspace/`, preserving original references unchanged.
+- `siyuan_create_document`: create a new document in a visible notebook. Creates a SiYuan workspace snapshot before writing; refuses if the snapshot fails. Requires `confirmed=true`. User can manually roll back via SiYuan snapshots.
+- `siyuan_edit_document`: edit a visible document using `old_text` → `new_text` text anchors. `old_text=""` appends to the end; `new_text=""` deletes matching text. Only single-block edits supported; cross-block text requires multiple calls. Creates a snapshot before writing. Requires `confirmed=true`.
 - `siyuan_propose_guide_update`: save a proposed guide update in `ai_workspace/`.
 - `siyuan_apply_guide_update`: update `knowledge_base/guide.md` only after explicit user approval (requires `confirmed=true`).
 - `siyuan_privacy`: manage persistent hide rules. `action="hide"` or `"unhide"`, requires `confirmed=true`. Hiding a `document` hides that document and all child documents.
@@ -186,6 +190,7 @@ This project is designed as a private project.
 - Do not commit tokens.
 - Do not publish `knowledge_base/` or `ai_workspace/` unless personal content has been cleaned.
 - Agents should not read `config.local.json`, `siyuan.ignore.local.json`, or `siyuan.allow.local.json` unless explicitly asked.
-- Agents must not modify SiYuan notes or call SiYuan write APIs.
+- Agents must not call low-level SiYuan write APIs directly. Use `siyuan_create_document` or `siyuan_edit_document` only when the user explicitly requests writing.
+- Write tools require `confirmed=true`. A SiYuan workspace snapshot is created before every write; if the snapshot fails, the write is refused.
 
 If this project ever becomes public, redesign the privacy model and remove personal note indexes and workspace material first.
