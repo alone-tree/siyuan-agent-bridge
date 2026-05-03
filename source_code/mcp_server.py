@@ -4,7 +4,7 @@ import json
 import re
 import shutil
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
@@ -45,6 +45,21 @@ SERVER_VERSION = "0.1.0"
 DEFAULT_CHUNK_CHARS = 10000
 MAX_CHUNK_CHARS = 30000
 DEFAULT_SNIPPETS_PER_DOC = 5
+
+
+def normalize_new_document_markdown(title: str, markdown: str) -> str:
+    """Remove the first H1 line if it duplicates the document title."""
+    lines = markdown.splitlines()
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("# ") and stripped[2:].strip() == title.strip():
+            del lines[i]
+            return "\n".join(lines)
+        # Stop at first non-empty line — only strip immediate duplicate H1
+        break
+    return markdown
 
 
 def main() -> int:
@@ -682,9 +697,10 @@ class McpServer:
         client = get_working_client(config)
 
         # Create snapshot before writing
-        memo = f"siyuan-agent-bridge before siyuan_create_document: {title} {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}"
+        ts = datetime.now().strftime("%Y%m%d%H%M%S")
+        memo = f"siyuan-agent-bridge:auto-snapshot tool=siyuan_create_document target={title} created={ts}"
         try:
-            client.create_snapshot(memo, tags=["siyuan-agent-bridge", "write"])
+            client.create_snapshot(memo)
             snapshot_status = "created"
         except SiYuanApiError as exc:
             msg = str(exc)
@@ -694,6 +710,11 @@ class McpServer:
                     "Please open SiYuan → Settings → About → Data Repo Key, initialize the key, then retry."
                 ) from exc
             raise ValueError(f"Snapshot creation failed, refusing to write. Error: {msg}") from exc
+
+        # Normalize markdown to avoid duplicate H1
+        markdown = normalize_new_document_markdown(title, markdown)
+        if not markdown.strip():
+            raise ValueError("markdown is required")
 
         # Create document
         with ensure_notebooks_open(client, [notebook_id]):
@@ -768,9 +789,10 @@ class McpServer:
 
         if not old_text:
             # Append mode: old_text is empty, append new_text to document end
-            memo = f"siyuan-agent-bridge before siyuan_edit_document append: {doc_title} {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}"
+            ts = datetime.now().strftime("%Y%m%d%H%M%S")
+            memo = f"siyuan-agent-bridge:auto-snapshot tool=siyuan_edit_document target={doc_title} created={ts}"
             try:
-                client.create_snapshot(memo, tags=["siyuan-agent-bridge", "write"])
+                client.create_snapshot(memo)
                 snapshot_status = "created"
             except SiYuanApiError as exc:
                 msg = str(exc)
@@ -826,9 +848,10 @@ class McpServer:
         block_md = str(match_result[2])
 
         # Create snapshot before writing
-        memo = f"siyuan-agent-bridge before siyuan_edit_document: {doc_title} {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}"
+        ts = datetime.now().strftime("%Y%m%d%H%M%S")
+        memo = f"siyuan-agent-bridge:auto-snapshot tool=siyuan_edit_document target={doc_title} created={ts}"
         try:
-            client.create_snapshot(memo, tags=["siyuan-agent-bridge", "write"])
+            client.create_snapshot(memo)
             snapshot_status = "created"
         except SiYuanApiError as exc:
             msg = str(exc)

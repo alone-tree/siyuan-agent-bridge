@@ -51,8 +51,8 @@ class FakeSearchClient:
         return {"blocks": self.blocks}
 
     # Write methods
-    def create_snapshot(self, memo, *, tags=None, path=None):
-        snap = {"memo": memo, "tags": tags or [], "created": "20260503000000"}
+    def create_snapshot(self, memo):
+        snap = {"memo": memo, "created": "20260503000000"}
         self._snapshots.append(snap)
         return snap
 
@@ -410,9 +410,9 @@ class McpServerWriteTests(unittest.TestCase):
             self.assertIn("New Doc", result)
             self.assertIn("created", result)
             self.assertEqual(len(client._snapshots), 1)
-            self.assertIn("siyuan_create_document", client._snapshots[0]["memo"])
-            self.assertIn("siyuan-agent-bridge", client._snapshots[0]["tags"])
-            self.assertIn("write", client._snapshots[0]["tags"])
+            self.assertIn("siyuan-agent-bridge:auto-snapshot", client._snapshots[0]["memo"])
+            self.assertIn("tool=siyuan_create_document", client._snapshots[0]["memo"])
+            self.assertIn("target=New Doc", client._snapshots[0]["memo"])
             self.assertIn("New Doc", client._push_msgs[0])
         finally:
             mcp_server.get_working_client = original
@@ -595,6 +595,77 @@ class McpServerWriteTests(unittest.TestCase):
                     "confirmed": True,
                 })
             self.assertIn("cannot both be empty", str(ctx.exception).casefold())
+        finally:
+            mcp_server.get_working_client = original
+
+    def test_normalize_markdown_strips_duplicate_h1(self):
+        result = mcp_server.normalize_new_document_markdown(
+            "My Title",
+            "# My Title\n\nBody text.",
+        )
+        self.assertEqual(result, "\nBody text.")
+
+    def test_normalize_markdown_keeps_different_h1(self):
+        result = mcp_server.normalize_new_document_markdown(
+            "My Title",
+            "# Different Title\n\nBody text.",
+        )
+        self.assertEqual(result, "# Different Title\n\nBody text.")
+
+    def test_normalize_markdown_skips_leading_empty_lines(self):
+        result = mcp_server.normalize_new_document_markdown(
+            "My Title",
+            "\n\n# My Title\n\nBody text.",
+        )
+        self.assertEqual(result, "\n\n\nBody text.")
+
+    def test_normalize_markdown_ignores_h2(self):
+        result = mcp_server.normalize_new_document_markdown(
+            "My Title",
+            "## My Title\n\nBody text.",
+        )
+        self.assertEqual(result, "## My Title\n\nBody text.")
+
+    def test_create_document_strips_duplicate_h1(self):
+        server, client, original = self._server_and_client()
+        try:
+            result = server.siyuan_create_document({
+                "notebook_id": "nb1",
+                "title": "My Doc",
+                "markdown": "# My Doc\n\nContent here.",
+                "confirmed": True,
+            })
+            self.assertIn("文档创建成功", result)
+            self.assertIn("Content here.", client._docs["new-doc-0"])
+            self.assertNotIn("# My Doc", client._docs["new-doc-0"])
+        finally:
+            mcp_server.get_working_client = original
+
+    def test_create_document_keeps_different_h1(self):
+        server, client, original = self._server_and_client()
+        try:
+            result = server.siyuan_create_document({
+                "notebook_id": "nb1",
+                "title": "My Doc",
+                "markdown": "# Other Title\n\nContent here.",
+                "confirmed": True,
+            })
+            self.assertIn("文档创建成功", result)
+            self.assertIn("# Other Title", client._docs["new-doc-0"])
+        finally:
+            mcp_server.get_working_client = original
+
+    def test_create_document_rejects_empty_after_h1_removal(self):
+        server, client, original = self._server_and_client()
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_create_document({
+                    "notebook_id": "nb1",
+                    "title": "My Doc",
+                    "markdown": "# My Doc",
+                    "confirmed": True,
+                })
+            self.assertIn("markdown", str(ctx.exception).casefold())
         finally:
             mcp_server.get_working_client = original
 

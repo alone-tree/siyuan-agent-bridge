@@ -134,19 +134,8 @@ class SiYuanClient:
             raise SiYuanApiError("Unexpected search response shape")
         return data
 
-    def create_snapshot(
-        self,
-        memo: str,
-        *,
-        tags: list[str] | None = None,
-        path: str | None = None,
-    ) -> dict[str, Any]:
-        payload: dict[str, Any] = {"memo": memo}
-        if tags:
-            payload["tags"] = tags
-        if path:
-            payload["path"] = path
-        data = self._post("/api/repo/createSnapshot", payload)
+    def create_snapshot(self, memo: str) -> dict[str, Any]:
+        data = self._post("/api/repo/createSnapshot", {"memo": memo})
         if data is None:
             return {}
         if not isinstance(data, dict):

@@ -80,6 +80,8 @@ confirmed
 /api/repo/createSnapshot
 ```
 
+该 API 当前只解析 `memo` 参数；它创建的是整个工作空间/数据仓库快照，不支持通过 `path` 限定单篇文档或局部路径，也不支持 `tags` 参数。
+
 快照 memo 应至少包含：
 
 ```text

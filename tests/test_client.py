@@ -44,7 +44,7 @@ class ClientTests(unittest.TestCase):
         with self.assertRaises(SiYuanConnectionError):
             client.version()
 
-    def test_create_snapshot_posts_memo_and_tags(self):
+    def test_create_snapshot_posts_memo_only(self):
         seen = {}
 
         def transport(req, timeout):
@@ -54,10 +54,10 @@ class ClientTests(unittest.TestCase):
 
         client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
 
-        snapshot = client.create_snapshot("before edit", tags=["siyuan-agent-bridge"])
+        snapshot = client.create_snapshot("before edit")
 
         self.assertEqual(seen["url"], "http://127.0.0.1:6806/api/repo/createSnapshot")
-        self.assertEqual(seen["body"], {"memo": "before edit", "tags": ["siyuan-agent-bridge"]})
+        self.assertEqual(seen["body"], {"memo": "before edit"})
         self.assertEqual(snapshot["id"], "20260503080000-abc123")
 
     def test_create_snapshot_accepts_null_data(self):
