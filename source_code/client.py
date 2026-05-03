@@ -166,6 +166,19 @@ class SiYuanClient:
             raise SiYuanApiError("Unexpected repo snapshots response shape")
         return data
 
+    def create_notebook(self, name: str) -> dict[str, Any]:
+        data = self._post("/api/notebook/createNotebook", {"name": name})
+        if data is None:
+            return {}
+        if isinstance(data, str):
+            for nb in self.list_notebooks():
+                if str(nb.get("name", "")) == name:
+                    return {"id": str(nb.get("id", ""))}
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        return data
+
     def create_doc_with_md(self, notebook: str, path: str, markdown: str) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "notebook": notebook,

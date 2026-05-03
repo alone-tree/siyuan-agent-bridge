@@ -9,13 +9,13 @@ description: Use when the user wants to read, search, or write their private SiY
 
 ## Mandatory Startup
 
-1. 调用 `siyuan_start` —— 刷新安全索引，返回启动包（笔记本概览表、index.md、guide.md）。
+1. 调用 `siyuan_start` —— 刷新安全索引，确保系统笔记本 `思源代理桥` 及其文档就绪，返回启动包（笔记本概览表、Workspace Index（如存在）、AI Guide）。
 2. 阅读返回的启动包。
-3. **以 index.md 为导航主入口。** 快速导航表将用户意图映射到笔记本，笔记本详情是 AI 扫描后浓缩的结构摘要和判断——信任它来定位相关笔记本。
-4. 若启动包不包含 index.md，提示用户："我可以先快速扫一遍你的笔记本结构，创建一个导航索引，之后每次新会话都能更快定位。"
+3. **以 Workspace Index 为导航主入口。** 快速导航表将用户意图映射到笔记本，笔记本详情是 AI 扫描后浓缩的结构摘要和判断——信任它来定位相关笔记本。
+4. 若启动包不包含 Workspace Index，提示用户："我可以先快速扫一遍你的笔记本结构，创建一个导航索引（Wiki Index），之后每次新会话都能更快定位。"
 5. 用 `siyuan_list`（带 `notebook_id`）查看单个笔记本的文档树，含字数和更新时间。
 6. 用 `siyuan_read_document` 按需深读。始终按展示块窗口返回，不截断字符。始终返回大纲（标题→block 位置映射）。长文档用 `block_start=N` 翻页继续阅读，用 `block_limit` 和 `token_budget` 控制窗口大小。需要精确跨文档块引用或编辑定位时，开启 `include_block_ids=true`（引用阅读模式）。
-7. 遵循 `knowledge_base/guide.md` 中的持久偏好。
+7. 遵循启动包中 `AI Guide` 的持久偏好。系统笔记本 `思源代理桥` 中还有一篇 `/About SiYuan Agent Bridge`（给人看的说明），普通任务无需读取。
 
 若 MCP 工具不可用，告知用户 SiYuan Agent Bridge MCP 未注册或不可达。不要回退到扫描文件。
 

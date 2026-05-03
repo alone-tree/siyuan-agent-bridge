@@ -10,10 +10,23 @@ from source_code.indexer import find_documents, normalize_documents, refresh_ind
 
 
 class FakeClient:
+    def __init__(self):
+        self._system_docs: dict[str, str] = {}
+
     def list_notebooks(self):
         return [{"id": "nb1", "name": "Main"}]
 
     def query_sql(self, stmt):
+        # System notebook query: check for existing system docs
+        if "思源代理桥" in stmt:
+            result = []
+            if "/AI Guide" in self._system_docs:
+                result.append({"id": "system-ai-guide", "path": "/AI Guide", "markdown": self._system_docs["/AI Guide"]})
+            if "/About SiYuan Agent Bridge" in self._system_docs:
+                result.append({"id": "system-about", "path": "/About SiYuan Agent Bridge", "markdown": self._system_docs["/About SiYuan Agent Bridge"]})
+            if "/Workspace Index" in self._system_docs:
+                result.append({"id": "system-ws-index", "path": "/Workspace Index", "markdown": self._system_docs["/Workspace Index"]})
+            return result
         # BLOCK_STATS_SQL: GROUP BY root_id
         if "GROUP BY root_id" in stmt:
             return [
@@ -59,6 +72,26 @@ class FakeClient:
             "20260429140000-child": "# Child\n\nChild body.",
         }
         return markdown.get(block_id, "")
+
+    def create_notebook(self, name):
+        return {"id": "system-nb-id"}
+
+    def create_doc_with_md(self, notebook, path, markdown):
+        doc_id = f"system-{path.strip('/').replace(' ', '-').lower()}"
+        self._system_docs[path] = markdown
+        return {"id": doc_id}
+
+    def update_block(self, block_id, markdown):
+        pass
+
+    def open_notebook(self, notebook_id):
+        pass
+
+    def close_notebook(self, notebook_id):
+        pass
+
+    def get_child_blocks(self, block_id):
+        return []
 
 
 class IndexerTests(unittest.TestCase):

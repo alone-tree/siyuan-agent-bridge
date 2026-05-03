@@ -28,9 +28,11 @@ from .ignore import (
 )
 from .indexer import (
     KNOWLEDGE_BASE_DIR,
+    SYSTEM_NOTEBOOK_NAME,
     build_notebook_overview,
     compute_word_count,
     ensure_notebooks_open,
+    ensure_system_notebook,
     extract_snippet,
     format_date,
     load_docs,
@@ -483,35 +485,58 @@ class McpServer:
         config = load_config(self.root)
         client = get_working_client(config)
         refresh_index(client, self.root)
+        system_info = ensure_system_notebook(client, self.root)
         version = client.version()
-        base = self.root / KNOWLEDGE_BASE_DIR
-        guide = _read_optional(base / "guide.md")
-        index_md = _read_optional(base / "index.md")
+        nb_id = str(system_info["notebook_id"])
+
+        # Read AI Guide from SiYuan
+        ai_guide = ""
+        with ensure_notebooks_open(client, [nb_id]):
+            for doc in client.query_sql(f"SELECT id, path, markdown FROM blocks WHERE type='d' AND box='{nb_id}'"):
+                if str(doc.get("path", "")).strip("/") == "/AI Guide":
+                    ai_guide = str(doc.get("markdown", ""))
+                    break
+
+        # Read Workspace Index from SiYuan
+        workspace_index = ""
+        with ensure_notebooks_open(client, [nb_id]):
+            for doc in client.query_sql(f"SELECT id, path, markdown FROM blocks WHERE type='d' AND box='{nb_id}'"):
+                if str(doc.get("path", "")).strip("/") == "/Workspace Index":
+                    workspace_index = str(doc.get("markdown", ""))
+                    break
+
         overview = build_notebook_overview(self.root)
         parts: list[str] = [
             "# SiYuan Agent Bridge Startup Packet",
             "",
             f"SiYuan connection: OK, version {version}",
+            f"System notebook: `{SYSTEM_NOTEBOOK_NAME}` (`{nb_id}`)",
             "",
             overview,
         ]
-        if index_md:
+        if workspace_index:
             parts.extend([
                 "",
-                "## Semantic Index (index.md)",
+                "## Workspace Index (语义导航索引)",
                 "",
-                index_md.strip(),
+                workspace_index.strip(),
             ])
         else:
             parts.extend([
                 "",
-                "> 当前没有导航索引。告诉 AI 先快速扫一遍笔记本结构创建导航索引，之后每次新会话都能直接定位。",
+                "> 当前没有导航索引（Workspace Index）。你可以建议用户先快速扫一遍笔记本结构创建导航索引，之后每次新会话都能直接定位。",
             ])
         parts.extend([
             "",
-            "## Guide",
+            "## AI Guide (用户偏好与规则)",
             "",
-            guide.strip() if guide else "(guide.md is empty — use siyuan_propose_guide_update to add content)",
+            ai_guide.strip() if ai_guide else "(AI Guide is empty — use siyuan_propose_guide_update to propose content, then siyuan_apply_guide_update with user approval)",
+            "",
+        ])
+        # Mention About document but don't include full text
+        parts.extend([
+            "---",
+            f"**给人看的说明**：系统笔记本中还有一篇 `/About SiYuan Agent Bridge`，是对工具核心思想的简要介绍。普通任务无需读取。需要时可用 `siyuan_read_document` 指定文档 ID 阅读。",
             "",
         ])
         return "\n".join(parts)
@@ -967,15 +992,62 @@ class McpServer:
             raise ValueError("confirmed=true is required. Only use this after explicit user approval.")
         if not content:
             raise ValueError("content is required")
-        path = self.root / KNOWLEDGE_BASE_DIR / "guide.md"
+
+        config = load_config(self.root)
+        client = get_working_client(config)
+
+        # Find the AI Guide document in the system notebook
+        notebooks = client.list_notebooks()
+        nb_id = ""
+        for nb in notebooks:
+            if str(nb.get("name", "")) == SYSTEM_NOTEBOOK_NAME:
+                nb_id = str(nb.get("id", ""))
+                break
+        if not nb_id:
+            raise ValueError(f"系统笔记本 '{SYSTEM_NOTEBOOK_NAME}' 不存在。请先运行 siyuan_start。")
+
+        ai_guide_id = ""
+        current_md = ""
+        with ensure_notebooks_open(client, [nb_id]):
+            for doc in client.query_sql(f"SELECT id, path, markdown FROM blocks WHERE type='d' AND box='{nb_id}'"):
+                if str(doc.get("path", "")).strip("/") == "/AI Guide":
+                    ai_guide_id = str(doc.get("id", ""))
+                    current_md = str(doc.get("markdown", ""))
+                    break
+
+        if not ai_guide_id:
+            raise ValueError(f"AI Guide 文档不存在。请先运行 siyuan_start。")
+
+        # Create snapshot before editing
+        ts = datetime.now().strftime("%Y%m%d%H%M%S")
+        memo = f"siyuan-agent-bridge:auto-snapshot tool=siyuan_apply_guide_update created={ts}"
+        try:
+            client.create_snapshot(memo)
+        except SiYuanApiError as exc:
+            msg = str(exc)
+            if "数据仓库密钥" in msg or "data repo key" in msg.casefold() or "key" in msg.casefold():
+                raise ValueError(
+                    "Snapshot creation failed: data repo key is not initialized. "
+                    "Please open SiYuan → Settings → About → Data Repo Key, initialize the key, then retry."
+                ) from exc
+            raise ValueError(f"Snapshot creation failed, refusing to write. Error: {msg}") from exc
+
         if mode == "replace":
-            path.write_text(content.rstrip() + "\n", encoding="utf-8", newline="\n")
+            new_md = content.rstrip() + "\n"
         elif mode == "append":
-            with path.open("a", encoding="utf-8", newline="\n") as handle:
-                handle.write("\n" + content.rstrip() + "\n")
+            new_md = current_md.rstrip() + "\n\n" + content.rstrip() + "\n"
         else:
             raise ValueError("mode must be append or replace")
-        return f"Guide updated at {path}. Run siyuan_start before using the updated guide."
+
+        with ensure_notebooks_open(client, [nb_id]):
+            client.update_block(ai_guide_id, new_md)
+
+        try:
+            client.push_msg("SiYuan Agent Bridge: AI Guide 已更新 / updated")
+        except Exception:
+            pass
+
+        return f"AI Guide 已更新。Run siyuan_start before using the updated guide."
 
     def siyuan_privacy(self, args: dict[str, Any]) -> str:
         action = str(args.get("action") or "").strip()
@@ -1479,7 +1551,7 @@ def tool_specs() -> list[dict[str, Any]]:
     return [
         {
             "name": "siyuan_start",
-            "description": "Refresh the safe index and return the mandatory startup packet: notebook overview table, index.md (if it exists — an AI-generated semantic navigation map), and guide.md. Always call this first — it ensures the index is up to date.",
+            "description": "Refresh the safe index, ensure the system notebook 思源代理桥 and its fixed documents, and return the mandatory startup packet: notebook overview table, Workspace Index (if it exists — an AI-generated semantic navigation map), and AI Guide (user preferences and rules). Always call this first — it ensures the index is up to date.",
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
         {
@@ -1543,7 +1615,7 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_apply_guide_update",
-            "description": "Append or replace knowledge_base/guide.md only after explicit user approval.",
+            "description": "Append or replace the AI Guide document in the 思源代理桥 system notebook only after explicit user approval. Requires confirmed=true. Creates a SiYuan workspace snapshot before writing.",
             "inputSchema": {
                 "type": "object",
                 "properties": {

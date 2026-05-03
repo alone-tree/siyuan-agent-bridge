@@ -1,22 +1,25 @@
 ---
 name: siyuan-index-builder
-description: 创建和更新思源代理桥库的结构化索引文件 knowledge_base/index.md。当用户提到"创建索引"、"更新索引"、"建索引"、"重建索引"、"刷新索引"时使用此skill。
+description: 创建和更新思源系统笔记本 思源代理桥 中的 Workspace Index 导航索引。当用户提到"创建索引"、"更新索引"、"建索引"、"重建索引"、"刷新索引"时使用此skill。
 ---
 
 # SiYuan Index Builder
 
-Build and maintain `knowledge_base/index.md` — a path-first, human-annotated
+Build and maintain `思源代理桥/Workspace Index` — a path-first, human-annotated
 navigation index that lets AI agents locate relevant documents without scanning
 every notebook map. The index prioritizes document paths (which are objective
 and complete) over themes (which are fuzzy and incomplete).
+
+The index lives in the SiYuan system notebook, not in local files. Use
+`siyuan_create_document` to create it the first time and `siyuan_edit_document`
+to update it afterwards.
 
 ## Prerequisites
 
 - The `siyuan-agent-bridge` MCP tools must be available. If they are not, tell the
   user to register the MCP server first.
-- `knowledge_base/tree.md` and `knowledge_base/docs.jsonl` must exist. If the safe
-  index has never been generated, ask the user to run `siyuan_refresh_index`
-  first.
+- Run `siyuan_start` first — it ensures the system notebook `思源代理桥` exists
+  and returns the current notebook overview.
 
 ## Workflow
 
@@ -69,10 +72,14 @@ the document outline first, then the content. For long documents, `block_start=1
 (default) returns the first block window — a preview is enough for index purposes. Use
 `block_start=N` to jump to specific sections if needed.
 
-### Step 3 — Generate index.md
+### Step 3 — Generate Workspace Index
 
-Write the index to `knowledge_base/index.md` using your standard file tools
-(Write, Edit). Follow this template:
+Write the index to `思源代理桥/Workspace Index`:
+
+- **First time**: use `siyuan_create_document` with notebook_id of the `思源代理桥` notebook (find it via `siyuan_list`), path `/Workspace Index`, and the markdown content. Set `confirmed=true` only after the user approves.
+- **Update**: use `siyuan_edit_document` with document_id of the existing Workspace Index. Use `old_text` → `new_text` to replace sections.
+
+Follow this template:
 
 ```markdown
 # Knowledge Base Index
@@ -141,7 +148,7 @@ Rules for filling the template:
 
 ### Step 4 — Report to the user
 
-After writing `index.md`, tell the user:
+After writing the Workspace Index, tell the user:
 
 1. What structural patterns you found across their notebooks.
 2. Which notebooks you summarized at path level vs. document level.
@@ -170,7 +177,7 @@ When the user asks to update the index:
 4. For any new or likely-changed documents, read them with
    `siyuan_read_document` to produce or refresh summaries. Do not rewrite
    summaries for unchanged documents — only update what is stale.
-5. Update `knowledge_base/index.md`:
+5. Update `思源代理桥/Workspace Index` using `siyuan_edit_document`:
    - Add new documents or paths discovered, with summaries.
    - Remove entries for deleted documents.
    - Refresh AI summaries for documents you confirmed have changed.
@@ -181,8 +188,8 @@ When the user asks to update the index:
 
 ## Safety Rules
 
-- Do not modify SiYuan notes.
-- Do not call SiYuan write APIs.
+- Use `siyuan_create_document` or `siyuan_edit_document` to write the index — never write to local `knowledge_base/` files for index purposes.
 - Do not read hidden documents or notebooks. Work only from visible safe indexes.
-- Do not overwrite human annotations in `index.md`. Add your updates around them.
+- Do not overwrite human annotations in the Workspace Index. Add your updates around them.
 - The user's words are the only confirmation needed. "Create index" means create it. "Update index" means update it. No extra approval step.
+- Do not treat `思源代理桥` notebook as user source material when building the index. It contains system documents, not user knowledge.
