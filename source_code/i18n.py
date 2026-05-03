@@ -30,7 +30,7 @@ SYSTEM_DOC_NAMES: dict[str, dict[str, str]] = {
         "en": "Workspace Index",
     },
     "about": {
-        "zh-CN": "关于 SiYuan Agent Bridge",
+        "zh-CN": "关于思源代理桥",
         "en": "About SiYuan Agent Bridge",
     },
     "privacy_rules": {
@@ -110,15 +110,15 @@ PRIVACY_RULES_TEMPLATES: dict[str, str] = {
 ABOUT_TEMPLATES: dict[str, str] = {
     "zh-CN": (
         "<!-- template_version: 1 -->\n\n"
-        "# 关于 SiYuan Agent Bridge\n\n"
-        "本文档由 SiYuan Agent Bridge 自动维护，可能在刷新时更新。请不要在这里记录个人内容。\n\n"
-        "SiYuan Agent Bridge 是连接思源笔记和 AI agent 的本地桥接工具。"
+        "# 关于思源代理桥\n\n"
+        "本文档由思源代理桥自动维护，可能在刷新时更新。请不要在这里记录个人内容。\n\n"
+        "思源代理桥是连接思源笔记和 AI 助手的本地桥接工具。"
         "它让 AI 在隐私规则保护下阅读、搜索和维护你的思源知识库。\n\n"
         "## 系统笔记本里的四份文档\n\n"
         "- **AI 使用指南**：给 AI 看的长期规则，你可以在这里写下偏好、重点笔记本、写作风格和限制。\n"
         "- **工作空间索引**：AI 生成的语义导航索引，帮助新会话快速了解这个工作空间里有什么。\n"
         "- **隐私规则**：由人类在思源中维护的 Markdown 表格，控制哪些笔记对 AI 隐藏。AI 无法读取此文档。\n"
-        "- **关于 SiYuan Agent Bridge**：就是本文档，给人看的工具说明。\n\n"
+        "- **关于思源代理桥**：就是本文档，给人看的工具说明。\n\n"
         "## 日常怎么用\n\n"
         "你平时正常在思源里写笔记。需要时告诉 AI「帮我查一下笔记里关于 XX 的内容」。"
         "如果某些笔记不想被 AI 看到，在隐私规则文档的表格里添加规则即可。"

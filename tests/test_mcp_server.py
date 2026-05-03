@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from source_code import mcp_server
+from source_code.config import Profile
 from source_code.ignore import PrivacyRules, write_privacy_rules_cache
 
 
@@ -343,16 +344,17 @@ class McpServerTests(unittest.TestCase):
 
     def run_find(self, client: FakeSearchClient, args: dict[str, Any]) -> str:
         server = mcp_server.McpServer(self.root)
-        original = mcp_server.get_working_client
+        original = mcp_server.detect_active_profile
 
-        def fake_client(_config):
-            return client
+        profile = Profile(name="test", token="test")
+        def fake_detect(_config):
+            return profile, client
 
-        mcp_server.get_working_client = fake_client
+        mcp_server.detect_active_profile = fake_detect
         try:
             return server.siyuan_find_documents(args)
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
 
 class McpServerWriteTests(unittest.TestCase):
@@ -396,12 +398,13 @@ class McpServerWriteTests(unittest.TestCase):
     def _server_and_client(self, query_sql_blocks=None):
         client = self._make_client(query_sql_blocks)
         server = mcp_server.McpServer(self.root)
-        original = mcp_server.get_working_client
+        original = mcp_server.detect_active_profile
 
-        def fake_client(_config):
-            return client
+        profile = Profile(name="test", token="test")
+        def fake_detect(_config):
+            return profile, client
 
-        mcp_server.get_working_client = fake_client
+        mcp_server.detect_active_profile = fake_detect
         return server, client, original
 
     def test_create_document_refuses_unconfirmed(self):
@@ -416,7 +419,7 @@ class McpServerWriteTests(unittest.TestCase):
                 })
             self.assertIn("confirmed", str(ctx.exception))
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
     def test_create_document_refuses_hidden_notebook(self):
         server, client, original = self._server_and_client()
@@ -430,7 +433,7 @@ class McpServerWriteTests(unittest.TestCase):
                 })
             self.assertIn("not visible", str(ctx.exception))
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
     def test_create_document_creates_snapshot_before_write(self):
         server, client, original = self._server_and_client()
@@ -449,7 +452,7 @@ class McpServerWriteTests(unittest.TestCase):
             self.assertIn("target=New Doc", client._snapshots[0]["memo"])
             self.assertIn("New Doc", client._push_msgs[0])
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
     def test_create_document_uses_given_path(self):
         server, client, original = self._server_and_client()
@@ -463,7 +466,7 @@ class McpServerWriteTests(unittest.TestCase):
             })
             self.assertIn("custom/path", result)
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
     def test_edit_document_refuses_unconfirmed(self):
         server, client, original = self._server_and_client()
@@ -477,7 +480,7 @@ class McpServerWriteTests(unittest.TestCase):
                 })
             self.assertIn("confirmed", str(ctx.exception))
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
     def test_edit_document_old_text_not_found(self):
         blocks = {
@@ -497,7 +500,7 @@ class McpServerWriteTests(unittest.TestCase):
                 })
             self.assertIn("not found", str(ctx.exception))
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
     def test_edit_document_old_text_ambiguous(self):
         blocks = {
@@ -519,7 +522,7 @@ class McpServerWriteTests(unittest.TestCase):
             self.assertIn("block1", str(ctx.exception))
             self.assertIn("block2", str(ctx.exception))
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
     def test_edit_document_single_block_full_replace(self):
         blocks = {
@@ -541,7 +544,7 @@ class McpServerWriteTests(unittest.TestCase):
             self.assertEqual(len(client._snapshots), 1)
             self.assertIn("siyuan_edit_document", client._snapshots[0]["memo"])
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
     def test_edit_document_single_block_substring_replace(self):
         blocks = {
@@ -560,7 +563,7 @@ class McpServerWriteTests(unittest.TestCase):
             self.assertIn("Document Edited", result)
             self.assertIn("block1", result)
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
     def test_edit_document_append_mode(self):
         blocks = {
@@ -580,7 +583,7 @@ class McpServerWriteTests(unittest.TestCase):
             self.assertEqual(len(client._snapshots), 1)
             self.assertIn("siyuan_edit_document", client._snapshots[0]["memo"])
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
     def test_edit_document_delete_mode(self):
         blocks = {
@@ -598,7 +601,7 @@ class McpServerWriteTests(unittest.TestCase):
             })
             self.assertIn("Document Edited", result)
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
     def test_edit_document_refuses_hidden_document(self):
         write_privacy_rules_cache(
@@ -616,7 +619,7 @@ class McpServerWriteTests(unittest.TestCase):
                 })
             self.assertIn("visible", str(ctx.exception).casefold())
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
     def test_edit_document_both_empty_rejected(self):
         server, client, original = self._server_and_client()
@@ -630,7 +633,7 @@ class McpServerWriteTests(unittest.TestCase):
                 })
             self.assertIn("cannot both be empty", str(ctx.exception).casefold())
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
     def test_normalize_markdown_strips_duplicate_h1(self):
         result = mcp_server.normalize_new_document_markdown(
@@ -673,7 +676,7 @@ class McpServerWriteTests(unittest.TestCase):
             self.assertIn("Content here.", client._docs["new-doc-0"])
             self.assertNotIn("# My Doc", client._docs["new-doc-0"])
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
     def test_create_document_keeps_different_h1(self):
         server, client, original = self._server_and_client()
@@ -687,7 +690,7 @@ class McpServerWriteTests(unittest.TestCase):
             self.assertIn("文档创建成功", result)
             self.assertIn("# Other Title", client._docs["new-doc-0"])
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
     def test_create_document_rejects_empty_after_h1_removal(self):
         server, client, original = self._server_and_client()
@@ -701,7 +704,7 @@ class McpServerWriteTests(unittest.TestCase):
                 })
             self.assertIn("markdown", str(ctx.exception).casefold())
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
 
 class BlockIdBuildTests(unittest.TestCase):
@@ -1106,16 +1109,17 @@ class McpServerReadBlockWindowTests(unittest.TestCase):
     def _read(self, args: dict[str, Any], blocks_for_doc=None):
         client = self._make_client(blocks_for_doc)
         server = mcp_server.McpServer(self.root)
-        original = mcp_server.get_working_client
+        original = mcp_server.detect_active_profile
 
-        def fake_client(_config):
-            return client
+        profile = Profile(name="test", token="test")
+        def fake_detect(_config):
+            return profile, client
 
-        mcp_server.get_working_client = fake_client
+        mcp_server.detect_active_profile = fake_detect
         try:
             return server.siyuan_read_document(args)
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
     def test_default_block_window_mode(self):
         blocks = {
@@ -1321,12 +1325,13 @@ class McpServerReadBlockIdTests(unittest.TestCase):
         }
         client = self._make_client(blocks_for_doc=blocks)
         server = mcp_server.McpServer(self.root)
-        original = mcp_server.get_working_client
+        original = mcp_server.detect_active_profile
 
-        def fake_client(_config):
-            return client
+        profile = Profile(name="test", token="test")
+        def fake_detect(_config):
+            return profile, client
 
-        mcp_server.get_working_client = fake_client
+        mcp_server.detect_active_profile = fake_detect
         try:
             result = server.siyuan_read_document({"document_id": "doc1"})
             self.assertNotIn("<!-- siyuan:block", result)
@@ -1334,7 +1339,7 @@ class McpServerReadBlockIdTests(unittest.TestCase):
             self.assertIn("## Section One", result)
             self.assertIn("Body paragraph here.", result)
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
     def test_include_block_ids_builds_reference_view(self):
         blocks = {
@@ -1345,12 +1350,13 @@ class McpServerReadBlockIdTests(unittest.TestCase):
         }
         client = self._make_client(blocks_for_doc=blocks)
         server = mcp_server.McpServer(self.root)
-        original = mcp_server.get_working_client
+        original = mcp_server.detect_active_profile
 
-        def fake_client(_config):
-            return client
+        profile = Profile(name="test", token="test")
+        def fake_detect(_config):
+            return profile, client
 
-        mcp_server.get_working_client = fake_client
+        mcp_server.detect_active_profile = fake_detect
         try:
             result = server.siyuan_read_document({"document_id": "doc1", "include_block_ids": True})
             self.assertIn("<!-- siyuan:block id=block-h1 type=h subtype=h2 -->", result)
@@ -1359,7 +1365,7 @@ class McpServerReadBlockIdTests(unittest.TestCase):
             self.assertIn("Body paragraph here.", result)
             self.assertIn("引用阅读", result)
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
     def test_include_block_ids_preserves_outline(self):
         blocks = {
@@ -1371,19 +1377,20 @@ class McpServerReadBlockIdTests(unittest.TestCase):
         }
         client = self._make_client(blocks_for_doc=blocks)
         server = mcp_server.McpServer(self.root)
-        original = mcp_server.get_working_client
+        original = mcp_server.detect_active_profile
 
-        def fake_client(_config):
-            return client
+        profile = Profile(name="test", token="test")
+        def fake_detect(_config):
+            return profile, client
 
-        mcp_server.get_working_client = fake_client
+        mcp_server.detect_active_profile = fake_detect
         try:
             result = server.siyuan_read_document({"document_id": "doc1", "include_block_ids": True})
             self.assertIn("<!-- siyuan:block", result)
             self.assertIn("大纲", result)
             self.assertIn("Section One", result)
         finally:
-            mcp_server.get_working_client = original
+            mcp_server.detect_active_profile = original
 
 
 if __name__ == "__main__":

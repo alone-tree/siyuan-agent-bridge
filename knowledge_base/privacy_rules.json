@@ -6,7 +6,15 @@
     },
     {
       "scope": "notebook",
-      "name": "被隐藏的笔记本"
+      "name": "文章收藏"
+    },
+    {
+      "scope": "document",
+      "id": "20251209112347-rxnkpon"
+    },
+    {
+      "scope": "document",
+      "id": "20260109151105-s4of75z"
     }
   ],
   "allow": []

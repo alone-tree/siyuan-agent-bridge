@@ -1,7 +1,9 @@
 {
-  "siyuan_urls": [
-    "http://127.0.0.1:6806",
-    "http://localhost:6806"
+  "profiles": [
+    {
+      "name": "主工作空间",
+      "token": "replace-with-your-siyuan-api-token"
+    }
   ],
-  "siyuan_token": "replace-with-your-siyuan-api-token"
+  "language": "zh-CN"
 }

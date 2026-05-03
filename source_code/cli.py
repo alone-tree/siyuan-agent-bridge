@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Sequence
 
 from .client import SiYuanApiError, SiYuanClient, SiYuanConnectionError
-from .config import Config, load_config
+from .config import DEFAULT_URLS, Config, Profile, detect_active_profile, load_config
 from .ignore import (
     filter_documents,
     filter_notebooks,
@@ -91,32 +91,37 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def cmd_doctor(_args: argparse.Namespace, config: Config) -> int:
-    if not config.token:
-        print("No SIYUAN_TOKEN or config.local.json siyuan_token found.")
+    if not config.profiles:
+        print("No profiles or siyuan_token found in config.local.json.")
         print("Trying without a token in case SiYuan auth is disabled.")
-
-    last_error: Exception | None = None
-    for url in config.urls:
-        client = SiYuanClient(url, token=config.token, timeout=3.0)
+        client = SiYuanClient(DEFAULT_URLS[0], timeout=3.0)
         try:
             version = client.version()
-        except SiYuanConnectionError as exc:
-            last_error = exc
-            print(f"[fail] {url} connection failed: {exc}")
-            continue
-        except SiYuanApiError as exc:
-            last_error = exc
-            if exc.status in (401, 403) or "token" in str(exc).casefold():
-                print(f"[fail] {url} token rejected or missing: {exc}")
-            else:
-                print(f"[fail] {url} API error: {exc}")
-            continue
-
-        print(f"[ok] {url} SiYuan version: {version}")
+        except (SiYuanConnectionError, SiYuanApiError) as exc:
+            print(f"[fail] {DEFAULT_URLS[0]}: {exc}")
+            return 1
+        print(f"[ok] {DEFAULT_URLS[0]} SiYuan version: {version}")
         return 0
 
-    if last_error:
-        print("No configured SiYuan endpoint worked.", file=sys.stderr)
+    for profile in config.profiles:
+        for url in DEFAULT_URLS:
+            client = SiYuanClient(url, token=profile.token, timeout=3.0)
+            try:
+                version = client.version()
+            except SiYuanConnectionError as exc:
+                print(f"[fail] {profile.name} ({url}): connection failed: {exc}")
+                continue
+            except SiYuanApiError as exc:
+                if exc.status in (401, 403) or "token" in str(exc).casefold():
+                    print(f"[fail] {profile.name} ({url}): token rejected: {exc}")
+                else:
+                    print(f"[fail] {profile.name} ({url}): API error: {exc}")
+                continue
+
+            print(f"[ok] {profile.name} ({url}) SiYuan version: {version}")
+            return 0
+
+    print("No configured SiYuan workspace responded.", file=sys.stderr)
     return 1
 
 
@@ -143,17 +148,14 @@ def cmd_refresh(_args: argparse.Namespace, config: Config) -> int:
 
 
 def cmd_backup(args: argparse.Namespace, config: Config) -> int:
-    client = get_working_client(config)
+    _profile, client = detect_active_profile(config)
     memo = args.memo.strip() or f"siyuan-agent-bridge manual backup {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    tags = args.tag or ["siyuan-agent-bridge", "manual-backup"]
-    snapshot = client.create_snapshot(memo, tags=tags)
+    snapshot = client.create_snapshot(memo)
     print("Created SiYuan workspace snapshot.")
     print(f"Endpoint: {client.base_url}")
     print(f"Snapshot ID: {snapshot.get('id', '')}")
     print(f"Created: {snapshot.get('created', '')}")
     print(f"Memo: {memo}")
-    if tags:
-        print(f"Tags: {', '.join(tags)}")
     return 0
 
 
@@ -180,10 +182,10 @@ def cmd_snapshots(args: argparse.Namespace, config: Config) -> int:
 
 
 def cmd_start(_args: argparse.Namespace, config: Config) -> int:
-    client = get_working_client(config)
+    profile, client = detect_active_profile(config)
     refresh_index(client, config.root)
     version = client.version()
-    print(render_start_packet(config.root, version))
+    print(render_start_packet(config.root, profile.name, version))
     return 0
 
 
@@ -234,20 +236,8 @@ def cmd_read(args: argparse.Namespace, config: Config) -> int:
 
 
 def get_working_client(config: Config) -> SiYuanClient:
-    errors: list[str] = []
-    # Always try 6806 as a last-resort fallback
-    urls = list(config.urls)
-    for fallback in ("http://127.0.0.1:6806", "http://localhost:6806"):
-        if fallback not in urls:
-            urls.append(fallback)
-    for url in urls:
-        client = SiYuanClient(url, token=config.token)
-        try:
-            client.version()
-            return client
-        except (SiYuanConnectionError, SiYuanApiError) as exc:
-            errors.append(f"{url}: {exc}")
-    raise SiYuanConnectionError("; ".join(errors) or "No SiYuan URLs configured")
+    _profile, client = detect_active_profile(config)
+    return client
 
 
 def load_live_docs(client: SiYuanClient) -> list[dict[str, object]]:
@@ -274,7 +264,7 @@ def format_refresh_summary(result: object) -> str:
     )
 
 
-def render_start_packet(root: Path, version: str) -> str:
+def render_start_packet(root: Path, profile_name: str, version: str) -> str:
     base = root / KNOWLEDGE_BASE_DIR
     start_here = read_optional_text(root / "START_HERE.md")
     guide = read_optional_text(base / "guide.md")
@@ -284,6 +274,7 @@ def render_start_packet(root: Path, version: str) -> str:
         "# SiYuan Agent Bridge Startup Packet",
         "",
         f"SiYuan connection: OK, version {version}",
+        f"Workspace: {profile_name}",
         "",
         overview,
     ]

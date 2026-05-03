@@ -9,9 +9,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from .cli import get_working_client, load_live_docs
+from .cli import load_live_docs
 from .client import SiYuanApiError, SiYuanClient, SiYuanConnectionError
-from .config import load_config
+from .config import detect_active_profile, load_config
 from .ignore import (
     PrivacyRules,
     compile_rules,
@@ -485,11 +485,11 @@ class McpServer:
 
     def siyuan_start(self, _args: dict[str, Any]) -> str:
         config = load_config(self.root)
-        client = get_working_client(config)
+        profile, client = detect_active_profile(config)
         version = client.version()
 
         # Ensure system notebook and parse privacy rules
-        state = ensure_agent_notebook(client, self.root)
+        state = ensure_agent_notebook(client, self.root, config_language=config.language or None)
         nb_id = state.notebook_id
 
         # Cache privacy rules for other tools
@@ -508,6 +508,7 @@ class McpServer:
             "# SiYuan Agent Bridge Startup Packet",
             "",
             f"SiYuan connection: OK, version {version}",
+            f"Connected workspace: **{profile.name}**",
             f"System notebook: `{state.notebook_name}` (`{nb_id}`)",
             "",
             lang_config.startup_header,
@@ -558,10 +559,10 @@ class McpServer:
 
     def siyuan_refresh_index(self, _args: dict[str, Any]) -> str:
         config = load_config(self.root)
-        client = get_working_client(config)
+        _profile, client = detect_active_profile(config)
 
         # Ensure system notebook and parse privacy rules
-        state = ensure_agent_notebook(client, self.root)
+        state = ensure_agent_notebook(client, self.root, config_language=config.language or None)
         write_privacy_rules_cache(self.root, state.privacy_rules)
 
         workspace_dir = self.root / "ai_workspace"
@@ -655,8 +656,7 @@ class McpServer:
         notebook_names = self.load_notebook_names()
 
         if mode == "sql":
-            config = load_config(self.root)
-            client = get_working_client(config)
+            _profile, client = detect_active_profile(load_config(self.root))
             notebook_names.update(list_live_notebook_names(client))
             try:
                 with ensure_notebooks_open(client, notebooks):
@@ -667,8 +667,7 @@ class McpServer:
                 raise
             enriched = self._enrich_sql_results(rows, indexed_docs, notebook_names, privacy, notebooks)
         else:
-            config = load_config(self.root)
-            client = get_working_client(config)
+            _profile, client = detect_active_profile(load_config(self.root))
             notebook_names.update(list_live_notebook_names(client))
             method_map = {"keyword": 0, "query": 1, "regex": 3}
             api_method = method_map[mode]
@@ -865,8 +864,7 @@ class McpServer:
 
     def siyuan_read_document(self, args: dict[str, Any]) -> str:
         doc = self.resolve_visible_document(args)
-        config = load_config(self.root)
-        client = get_working_client(config)
+        _profile, client = detect_active_profile(load_config(self.root))
         include_block_ids = bool(args.get("include_block_ids"))
         return self._read_document_block_window(doc, client, include_block_ids, args)
 
@@ -988,8 +986,7 @@ class McpServer:
         if status in ("missing", "no_index"):
             privacy = load_privacy_rules(self.root)
             if privacy.allow:
-                config = load_config(self.root)
-                client = get_working_client(config)
+                _profile, client = detect_active_profile(load_config(self.root))
                 with ensure_notebooks_open(client):
                     live_docs = filter_documents(load_live_docs(client), privacy)
                 status, matches = resolve_document(live_docs, locator)
@@ -1003,8 +1000,7 @@ class McpServer:
         return doc
 
     def export_document_markdown(self, document_id: str) -> str:
-        config = load_config(self.root)
-        client = get_working_client(config)
+        _profile, client = detect_active_profile(load_config(self.root))
         return client.export_markdown(document_id)
 
     def siyuan_propose_guide_update(self, args: dict[str, Any]) -> str:
@@ -1028,10 +1024,10 @@ class McpServer:
             raise ValueError("content is required")
 
         config = load_config(self.root)
-        client = get_working_client(config)
+        _profile, client = detect_active_profile(config)
 
         # Find system notebook and AI Guide document
-        state = ensure_agent_notebook(client, self.root)
+        state = ensure_agent_notebook(client, self.root, config_language=config.language or None)
         if not state.ai_guide_doc_id:
             raise ValueError("AI Guide 文档不存在。请先运行 siyuan_start。")
 
@@ -1105,8 +1101,7 @@ class McpServer:
                 "Privacy Rules 文档不可通过 AI 创建。隐私规则由人类在思源中维护。"
             )
 
-        config = load_config(self.root)
-        client = get_working_client(config)
+        _profile, client = detect_active_profile(load_config(self.root))
 
         # Create snapshot before writing
         ts = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -1196,8 +1191,7 @@ class McpServer:
         if not old_text and not new_text:
             raise ValueError("old_text and new_text cannot both be empty")
 
-        config = load_config(self.root)
-        client = get_working_client(config)
+        _profile, client = detect_active_profile(load_config(self.root))
 
         if not old_text:
             # Append mode: old_text is empty, append new_text to document end
