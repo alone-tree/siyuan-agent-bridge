@@ -98,7 +98,7 @@ siyuan_start
 |------|------|
 | `AI 使用指南` / `AI Guide` | AI 的持久使用规则和偏好，用户在思源 UI 中编辑。不存在时自动创建，存在后不覆盖。 |
 | `工作空间索引` / `Workspace Index` | AI 生成的语义导航索引，不自动创建。由 `siyuan-index-builder` skill 创建和更新。 |
-| `关于 SiYuan Agent Bridge` / `About SiYuan Agent Bridge` | 给人看的工具说明，模板版本更新时自动覆盖。 |
+| `关于思源代理桥` / `About SiYuan Agent Bridge` | 给人看的工具说明，模板版本更新时自动覆盖。 |
 | `隐私规则` / `Privacy Rules` | 人类维护的隐藏规则配置，MCP 内部解析，AI 不可读取。 |
 
 ## CC Switch 使用

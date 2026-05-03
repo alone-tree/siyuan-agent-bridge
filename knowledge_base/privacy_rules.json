@@ -6,15 +6,11 @@
     },
     {
       "scope": "notebook",
-      "name": "文章收藏"
+      "name": "示例：个人日记"
     },
     {
       "scope": "document",
-      "id": "20251209112347-rxnkpon"
-    },
-    {
-      "scope": "document",
-      "id": "20260109151105-s4of75z"
+      "id": "20260503191307-9zquwht"
     }
   ],
   "allow": []

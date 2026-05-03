@@ -129,7 +129,7 @@ class IndexerTests(unittest.TestCase):
         tree = (root / "knowledge_base" / "tree.md").read_text(encoding="utf-8")
         self.assertIn("SiYuan Agent Bridge", tree)
         self.assertIn("20260429120000-abcdefg", tree)
-        self.assertIn("| Notebook | ID | Docs | 字数 | 块数 | 最近更新 |", tree)
+        self.assertIn("| 笔记本 | ID | 文档数 | 字数 | 块数 | 最近更新 |", tree)
         self.assertIn(" 字", tree)
 
     def test_normalize_documents_extracts_tags(self):

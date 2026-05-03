@@ -94,7 +94,7 @@ The `思源代理桥` / `SiYuan Agent Bridge` notebook is automatically created 
 |------|------|
 | `AI 使用指南` / `AI Guide` | Persistent AI usage rules and preferences, editable by user in SiYuan's UI. Created if missing; never overwritten. |
 | `工作空间索引` / `Workspace Index` | AI-generated semantic navigation index. Never auto-created. Built and updated by the `siyuan-index-builder` skill. |
-| `关于 SiYuan Agent Bridge` / `About SiYuan Agent Bridge` | Human-readable tool introduction. Auto-overwritten when template version changes. |
+| `关于思源代理桥` / `About SiYuan Agent Bridge` | Human-readable tool introduction. Auto-overwritten when template version changes. |
 | `隐私规则` / `Privacy Rules` | Human-maintained hide rules configuration. Parsed internally by MCP; AI cannot read. |
 
 ## CC Switch

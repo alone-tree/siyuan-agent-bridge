@@ -307,14 +307,14 @@ def render_tree(notebooks: Iterable[dict[str, Any]], docs: Iterable[dict[str, An
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
     lines = [
-        "# SiYuan Agent Bridge Tree",
+        "# 思源代理桥文档树",
         "",
-        f"> {now} | {len(notebook_list)} notebooks | {total_docs} docs | {total_words:,} 字 | {total_blocks} 块",
+        f"> {now} | {len(notebook_list)} 个笔记本 | {total_docs} 篇文档 | {total_words:,} 字 | {total_blocks} 块",
         "",
     ]
 
     # Layer 1: notebook overview table
-    lines.append("| Notebook | ID | Docs | 字数 | 块数 | 最近更新 |")
+    lines.append("| 笔记本 | ID | 文档数 | 字数 | 块数 | 最近更新 |")
     lines.append("|----------|----|------|------|------|----------|")
     for nb in notebook_list:
         nid = str(nb.get("id", ""))
@@ -330,7 +330,7 @@ def render_tree(notebooks: Iterable[dict[str, Any]], docs: Iterable[dict[str, An
         name = str(nb.get("name") or nid or "Unknown Notebook")
         count, words, blocks, updated = _stats(nid)
         date = format_date(updated) if updated else "-"
-        lines.append(f"## {name} (`{nid}`) | {count} docs | {words:,} 字 | {blocks} 块 | 最近 {date}")
+        lines.append(f"## {name}（`{nid}`）| {count} 篇 | {words:,} 字 | {blocks} 块 | 最近 {date}")
         lines.append("")
         if count > 0:
             nb_docs = sorted(
@@ -364,11 +364,11 @@ def render_notebook_overview(notebooks: Iterable[dict[str, Any]], docs: Iterable
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
 
     lines = [
-        "# SiYuan Agent Bridge Tree",
+        "# 思源代理桥文档树",
         "",
-        f"> {now} | {len(notebook_list)} notebooks | {len(doc_list)} docs | {total_words:,} 字 | {total_blocks} 块",
+        f"> {now} | {len(notebook_list)} 个笔记本 | {len(doc_list)} 篇文档 | {total_words:,} 字 | {total_blocks} 块",
         "",
-        "| Notebook | ID | Docs | 字数 | 块数 | 最近更新 |",
+        "| 笔记本 | ID | 文档数 | 字数 | 块数 | 最近更新 |",
         "|----------|----|------|------|------|----------|",
     ]
     for nb in notebook_list:
@@ -590,10 +590,10 @@ def build_notebook_overview(root: Path) -> str:
 
 
 def render_workspace_readme() -> str:
-    return """# AI Workspace
+    return """# AI 工作区
 
-This private folder is for agent-generated task context, analysis notes, drafts, and outputs.
-It is not synchronized back into SiYuan by this tool.
+此私有文件夹用于存放 AI 生成的任务上下文、分析笔记、草稿和输出。
+本工具不会将这些内容同步回思源。
 """
 
 

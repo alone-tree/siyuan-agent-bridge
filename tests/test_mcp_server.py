@@ -175,7 +175,7 @@ class McpServerTests(unittest.TestCase):
 
         self.assertIn("doc1", output)
         self.assertIn("正文里有机器人这个词", output)
-        self.assertIn("live search", output)
+        self.assertIn("实时搜索", output)
         self.assertEqual(client.seen_payloads[0]["paths"], ["nb1"])
         self.assertEqual(client.seen_payloads[0]["group_by"], 0)
 
@@ -276,7 +276,7 @@ class McpServerTests(unittest.TestCase):
         ])
         output = self.run_find(client, {"keyword": "机器人", "mode": "keyword", "scope": "full", "notebooks": "nb1"})
 
-        self.assertIn("No matching visible documents", output)
+        self.assertIn("未找到匹配的可见文档", output)
         self.assertNotIn("doc2", output)
 
     def test_find_documents_document_privacy_hides_child_live_results(self):
@@ -298,7 +298,7 @@ class McpServerTests(unittest.TestCase):
         ])
         output = self.run_find(client, {"keyword": "密匙", "mode": "keyword", "scope": "full", "notebooks": "nb1"})
 
-        self.assertIn("No matching visible documents", output)
+        self.assertIn("未找到匹配的可见文档", output)
         self.assertNotIn("doc3", output)
 
     def test_find_documents_filters_notebook_name_rules_with_live_names(self):
@@ -320,7 +320,7 @@ class McpServerTests(unittest.TestCase):
         ])
         output = self.run_find(client, {"keyword": "机器人", "mode": "keyword", "scope": "full", "notebooks": "nb1"})
 
-        self.assertIn("No matching visible documents", output)
+        self.assertIn("未找到匹配的可见文档", output)
         self.assertNotIn("doc1", output)
 
     def test_find_documents_temporarily_opens_closed_notebooks(self):
@@ -431,7 +431,7 @@ class McpServerWriteTests(unittest.TestCase):
                     "markdown": "# Hello",
                     "confirmed": True,
                 })
-            self.assertIn("not visible", str(ctx.exception))
+            self.assertIn("不可见", str(ctx.exception))
         finally:
             mcp_server.detect_active_profile = original
 
@@ -498,7 +498,7 @@ class McpServerWriteTests(unittest.TestCase):
                     "new_text": "replacement",
                     "confirmed": True,
                 })
-            self.assertIn("not found", str(ctx.exception))
+            self.assertIn("未找到", str(ctx.exception))
         finally:
             mcp_server.detect_active_profile = original
 
@@ -518,7 +518,7 @@ class McpServerWriteTests(unittest.TestCase):
                     "new_text": "替换",
                     "confirmed": True,
                 })
-            self.assertIn("multiple blocks", str(ctx.exception).casefold())
+            self.assertIn("匹配到多个块", str(ctx.exception))
             self.assertIn("block1", str(ctx.exception))
             self.assertIn("block2", str(ctx.exception))
         finally:
@@ -538,7 +538,7 @@ class McpServerWriteTests(unittest.TestCase):
                 "new_text": "Replaced text.",
                 "confirmed": True,
             })
-            self.assertIn("Document Edited", result)
+            self.assertIn("文档已编辑", result)
             self.assertIn("block1", result)
             self.assertIn("Replaced text.", result)
             self.assertEqual(len(client._snapshots), 1)
@@ -560,7 +560,7 @@ class McpServerWriteTests(unittest.TestCase):
                 "new_text": "新文字",
                 "confirmed": True,
             })
-            self.assertIn("Document Edited", result)
+            self.assertIn("文档已编辑", result)
             self.assertIn("block1", result)
         finally:
             mcp_server.detect_active_profile = original
@@ -579,7 +579,7 @@ class McpServerWriteTests(unittest.TestCase):
                 "new_text": "Appended paragraph.",
                 "confirmed": True,
             })
-            self.assertIn("append", result.casefold())
+            self.assertIn("追加", result)
             self.assertEqual(len(client._snapshots), 1)
             self.assertIn("siyuan_edit_document", client._snapshots[0]["memo"])
         finally:
@@ -599,7 +599,7 @@ class McpServerWriteTests(unittest.TestCase):
                 "new_text": "",
                 "confirmed": True,
             })
-            self.assertIn("Document Edited", result)
+            self.assertIn("文档已编辑", result)
         finally:
             mcp_server.detect_active_profile = original
 
@@ -617,7 +617,7 @@ class McpServerWriteTests(unittest.TestCase):
                     "new_text": "world",
                     "confirmed": True,
                 })
-            self.assertIn("visible", str(ctx.exception).casefold())
+            self.assertIn("可见", str(ctx.exception))
         finally:
             mcp_server.detect_active_profile = original
 
@@ -631,7 +631,7 @@ class McpServerWriteTests(unittest.TestCase):
                     "new_text": "",
                     "confirmed": True,
                 })
-            self.assertIn("cannot both be empty", str(ctx.exception).casefold())
+            self.assertIn("不能同时为空", str(ctx.exception))
         finally:
             mcp_server.detect_active_profile = original
 
@@ -1130,8 +1130,8 @@ class McpServerReadBlockWindowTests(unittest.TestCase):
         }
         result = self._read({"document_id": "doc1"}, blocks_for_doc=blocks)
         self.assertIn("普通阅读", result)
-        self.assertIn("展示块:", result)
-        self.assertIn("估算 tokens:", result)
+        self.assertIn("展示块：", result)
+        self.assertIn("估算令牌数：", result)
         self.assertIn("## Section", result)
         self.assertIn("Body text here.", result)
         # Should NOT contain old chunk header
@@ -1145,7 +1145,7 @@ class McpServerReadBlockWindowTests(unittest.TestCase):
             ]
         }
         result = self._read({"document_id": "doc1"}, blocks_for_doc=blocks)
-        self.assertIn("展示块: 1-2 / 2", result)
+        self.assertIn("展示块：1-2 / 2", result)
 
     def test_block_start_pagination(self):
         blocks = {
@@ -1157,7 +1157,7 @@ class McpServerReadBlockWindowTests(unittest.TestCase):
             ]
         }
         result = self._read({"document_id": "doc1", "block_start": 3}, blocks_for_doc=blocks)
-        self.assertIn("展示块: 3-4 / 4", result)
+        self.assertIn("展示块：3-4 / 4", result)
         # Body (after last ---) should contain Second but not First
         body_start = result.rindex("---")
         body = result[body_start:]
@@ -1176,7 +1176,7 @@ class McpServerReadBlockWindowTests(unittest.TestCase):
                 "markdown": f"Paragraph {i}.", "sort": i,
             })
         result = self._read({"document_id": "doc1", "block_limit": 3}, blocks_for_doc=blocks)
-        self.assertIn("展示块: 1-3 / 10", result)
+        self.assertIn("展示块：1-3 / 10", result)
         self.assertIn("Paragraph 0.", result)
         self.assertIn("Paragraph 2.", result)
         self.assertNotIn("Paragraph 3.", result)
@@ -1193,7 +1193,7 @@ class McpServerReadBlockWindowTests(unittest.TestCase):
         result = self._read({"document_id": "doc1", "token_budget": 10}, blocks_for_doc=blocks)
         self.assertIn("Short.", result)
         # Budget 10 should be very tight
-        self.assertIn("估算 tokens:", result)
+        self.assertIn("估算令牌数：", result)
         # At least one block returned
         self.assertIn("Short.", result)
 
@@ -1206,7 +1206,7 @@ class McpServerReadBlockWindowTests(unittest.TestCase):
                 "markdown": f"Paragraph {i}.", "sort": i,
             })
         result = self._read({"document_id": "doc1", "block_limit": 5}, blocks_for_doc=blocks)
-        self.assertIn("下一窗口:", result)
+        self.assertIn("下一窗口：", result)
         self.assertIn("block_start=6", result)
 
     def test_include_block_ids_is_reference_reading(self):

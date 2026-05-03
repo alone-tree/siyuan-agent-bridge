@@ -480,7 +480,7 @@ class McpServer:
         except (SiYuanApiError, ValueError, FileNotFoundError) as exc:
             return make_result(
                 request_id,
-                {"content": [{"type": "text", "text": f"Tool failed: {exc}"}], "isError": True},
+                {"content": [{"type": "text", "text": f"工具执行失败：{exc}"}], "isError": True},
             )
 
     def siyuan_start(self, _args: dict[str, Any]) -> str:
@@ -505,11 +505,11 @@ class McpServer:
         lang_config = build_language_config(state.language)
         overview = build_notebook_overview(self.root)
         parts: list[str] = [
-            "# SiYuan Agent Bridge Startup Packet",
+            "# 思源代理桥启动包",
             "",
-            f"SiYuan connection: OK, version {version}",
-            f"Connected workspace: **{profile.name}**",
-            f"System notebook: `{state.notebook_name}` (`{nb_id}`)",
+            f"思源连接：正常，版本 {version}",
+            f"已连接工作空间：**{profile.name}**",
+            f"系统笔记本：`{state.notebook_name}`（`{nb_id}`）",
             "",
             lang_config.startup_header,
             "",
@@ -533,26 +533,26 @@ class McpServer:
         if state.workspace_index_markdown:
             parts.extend([
                 "",
-                "## Workspace Index (语义导航索引)",
+                "## 工作空间索引（语义导航索引）",
                 "",
                 state.workspace_index_markdown.strip(),
             ])
         else:
             parts.extend([
                 "",
-                "> 当前没有导航索引（Workspace Index）。你可以建议用户先快速扫一遍笔记本结构创建导航索引，之后每次新会话都能直接定位。",
+                "> 当前没有导航索引。你可以建议用户先快速扫一遍笔记本结构创建导航索引，之后每次新会话都能直接定位。",
             ])
         parts.extend([
             "",
-            "## AI Guide (用户偏好与规则)",
+            "## AI 使用指南（用户偏好与规则）",
             "",
-            state.ai_guide_markdown.strip() if state.ai_guide_markdown else "(AI Guide is empty — use siyuan_propose_guide_update to propose content, then siyuan_apply_guide_update with user approval)",
+            state.ai_guide_markdown.strip() if state.ai_guide_markdown else "（AI 使用指南为空——可以先用 siyuan_propose_guide_update 提议内容，经用户批准后用 siyuan_apply_guide_update 写入）",
             "",
         ])
         # Mention About document but don't include full text
         parts.extend([
             "---",
-            f"**给人看的说明**：系统笔记本中还有一篇 `/About SiYuan Agent Bridge`，是对工具核心思想的简要介绍。普通任务无需读取。需要时可用 `siyuan_read_document` 指定文档 ID 阅读。",
+            f"**给人看的说明**：系统笔记本中还有一篇 `/关于思源代理桥`，是对工具核心思想的简要介绍。普通任务无需读取。需要时可用 `siyuan_read_document` 指定文档 ID 阅读。",
             "",
         ])
         return "\n".join(parts)
@@ -581,11 +581,11 @@ class McpServer:
             privacy_rules_doc_id=state.privacy_rules_doc_id,
         )
         return (
-            "# SiYuan Index Refreshed\n\n"
-            f"Scanned {result.total_document_count} documents from {result.total_notebook_count} notebooks.\n"
-            f"Visible: {result.document_count} documents from {result.notebook_count} notebooks.\n"
-            f"Hidden: {result.hidden_document_count} documents from {result.hidden_notebook_count} notebooks.\n\n"
-            "Run `siyuan_start` before using the refreshed index."
+            "# 索引已刷新\n\n"
+            f"共扫描 {result.total_notebook_count} 个笔记本、{result.total_document_count} 篇文档。\n"
+            f"可见：{result.notebook_count} 个笔记本、{result.document_count} 篇文档。\n"
+            f"已隐藏：{result.hidden_notebook_count} 个笔记本、{result.hidden_document_count} 篇文档。\n\n"
+            "使用刷新后的索引前请先调用 `siyuan_start`。"
         )
 
     def siyuan_list(self, args: dict[str, Any]) -> str:
@@ -595,7 +595,7 @@ class McpServer:
         if not notebook_id and not notebook_name:
             # List all notebooks
             notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
-            lines = ["# Visible SiYuan Notebooks", ""]
+            lines = ["# 可见笔记本", ""]
             for notebook in notebooks:
                 lines.append(f"- `{notebook.get('id', '')}` {notebook.get('name', '')}")
             lines.append("")
@@ -612,7 +612,7 @@ class McpServer:
         total_words = sum(d.get("word_count", 0) for d in docs)
         total_blocks = sum(d.get("block_count", 0) for d in docs)
         lines = [
-            f"# {nb_name} (`{notebook_id}`) | {len(docs)} docs | {total_words:,} 字 | {total_blocks} 块",
+            f"# {nb_name} (`{notebook_id}`) | {len(docs)} 篇 | {total_words:,} 字 | {total_blocks} 块",
             "",
         ]
         lines.extend(render_doc_tree(docs))
@@ -628,15 +628,15 @@ class McpServer:
     def siyuan_find_documents(self, args: dict[str, Any]) -> str:
         keyword = str(args.get("keyword") or "").strip()
         if not keyword:
-            raise ValueError("keyword is required")
+            raise ValueError("keyword 参数是必填的")
 
         mode = str(args.get("mode") or "keyword").strip().casefold()
         if mode not in ("keyword", "query", "regex", "sql"):
-            raise ValueError("mode must be keyword, query, regex, or sql")
+            raise ValueError("mode 必须是 keyword、query、regex 或 sql 之一")
 
         scope = str(args.get("scope") or "headings").strip().casefold()
         if scope not in ("headings", "full"):
-            raise ValueError("scope must be headings or full")
+            raise ValueError("scope 必须是 headings 或 full 之一")
 
         limit = max(int(args.get("limit") or 20), 1)
         max_snippets_per_doc = max(int(args.get("max_snippets_per_doc") or DEFAULT_SNIPPETS_PER_DOC), 1)
@@ -663,7 +663,7 @@ class McpServer:
                     rows = client.query_sql(keyword)
             except SiYuanApiError as exc:
                 if "administrator" in str(exc).casefold() or "privilege" in str(exc).casefold():
-                    raise ValueError("SQL search requires SiYuan administrator privileges. Use mode=keyword, mode=query, or mode=regex instead.") from exc
+                    raise ValueError("SQL 搜索需要思源管理员权限，请改用 keyword、query 或 regex 模式。") from exc
                 raise
             enriched = self._enrich_sql_results(rows, indexed_docs, notebook_names, privacy, notebooks)
         else:
@@ -685,18 +685,18 @@ class McpServer:
             enriched = self._enrich_search_blocks(blocks, indexed_docs, notebook_names, privacy, keywords, notebooks)
 
         if not enriched:
-            return f"# Search: \"{keyword}\" ({scope}, {mode})\n\nNo matching visible documents."
+            return f"# 搜索：\"{keyword}\"（{scope}，{mode}）\n\n未找到匹配的可见文档。"
 
         enriched = enriched[:limit]
         grouped = self._group_by_notebook(enriched)
 
         scope_label = "标题" if scope == "headings" else "全文"
-        lines = [f"# Search: \"{keyword}\" ({scope_label}, {mode}, {len(enriched)} matches in {len(grouped)} notebooks)", ""]
+        lines = [f"# 搜索：\"{keyword}\"（{scope_label}，{mode}，{len(enriched)} 条结果，{len(grouped)} 个笔记本）", ""]
 
         remaining = limit
         for nb_name in sorted(grouped, key=str.casefold):
             items = grouped[nb_name]
-            lines.append(f"## {nb_name} ({len(items)} matches)")
+            lines.append(f"## {nb_name}（{len(items)} 条命中）")
             for item in items[:remaining]:
                 wc = item.get("word_count", 0)
                 bc = item.get("block_count", 0)
@@ -781,7 +781,7 @@ class McpServer:
                     "snippet": snippet,
                     "snippets": [],
                     "match_count": 0,
-                    "source": "live search",
+                    "source": "实时搜索",
                 }
                 results_by_doc[doc_id] = result
             result["match_count"] += 1
@@ -887,13 +887,13 @@ class McpServer:
             markdown_wc = compute_word_count(markdown)
             date = format_date(str(doc.get("updated", "")))
             header_lines = [
-                f"# Document: {doc_path}",
-                f"Document ID: `{doc_id}`",
-                f"字数: {markdown_wc:,} | 块数: {doc.get('block_count', 0)} | 字符: {len(markdown):,} | 更新: {date}",
-                "阅读模式: 普通阅读（降级到导出 Markdown）",
+                f"# 文档：{doc_path}",
+                f"文档 ID：`{doc_id}`",
+                f"字数：{markdown_wc:,} | 块数：{doc.get('block_count', 0)} | 字符：{len(markdown):,} | 更新：{date}",
+                "阅读模式：普通阅读（降级到导出 Markdown）",
             ]
             if attachment_count:
-                header_lines.append(f"附件: {attachment_count} 个已提取到 ai_workspace/attachments/{doc_id}/")
+                header_lines.append(f"附件：{attachment_count} 个已提取到 ai_workspace/attachments/{doc_id}/")
             return "\n".join(["\n".join(header_lines), "", "---", "", markdown])
 
         # Compute stats
@@ -934,17 +934,17 @@ class McpServer:
 
         mode_label = "引用阅读（已插入块 ID 注释）" if include_block_ids else "普通阅读"
         header_lines = [
-            f"# Document: {doc_path}",
-            f"Document ID: `{doc_id}`",
-            f"展示块: {first_idx}-{last_idx} / {total_blocks}",
-            f"估算 tokens: {window_tokens:,} / {token_budget:,}",
+            f"# 文档：{doc_path}",
+            f"文档 ID：`{doc_id}`",
+            f"展示块：{first_idx}-{last_idx} / {total_blocks}",
+            f"估算令牌数：{window_tokens:,} / {token_budget:,}",
         ]
         if start_idx + block_limit < total_blocks:
             next_start = last_idx + 1
-            header_lines.append(f"下一窗口: block_start={next_start}, block_limit={block_limit}")
-        header_lines.append(f"阅读模式: {mode_label}")
+            header_lines.append(f"下一窗口：block_start={next_start}, block_limit={block_limit}")
+        header_lines.append(f"阅读模式：{mode_label}")
         if attachment_count:
-            header_lines.append(f"附件: {attachment_count} 个已提取到 ai_workspace/attachments/{doc_id}/")
+            header_lines.append(f"附件：{attachment_count} 个已提取到 ai_workspace/attachments/{doc_id}/")
         header = "\n".join(header_lines)
 
         # Build outline (always full document outline with block positions)
@@ -969,7 +969,7 @@ class McpServer:
             parts.extend([
                 "",
                 "---",
-                f"> 继续阅读: `block_start={last_idx + 1}, block_limit={block_limit}`",
+                f"> 继续阅读：`block_start={last_idx + 1}, block_limit={block_limit}`",
             ])
 
         return "\n".join(parts)
@@ -977,12 +977,12 @@ class McpServer:
     def resolve_visible_document(self, args: dict[str, Any]) -> dict[str, Any]:
         locator = str(args.get("document_id") or args.get("locator") or "").strip()
         if not locator:
-            raise ValueError("document_id is required")
+            raise ValueError("document_id 参数是必填的")
         docs = filter_documents(load_docs(self.root), load_privacy_rules(self.root))
         status, matches = resolve_document(docs, locator)
         if status == "ambiguous":
             choices = "\n".join(f"- `{doc.get('id')}` {doc.get('hpath')}" for doc in matches)
-            raise ValueError(f"Document locator is ambiguous:\n{choices}")
+            raise ValueError(f"文档定位符存在歧义：\n{choices}")
         if status in ("missing", "no_index"):
             privacy = load_privacy_rules(self.root)
             if privacy.allow:
@@ -991,7 +991,7 @@ class McpServer:
                     live_docs = filter_documents(load_live_docs(client), privacy)
                 status, matches = resolve_document(live_docs, locator)
         if status != "ok":
-            raise ValueError("No matching visible document. It may be hidden, unindexed, or the locator is wrong.")
+            raise ValueError("未找到匹配的可见文档。文档可能已被隐藏、尚未索引，或定位符有误。")
         doc = matches[0]
         if is_privacy_rules_document(str(doc.get("hpath", ""))):
             raise ValueError(
@@ -1007,7 +1007,7 @@ class McpServer:
         title = str(args.get("title") or "Guide update proposal").strip()
         body = str(args.get("proposal") or args.get("body") or "").strip()
         if not body:
-            raise ValueError("proposal is required")
+            raise ValueError("proposal 参数是必填的")
         path = self.root / "ai_workspace" / "guide_update_proposals.md"
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8", newline="\n") as handle:
@@ -1019,9 +1019,9 @@ class McpServer:
         mode = str(args.get("mode") or "append").strip().casefold()
         confirmed = bool(args.get("confirmed"))
         if not confirmed:
-            raise ValueError("confirmed=true is required. Only use this after explicit user approval.")
+            raise ValueError("需要 confirmed=true。只有在用户明确批准后才能执行此操作。")
         if not content:
-            raise ValueError("content is required")
+            raise ValueError("content 参数是必填的")
 
         config = load_config(self.root)
         _profile, client = detect_active_profile(config)
@@ -1044,23 +1044,23 @@ class McpServer:
             msg = str(exc)
             if "数据仓库密钥" in msg or "data repo key" in msg.casefold() or "key" in msg.casefold():
                 raise ValueError(
-                    "Snapshot creation failed: data repo key is not initialized. "
-                    "Please open SiYuan → Settings → About → Data Repo Key, initialize the key, then retry."
+                    "快照创建失败：数据仓库密钥未初始化。"
+                    "请打开思源 → 设置 → 关于 → 数据仓库密钥，初始化密钥后重试。"
                 ) from exc
-            raise ValueError(f"Snapshot creation failed, refusing to write. Error: {msg}") from exc
+            raise ValueError(f"快照创建失败，拒绝写入。错误：{msg}") from exc
 
         if mode == "replace":
             new_md = content.rstrip() + "\n"
         elif mode == "append":
             new_md = current_md.rstrip() + "\n\n" + content.rstrip() + "\n"
         else:
-            raise ValueError("mode must be append or replace")
+            raise ValueError("mode 必须是 append 或 replace 之一")
 
         with ensure_notebooks_open(client, [nb_id]):
             client.update_block(ai_guide_id, new_md)
 
         try:
-            client.push_msg("SiYuan Agent Bridge: AI Guide 已更新 / updated")
+            client.push_msg("思源代理桥：AI 使用指南已更新")
         except Exception:
             pass
 
@@ -1069,19 +1069,19 @@ class McpServer:
     def siyuan_create_document(self, args: dict[str, Any]) -> str:
         confirmed = bool(args.get("confirmed"))
         if not confirmed:
-            raise ValueError("confirmed=true is required. Writing to SiYuan requires explicit user approval.")
+            raise ValueError("需要 confirmed=true。写入思源必须经过用户明确确认。")
 
         notebook_id = str(args.get("notebook_id") or "").strip()
         if not notebook_id:
-            raise ValueError("notebook_id is required")
+            raise ValueError("notebook_id 参数是必填的")
 
         title = str(args.get("title") or "").strip()
         if not title:
-            raise ValueError("title is required")
+            raise ValueError("title 参数是必填的")
 
         markdown = str(args.get("markdown") or "").strip()
         if not markdown:
-            raise ValueError("markdown is required")
+            raise ValueError("markdown 参数是必填的")
 
         path = str(args.get("path") or "").strip()
         if not path:
@@ -1093,7 +1093,7 @@ class McpServer:
         notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
         nb = next((n for n in notebooks if str(n.get("id", "")) == notebook_id), None)
         if nb is None:
-            raise ValueError(f"Notebook {notebook_id} is not visible. It may be hidden by privacy rules.")
+            raise ValueError(f"笔记本 {notebook_id} 不可见，可能已被隐私规则隐藏。")
 
         # Prevent creating Privacy Rules document
         if is_privacy_rules_document(path.strip("/")):
@@ -1113,15 +1113,15 @@ class McpServer:
             msg = str(exc)
             if "数据仓库密钥" in msg or "data repo key" in msg.casefold() or "key" in msg.casefold():
                 raise ValueError(
-                    "Snapshot creation failed: data repo key is not initialized. "
-                    "Please open SiYuan → Settings → About → Data Repo Key, initialize the key, then retry."
+                    "快照创建失败：数据仓库密钥未初始化。"
+                    "请打开思源 → 设置 → 关于 → 数据仓库密钥，初始化密钥后重试。"
                 ) from exc
-            raise ValueError(f"Snapshot creation failed, refusing to write. Error: {msg}") from exc
+            raise ValueError(f"快照创建失败，拒绝写入。错误：{msg}") from exc
 
         # Normalize markdown to avoid duplicate H1
         markdown = normalize_new_document_markdown(title, markdown)
         if not markdown.strip():
-            raise ValueError("markdown is required")
+            raise ValueError("markdown 参数是必填的")
 
         # Create document
         with ensure_notebooks_open(client, [notebook_id]):
@@ -1141,7 +1141,7 @@ class McpServer:
 
         # Notify
         try:
-            client.push_msg(f"SiYuan Agent Bridge: created \"{title}\"")
+            client.push_msg(f"思源代理桥：已创建「{title}」")
         except Exception:
             pass
 
@@ -1157,18 +1157,18 @@ class McpServer:
         parts = [
             "# 文档创建成功",
             "",
-            f"**标题:** {title}",
-            f"**路径:** {path}",
-            f"**笔记本:** {notebook_name} (`{notebook_id}`)",
+            f"**标题：**{title}",
+            f"**路径：**{path}",
+            f"**笔记本：**{notebook_name}（`{notebook_id}`）",
         ]
         if doc_id:
-            parts.append(f"**文档 ID:** `{doc_id}`")
-        parts.append(f"**端点:** {client.base_url}")
-        parts.append(f"**快照:** {snapshot_status}")
+            parts.append(f"**文档 ID：**`{doc_id}`")
+        parts.append(f"**端点：**{client.base_url}")
+        parts.append(f"**快照：**{snapshot_status}")
         if refresh_ok:
-            parts.append(f"**索引:** 已自动刷新")
+            parts.append(f"**索引：**已自动刷新")
         else:
-            parts.append(f"**索引:** 自动刷新失败，请手动运行 `siyuan_refresh_index`")
+            parts.append(f"**索引：**自动刷新失败，请手动运行 `siyuan_refresh_index`")
         parts.extend([
             "",
             "如需回滚，可通过思源快照手动恢复。",
@@ -1178,7 +1178,7 @@ class McpServer:
     def siyuan_edit_document(self, args: dict[str, Any]) -> str:
         confirmed = bool(args.get("confirmed"))
         if not confirmed:
-            raise ValueError("confirmed=true is required. Editing SiYuan documents requires explicit user approval.")
+            raise ValueError("需要 confirmed=true。编辑思源文档必须经过用户明确确认。")
 
         doc = self.resolve_visible_document(args)
         doc_id = str(doc.get("id", ""))
@@ -1189,7 +1189,7 @@ class McpServer:
         new_text = str(args.get("new_text") or "")
 
         if not old_text and not new_text:
-            raise ValueError("old_text and new_text cannot both be empty")
+            raise ValueError("old_text 和 new_text 不能同时为空")
 
         _profile, client = detect_active_profile(load_config(self.root))
 
@@ -1207,25 +1207,25 @@ class McpServer:
                         "Snapshot creation failed: data repo key is not initialized. "
                         "Please open SiYuan → Settings → About → Data Repo Key, initialize the key, then retry."
                     ) from exc
-                raise ValueError(f"Snapshot creation failed, refusing to write. Error: {msg}") from exc
+                raise ValueError(f"快照创建失败，拒绝写入。错误：{msg}") from exc
 
             with ensure_notebooks_open(client, [notebook_id]):
                 result = client.append_block(doc_id, new_text)
 
             try:
-                client.push_msg(f"SiYuan Agent Bridge: appended to \"{doc_title}\"")
+                client.push_msg(f"思源代理桥：已追加内容到「{doc_title}」")
             except Exception:
                 pass
 
             return "\n".join([
-                "# Document Edited (append)",
+                "# 文档已编辑（追加）",
                 "",
-                f"**Document:** {doc_title} (`{doc_id}`)",
-                f"**Operation:** appended new block to end of document",
-                f"**Endpoint:** {client.base_url}",
-                f"**Snapshot:** {snapshot_status}",
+                f"**文档：**{doc_title}（`{doc_id}`）",
+                f"**操作：**在文档末尾追加了新内容",
+                f"**端点：**{client.base_url}",
+                f"**快照：**{snapshot_status}",
                 "",
-                "The user can manually roll back via SiYuan snapshots if needed.",
+                "如需回滚，可通过思源快照手动恢复。",
             ])
 
         # Text anchor mode: search for old_text in document blocks
@@ -1236,17 +1236,17 @@ class McpServer:
 
         if match_type == "not_found":
             raise ValueError(
-                f"old_text not found in document \"{doc_title}\". "
-                "The document may have been modified since you last read it. "
-                "Please re-read the document with siyuan_read_document and provide the exact current text."
+                f"在文档「{doc_title}」中未找到 old_text 的匹配内容。"
+                "文档可能在你上次阅读后被修改了。"
+                "请用 siyuan_read_document 重新读取文档，提供当前准确的原文。"
             )
 
         if match_type == "ambiguous":
             matches = match_result[3]
-            context_lines = ["old_text matches multiple blocks. Provide a longer old_text to disambiguate:\n"]
+            context_lines = ["old_text 匹配到多个块，请提供更长的 old_text 以消除歧义：\n"]
             for i, (bid, md, _) in enumerate(matches[:5], 1):
                 preview = md[:80].replace("\n", " ")
-                context_lines.append(f"  {i}. block `{bid}`: \"{preview}...\"")
+                context_lines.append(f"  {i}. 块 `{bid}`：\"{preview}...\"")
             raise ValueError("\n".join(context_lines))
 
         # Single match
@@ -1263,10 +1263,10 @@ class McpServer:
             msg = str(exc)
             if "数据仓库密钥" in msg or "data repo key" in msg.casefold() or "key" in msg.casefold():
                 raise ValueError(
-                    "Snapshot creation failed: data repo key is not initialized. "
-                    "Please open SiYuan → Settings → About → Data Repo Key, initialize the key, then retry."
+                    "快照创建失败：数据仓库密钥未初始化。"
+                    "请打开思源 → 设置 → 关于 → 数据仓库密钥，初始化密钥后重试。"
                 ) from exc
-            raise ValueError(f"Snapshot creation failed, refusing to write. Error: {msg}") from exc
+            raise ValueError(f"快照创建失败，拒绝写入。错误：{msg}") from exc
 
         # Execute the edit
         if old_text.strip() == block_md.strip():
@@ -1280,22 +1280,22 @@ class McpServer:
             client.update_block(block_id, new_block_md)
 
         try:
-            client.push_msg(f"SiYuan Agent Bridge: edited \"{doc_title}\"")
+            client.push_msg(f"思源代理桥：已编辑「{doc_title}」")
         except Exception:
             pass
 
-        preview = new_text[:200] if new_text else "(text deleted)"
+        preview = new_text[:200] if new_text else "（文本已删除）"
         return "\n".join([
-            "# Document Edited",
+            "# 文档已编辑",
             "",
-            f"**Document:** {doc_title} (`{doc_id}`)",
-            f"**Changed block:** `{block_id}`",
-            f"**Changed block count:** 1",
-            f"**Endpoint:** {client.base_url}",
-            f"**Snapshot:** {snapshot_status}",
-            f"**Preview:** {preview}",
+            f"**文档：**{doc_title}（`{doc_id}`）",
+            f"**已修改的块：**`{block_id}`",
+            f"**已修改块数：**1",
+            f"**端点：**{client.base_url}",
+            f"**快照：**{snapshot_status}",
+            f"**预览：**{preview}",
             "",
-            "The user can manually roll back via SiYuan snapshots if needed.",
+            "如需回滚，可通过思源快照手动恢复。",
         ])
 
     @staticmethod
@@ -1337,8 +1337,8 @@ class McpServer:
         if len(partial) == 1:
             return str(partial[0]["id"])
         if len(exact) + len(partial) > 1:
-            raise ValueError("Notebook name is ambiguous; use notebook_id")
-        raise ValueError(f"No visible notebook matched: {notebook_name}")
+            raise ValueError("笔记本名称存在歧义，请使用 notebook_id")
+        raise ValueError(f"未匹配到可见笔记本：{notebook_name}")
 
 
 def _read_optional(path: Path) -> str:

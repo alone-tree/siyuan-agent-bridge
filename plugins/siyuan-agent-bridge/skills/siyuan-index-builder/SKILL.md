@@ -3,193 +3,170 @@ name: siyuan-index-builder
 description: 创建和更新思源系统笔记本 思源代理桥 中的 Workspace Index 导航索引。当用户提到"创建索引"、"更新索引"、"建索引"、"重建索引"、"刷新索引"时使用此skill。
 ---
 
-# SiYuan Index Builder
+# 思源索引构建器
 
-Build and maintain `思源代理桥/Workspace Index` — a path-first, human-annotated
-navigation index that lets AI agents locate relevant documents without scanning
-every notebook map. The index prioritizes document paths (which are objective
-and complete) over themes (which are fuzzy and incomplete).
+构建和维护 `思源代理桥/工作空间索引` —— 一份以路径为先、人工标注的导航索引，
+让 AI 助手无需扫描每份笔记本地图就能定位相关文档。
+索引优先使用文档路径（客观且完整），而非主题（模糊且不完整）。
 
-The index lives in the SiYuan system notebook, not in local files. Use
-`siyuan_create_document` to create it the first time and `siyuan_edit_document`
-to update it afterwards.
+索引存放在思源系统笔记本中，而非本地文件。首次创建用 `siyuan_create_document`，
+后续更新用 `siyuan_edit_document`。
 
-## Prerequisites
+## 前置条件
 
-- The `siyuan-agent-bridge` MCP tools must be available. If they are not, tell the
-  user to register the MCP server first.
-- Run `siyuan_start` first — it ensures the system notebook `思源代理桥` exists
-  and returns the current notebook overview.
+- 必须已注册 `siyuan-agent-bridge` MCP 工具。如果不可用，告知用户先注册 MCP 服务器。
+- 先运行 `siyuan_start` —— 它确保系统笔记本 `思源代理桥` 存在，并返回当前笔记本概览。
 
-## Workflow
+## 工作流
 
-### Reading depth — follow the user's instruction
+### 阅读深度 —— 遵循用户指示
 
-The user may specify how thoroughly you should read before writing the index:
+用户可以指定建索引前的阅读深度：
 
-- **快速 (quick, default)**: Read one hub document per notebook (if one exists —
-  look for documents whose title contains "index", "必读", "概述", "项目背景",
-  "README", or that sit at the root of a major subtree). Write a 1-sentence
-  summary for each hub you read. Do not read leaf documents. This mode is for
-  getting a structural overview fast.
+- **快速（默认）**：每个笔记本读一篇枢纽文档（如果有的话 ——
+  查找标题包含"index"、"必读"、"概述"、"项目背景"、"README"，
+  或位于主要子树根部的文档）。为每篇读过的枢纽文档写一句话摘要。不读叶子文档。
+  此模式用于快速获取结构概览。
 
-- **详细 (thorough)**: For each notebook, read the hub document plus 2–4
-  additional documents that appear important (top-level documents, documents
-  with broad-scope titles, heavily nested subtree roots). Write 1–2 sentence
-  summaries for each document you read. This mode is for building a rich,
-  annotated index.
+- **详细**：每个笔记本读枢纽文档外加 2–4 篇看起来重要的文档
+  （顶级文档、标题范围广的文档、嵌套层级深的子树根部）。
+  为每篇读过的文档写 1–2 句摘要。此模式用于构建丰富、带标注的索引。
 
-If the user does not specify, default to **快速**. You may ask: "要我快速扫一遍结构就建索引，还是深入读一些重点文档再建？"
+如果用户未指定，默认使用**快速**。你可以问："要我快速扫一遍结构就建索引，还是深入读一些重点文档再建？"
 
-Titles alone are not enough to judge a document's content. Always read before
-you summarize. A document titled "REITs" might be a 3000-word analysis or a
-one-line bookmark — you cannot tell from the path.
+标题本身不足以判断文档内容。读之前不要写摘要。一篇标题为"REITs"的文档
+可能是 3000 字的深度分析，也可能只是一行书签 —— 光看路径无法区分。
 
-### Step 1 — Survey the structure
+### 第一步 —— 概览结构
 
-Call `siyuan_start` to get the notebook overview table (tree.md layer 1). Identify:
+调用 `siyuan_start` 获取笔记本概览表（tree.md 第一层）。识别：
 
-- Which notebooks have documents (>0 visible).
-- Document counts and word counts per notebook — large notebooks need more structural summary,
-  small ones can list documents more directly.
+- 哪些笔记本有文档（>0 篇可见）。
+- 各笔记本的文档数和字数 —— 大的笔记本需要更多结构总结，
+  小的可以直接列出文档。
 
-### Step 2 — Read notebook maps and hub documents
+### 第二步 —— 阅读笔记本地图和枢纽文档
 
-For each visible notebook with >0 documents, call `siyuan_list`
-with its notebook ID. As you read the map, classify the internal structure:
+对每个有可见文档的笔记本，用其笔记本 ID 调用 `siyuan_list`。
+阅读地图时，分类内部结构：
 
-- **Deep tree**: 3+ path levels, regular sub-structures (e.g., companies under
-  sectors, each with sub-pages). Summarize the *structure pattern* rather than
-  listing every leaf document.
-- **Flat collection**: Most documents at root or one level deep. List key
-  documents directly.
-- **Hub with spokes**: A root index document followed by child documents.
-  Note the hub.
+- **深层树**：3 层以上路径，规律的子结构（如行业下的公司，各有子页面）。
+  总结*结构模式*，而非列出每篇叶子文档。
+- **扁平集合**：大部分文档在根目录或一层深。直接列出关键文档。
+- **辐条式**：一篇根索引文档 + 若干子文档。标注枢纽文档。
 
-After classifying, **read hub documents** according to the reading depth the
-user specified. Use `siyuan_read_document` with the document ID. The tool returns
-the document outline first, then the content. For long documents, `block_start=1`
-(default) returns the first block window — a preview is enough for index purposes. Use
-`block_start=N` to jump to specific sections if needed.
+分类后，按用户指定的阅读深度**阅读枢纽文档**。使用 `siyuan_read_document`
+配合文档 ID。工具先返回文档大纲，再返回内容。对于长文档，
+`block_start=1`（默认）返回第一个块窗口 —— 预览足够建索引使用。
+如需跳转到特定章节，使用 `block_start=N`。
 
-### Step 3 — Generate Workspace Index
+### 第三步 —— 生成工作空间索引
 
-Write the index to `思源代理桥/Workspace Index`:
+将索引写入 `思源代理桥/工作空间索引`：
 
-- **First time**: use `siyuan_create_document` with notebook_id of the `思源代理桥` notebook (find it via `siyuan_list`), path `/Workspace Index`, and the markdown content. Set `confirmed=true` only after the user approves.
-- **Update**: use `siyuan_edit_document` with document_id of the existing Workspace Index. Use `old_text` → `new_text` to replace sections.
+- **首次创建**：使用 `siyuan_create_document`，notebook_id 为 `思源代理桥` 笔记本的 ID（通过 `siyuan_list` 查找），路径 `/工作空间索引`，填入 Markdown 内容。仅在用户确认后设置 `confirmed=true`。
+- **更新**：使用 `siyuan_edit_document`，document_id 为已有的工作空间索引 ID。用 `old_text` → `new_text` 替换对应部分。
 
-Follow this template:
+遵循以下模板：
 
 ```markdown
-# Knowledge Base Index
-> Generated YYYY-MM-DD | Update: tell AI "更新索引" or "rebuild the index"
+# 知识库索引
+> 生成日期 YYYY-MM-DD | 更新：告诉 AI"更新索引"或"重建索引"
 
-## Quick Route
-| Question area | Notebook(s) |
-|--------------|-------------|
-| ...           | ...         |
+## 快速导航
+| 问题领域 | 对应笔记本 |
+|---------|-----------|
+| ...     | ...       |
 
-## Notebook Name (N docs)
+## 笔记本名称（N 篇文档）
 
-> Structure: one-line description of how this notebook is organized
-> Priority: (leave empty — the user fills this in)
+> 结构：一句话描述此笔记本的组织方式
+> 优先级：（留空 —— 由用户填写）
 
-### /path/to/key/subtree
+### /路径/到/关键/子树
 
-- `doc-id` Doc Title
-  - AI summary: 1–2 sentence digest of what this document covers
-- `doc-id` Another Doc
+- `doc-id` 文档标题
+  - AI 摘要：1–2 句话概括此文档涵盖的内容
+- `doc-id` 另一篇文档
 ```
 
-Rules for filling the template:
+填写模板的规则：
 
-**Quick Route table**
-- Infer entries from notebook names and top-level paths.
-- Be conservative. Only add an entry when the mapping is clear. A wrong route
-  is worse than no route.
-- Leave obvious gaps — the user will fill them.
+**快速导航表**
+- 从笔记本名称和顶级路径推断条目。
+- 宁缺毋滥。只在映射明确时才添加条目。错误的路由比没有路由更糟。
+- 留出明显的空白 —— 用户会自行填补。
 
-**Structure lines**
-- One sentence describing how the notebook is organized.
-- For deep trees: "Five top-level sections (一数据中心, 二芯片, 三光模块公司,
-  四上游, 五政策), each with company sub-pages and daily news."
-- For flat collections: "Independent articles at root, no deep hierarchy."
+**结构行**
+- 一句话描述笔记本的组织方式。
+- 深层树示例："五大板块（一数据中心、二芯片、三光模块公司、四上游、五政策），各板块下有公司子页面和每日新闻。"
+- 扁平集合示例："根目录下的独立文章，无深层层级。"
 
-**Priority lines**
-- Always write `> Priority: ` empty. Never fill it in.
-- If the user later adds a priority annotation, you must preserve it verbatim
-  during updates. Human priorities are the only part of the index you cannot
-  modify.
+**优先级行**
+- 始终写 `> 优先级：` 留空。永远不要填写。
+- 如果用户后续添加了优先级标注，更新时必须原样保留。
+  人工标注的优先级是索引中你唯一不能修改的部分。
 
-**AI summary lines**
-- You have already read hub documents in Step 2. Write a summary for each
-  document you read. If you went deeper than hubs (in 详细 mode), summarize
-  those too.
-- Never guess content from the title alone. A title like "REITs" could be a
-  3000-word analysis or a one-line bookmark. If you have not read it, leave
-  the summary line out.
-- Keep summaries to 1–2 sentences. They are signposts, not book reports.
-- During updates, refresh summaries for documents whose content has changed.
+**AI 摘要行**
+- 你在第二步已经读过枢纽文档。为每篇读过的文档写摘要。
+  如果深入读了更多文档（详细模式），也一并总结。
+- 绝不要仅凭标题猜测内容。标题"REITs"可能是 3000 字分析或一行书签。
+  没读过的文档不要写摘要。
+- 摘要控制在 1–2 句。它们是路标，不是读书报告。
+- 更新时，刷新内容有变化的文档摘要。
 
-**Document selection**
-- For notebooks with ≤20 docs: list every document.
-- For notebooks with >20 docs: group by path and list only representative or
-  hub documents. Describe the pattern ("财报电话会记录 × 12 篇") rather than
-  listing every leaf.
-- Documents that serve as structural hubs (index pages, project overviews) get
-  priority for listing and annotation.
+**文档选择**
+- ≤20 篇文档的笔记本：列出每篇文档。
+- >20 篇文档的笔记本：按路径分组，只列出代表性或枢纽文档。
+  描述模式（如"财报电话会记录 × 12 篇"），而非逐篇列出叶子文档。
+- 作为结构枢纽的文档（索引页、项目概述）优先列出和标注。
 
-**Length budget**
-- Keep the entire index under **300 lines**. If it grows longer, summarize
-  more aggressively at the path level.
-- If a notebook has >100 docs, its section should be no more than 30–40 lines.
-  Focus entirely on the structure pattern and a handful of key documents.
+**篇幅预算**
+- 整个索引控制在 **300 行以内**。如果超出，在路径层面更积极地总结。
+- 如果某笔记本有 >100 篇文档，其段落不应超过 30–40 行。
+  完全聚焦于结构模式和少数关键文档。
 
-### Step 4 — Report to the user
+### 第四步 —— 向用户汇报
 
-After writing the Workspace Index, tell the user:
+写完工作空间索引后，告诉用户：
 
-1. What structural patterns you found across their notebooks.
-2. Which notebooks you summarized at path level vs. document level.
-3. The 3–5 most important-looking hub documents you encountered.
-4. The line count of the generated index (for the user's awareness).
-5. Ask: "Does the structure look right? Which paths or documents should I mark as priority? If you want more detailed summaries for specific documents, tell me and I'll read them deeper."
+1. 在各笔记本中发现了哪些结构模式。
+2. 哪些笔记本做了路径级总结，哪些做了文档级总结。
+3. 遇到的 3–5 篇最重要的枢纽文档。
+4. 生成索引的行数（让用户知晓）。
+5. 询问："结构看起来对吗？哪些路径或文档我应该标记为优先？如果需要某篇文档更详细的摘要，告诉我，我会深入阅读。"
 
-### Step 5 — Handle user feedback
+### 第五步 —— 处理用户反馈
 
-The user may respond with:
-- "Mark /some/path as priority" → add `> Priority: high` to that section.
-- "Read document X and annotate it" → read it with `siyuan_read_document`, add
-  an AI summary.
-- "That path is actually about Y, not X" → fix the structure description.
-- "Don't include notebook Z" → remove that section.
+用户可能的回应：
+- "把 /某路径 标记为优先" → 在该段落添加 `> 优先级：高`。
+- "读一下文档 X 并标注" → 用 `siyuan_read_document` 阅读，添加 AI 摘要。
+- "那个路径实际是关于 Y，不是 X" → 修正结构描述。
+- "不要包含笔记本 Z" → 删除该段落。
 
-Apply each change and confirm what you updated.
+逐条应用修改并确认更新了什么。
 
-## Update Workflow
+## 更新工作流
 
-When the user asks to update the index:
+当用户要求更新索引时：
 
-1. If the index may be stale, call `siyuan_refresh_index` first.
-2. Call `siyuan_start` to get the current notebook overview table and detect new or removed notebooks.
-3. For notebooks that may have changed, use `siyuan_list` with their notebook ID.
-4. For any new or likely-changed documents, read them with
-   `siyuan_read_document` to produce or refresh summaries. Do not rewrite
-   summaries for unchanged documents — only update what is stale.
-5. Update `思源代理桥/Workspace Index` using `siyuan_edit_document`:
-   - Add new documents or paths discovered, with summaries.
-   - Remove entries for deleted documents.
-   - Refresh AI summaries for documents you confirmed have changed.
-   - **Preserve every human-written line**: priority annotations, user
-     corrections, and any text the user added. Your job is to update the
-     machine-generated parts, not to rewrite the human contributions.
-6. Report what changed and the new line count.
+1. 如果索引可能过时，先调用 `siyuan_refresh_index`。
+2. 调用 `siyuan_start` 获取当前笔记本概览表，检测新增或删除的笔记本。
+3. 对可能变化的笔记本，用其笔记本 ID 调用 `siyuan_list`。
+4. 对新增或可能变化的文档，用 `siyuan_read_document` 阅读并生成或刷新摘要。
+   不要重写未变化文档的摘要 —— 只更新过时的部分。
+5. 用 `siyuan_edit_document` 更新 `思源代理桥/工作空间索引`：
+   - 添加新发现的文档或路径，附带摘要。
+   - 删除已不存在文档的条目。
+   - 刷新你确认内容有变化的文档的 AI 摘要。
+   - **保留所有人工撰写的行**：优先级标注、用户修正以及用户添加的任何文本。
+     你的工作是更新机器生成的部分，而非重写人工贡献。
+6. 汇报变化内容和新行数。
 
-## Safety Rules
+## 安全规则
 
-- Use `siyuan_create_document` or `siyuan_edit_document` to write the index — never write to local `knowledge_base/` files for index purposes.
-- Do not read hidden documents or notebooks. Work only from visible safe indexes.
-- Do not overwrite human annotations in the Workspace Index. Add your updates around them.
-- The user's words are the only confirmation needed. "Create index" means create it. "Update index" means update it. No extra approval step.
-- Do not treat `思源代理桥` / `SiYuan Agent Bridge` system notebook as user source material when building the index. It contains system documents (AI Guide, Workspace Index, About, Privacy Rules), not user knowledge.
+- 使用 `siyuan_create_document` 或 `siyuan_edit_document` 写入索引 —— 绝不写入本地 `knowledge_base/` 文件。
+- 不要读取隐藏的文档或笔记本。只从可见的安全索引中工作。
+- 不要覆盖工作空间索引中的人工标注。围绕它们添加你的更新。
+- 用户的话是唯一的确认。"建索引"就是建，"更新索引"就是更新。无需额外确认步骤。
+- 构建索引时，不要将 `思源代理桥` / `SiYuan Agent Bridge` 系统笔记本中的内容当作用户资料。它包含的是系统文档（AI 使用指南、工作空间索引、关于思源代理桥、隐私规则），而非用户知识。

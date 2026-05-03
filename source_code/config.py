@@ -36,7 +36,7 @@ def _read_json(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as handle:
         data = json.load(handle)
     if not isinstance(data, dict):
-        raise ValueError(f"{path} must contain a JSON object")
+        raise ValueError(f"{path} 必须包含一个 JSON 对象")
     return data
 
 

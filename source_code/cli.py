@@ -271,17 +271,17 @@ def render_start_packet(root: Path, profile_name: str, version: str) -> str:
     index_md = read_optional_text(base / "index.md")
     overview = build_notebook_overview(root)
     parts: list[str] = [
-        "# SiYuan Agent Bridge Startup Packet",
+        "# 思源代理桥启动包",
         "",
-        f"SiYuan connection: OK, version {version}",
-        f"Workspace: {profile_name}",
+        f"思源连接：正常，版本 {version}",
+        f"已连接工作空间：{profile_name}",
         "",
         overview,
     ]
     if index_md:
         parts.extend([
             "",
-            "## Semantic Index (index.md)",
+            "## 语义索引 (index.md)",
             "",
             index_md.strip(),
         ])
@@ -292,23 +292,23 @@ def render_start_packet(root: Path, profile_name: str, version: str) -> str:
         ])
     parts.extend([
         "",
-        "## Mandatory Workflow",
+        "## 启动流程",
         "",
-        "1. Use this startup packet first.",
-        "2. If an index.md was provided above, use its quick navigation table to locate relevant notebooks.",
-        "3. Follow `knowledge_base/guide.md` for durable preferences.",
-        "4. Use the notebook overview table to choose relevant notebooks.",
-        "5. Use `siyuan_list` with a `notebook_id` to see one notebook's document tree.",
-        "6. Read documents with `siyuan_read_document`.",
-        "7. Use `siyuan_refresh_index` mid-session only when the user explicitly asks to refresh.",
+        "1. 先使用本启动包。",
+        "2. 如果上面提供了 index.md，使用其快速导航表定位相关笔记本。",
+        "3. 遵循 `knowledge_base/guide.md` 中的持久偏好。",
+        "4. 使用笔记本概览表选择相关笔记本。",
+        "5. 使用 `siyuan_list`（带 `notebook_id`）查看单个笔记本的文档树。",
+        "6. 使用 `siyuan_read_document` 阅读文档。",
+        "7. 仅在用户明确要求刷新时，使用 `siyuan_refresh_index` 刷新。",
         "",
-        "## Start Here",
+        "## 从这里开始",
         "",
-        start_here.strip() if start_here else "(START_HERE.md is missing)",
+        start_here.strip() if start_here else "（缺少 START_HERE.md）",
         "",
-        "## Guide",
+        "## 指南",
         "",
-        guide.strip() if guide else "(guide.md is missing)",
+        guide.strip() if guide else "（缺少 guide.md）",
         "",
     ])
     return "\n".join(parts)
