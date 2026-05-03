@@ -751,7 +751,6 @@ class BlockIdBuildTests(unittest.TestCase):
         result = mcp_server.build_markdown_from_blocks(blocks)
         self.assertIn("block-a", result)
         self.assertIn("block-b", result)
-        # Both comments should appear
         self.assertEqual(result.count("<!-- siyuan:block "), 2)
 
     def test_tree_order_uses_parent_then_sort(self):
@@ -804,8 +803,457 @@ class BlockIdBuildTests(unittest.TestCase):
         self.assertLess(result.index("id=b "), result.index("id=a "))
 
 
+# ── Token estimation tests ────────────────────────────────────────────
+
+class TokenEstimationTests(unittest.TestCase):
+    def test_empty_string_returns_zero(self):
+        self.assertEqual(mcp_server.estimate_token_count(""), 0)
+
+    def test_pure_cjk(self):
+        tokens = mcp_server.estimate_token_count("人工智能芯片市场分析报告")
+        # 10 CJK chars * 1.0 = 10
+        self.assertGreater(tokens, 8)
+        self.assertLessEqual(tokens, 12)
+
+    def test_pure_english(self):
+        tokens = mcp_server.estimate_token_count("The quick brown fox jumps over the lazy dog")
+        # 9 words * 1.3 ≈ 11-12
+        self.assertGreater(tokens, 9)
+        self.assertLess(tokens, 14)
+
+    def test_mixed_cjk_english(self):
+        tokens = mcp_server.estimate_token_count("NVIDIA B300 芯片性能分析报告 2026")
+        self.assertGreater(tokens, 6)
+        self.assertLess(tokens, 20)
+
+    def test_digits_count_lower(self):
+        tokens = mcp_server.estimate_token_count("12345")
+        # 5 digits * 0.8 = 4
+        self.assertGreater(tokens, 3)
+        self.assertLess(tokens, 6)
+
+    def test_table_row(self):
+        tokens = mcp_server.estimate_token_count("| 指标 | 数值 | 增长率 |")
+        # some bars, some cjk, some spaces
+        self.assertGreater(tokens, 3)
+        self.assertLess(tokens, 15)
+
+
+# ── Display block building tests ──────────────────────────────────────
+
+class DisplayBlockBuildTests(unittest.TestCase):
+    def _make_client(self, blocks_for_doc):
+        class ChildClient:
+            def __init__(self, blocks):
+                self.blocks = blocks
+
+            def get_child_blocks(self, block_id):
+                return self.blocks.get(block_id, [])
+
+        return ChildClient(blocks_for_doc)
+
+    def test_builds_ordered_display_blocks(self):
+        client = self._make_client({
+            "doc1": [
+                {"id": "h1", "type": "h", "subtype": "h2", "markdown": "## Hello"},
+                {"id": "p1", "type": "p", "markdown": "World"},
+            ]
+        })
+        blocks = mcp_server.build_display_blocks(client, "doc1")
+        self.assertEqual(len(blocks), 2)
+        self.assertEqual(blocks[0].index, 1)
+        self.assertEqual(blocks[0].id, "h1")
+        self.assertTrue(blocks[0].is_heading)
+        self.assertEqual(blocks[0].heading_level, 2)
+        self.assertEqual(blocks[1].index, 2)
+        self.assertEqual(blocks[1].id, "p1")
+        self.assertFalse(blocks[1].is_heading)
+
+    def test_skips_list_container(self):
+        client = self._make_client({
+            "doc1": [
+                {"id": "list", "type": "l", "subtype": "u", "markdown": "- item 1\n- item 2"},
+                {"id": "item", "type": "i", "subtype": "u", "markdown": "- item 1"},
+            ]
+        })
+        blocks = mcp_server.build_display_blocks(client, "doc1")
+        ids = [b.id for b in blocks]
+        self.assertNotIn("list", ids)
+        self.assertIn("item", ids)
+
+    def test_include_block_ids_injects_comments(self):
+        client = self._make_client({
+            "doc1": [
+                {"id": "p1", "type": "p", "markdown": "Text here."},
+            ]
+        })
+        blocks = mcp_server.build_display_blocks(client, "doc1", include_block_ids=True)
+        self.assertIn("<!-- siyuan:block id=p1 type=p -->", blocks[0].markdown)
+        self.assertIn("Text here.", blocks[0].markdown)
+
+    def test_no_comments_when_ids_off(self):
+        client = self._make_client({
+            "doc1": [
+                {"id": "p1", "type": "p", "markdown": "Text here."},
+            ]
+        })
+        blocks = mcp_server.build_display_blocks(client, "doc1", include_block_ids=False)
+        self.assertEqual(blocks[0].markdown, "Text here.")
+
+    def test_heading_detection(self):
+        client = self._make_client({
+            "doc1": [
+                {"id": "h1", "type": "h", "subtype": "h1", "markdown": "# Main"},
+                {"id": "h2", "type": "h", "subtype": "h2", "markdown": "## Sub"},
+                {"id": "h3", "type": "h", "subtype": "h3", "markdown": "### Subsub"},
+            ]
+        })
+        blocks = mcp_server.build_display_blocks(client, "doc1")
+        self.assertEqual(blocks[0].heading_level, 1)
+        self.assertEqual(blocks[1].heading_level, 2)
+        self.assertEqual(blocks[2].heading_level, 3)
+        self.assertEqual(blocks[0].heading_text, "Main")
+
+    def test_recursive_traversal(self):
+        client = self._make_client({
+            "doc1": [
+                {"id": "h1", "type": "h", "subtype": "h2", "markdown": "## Section"},
+            ],
+            "h1": [
+                {"id": "p1", "type": "p", "markdown": "Paragraph under heading."},
+            ]
+        })
+        blocks = mcp_server.build_display_blocks(client, "doc1")
+        self.assertEqual(len(blocks), 2)
+        self.assertEqual(blocks[1].id, "p1")
+
+    def test_estimated_tokens_set(self):
+        client = self._make_client({
+            "doc1": [
+                {"id": "p1", "type": "p", "markdown": "Some text for token estimation."},
+            ]
+        })
+        blocks = mcp_server.build_display_blocks(client, "doc1")
+        self.assertGreater(blocks[0].estimated_tokens, 0)
+
+
+# ── Block window outline tests ────────────────────────────────────────
+
+class BlockOutlineTests(unittest.TestCase):
+    def test_outline_shows_block_positions(self):
+        blocks = [
+            mcp_server.DisplayBlock(index=3, id="h1", type="h", subtype="h2", markdown="## Intro", estimated_tokens=5, is_heading=True, heading_level=2, heading_text="Intro"),
+            mcp_server.DisplayBlock(index=7, id="h2", type="h", subtype="h3", markdown="### Detail", estimated_tokens=5, is_heading=True, heading_level=3, heading_text="Detail"),
+        ]
+        # Add some non-heading blocks
+        blocks.insert(0, mcp_server.DisplayBlock(index=1, id="p1", type="p", subtype="", markdown="A", estimated_tokens=2))
+        blocks.insert(1, mcp_server.DisplayBlock(index=2, id="p2", type="p", subtype="", markdown="B", estimated_tokens=2))
+        result = mcp_server.build_block_outline(blocks)
+        self.assertIn("block 3", result)
+        self.assertIn("## Intro", result)
+        self.assertIn("block 7", result)
+        self.assertIn("### Detail", result)
+        self.assertIn("2 个标题", result)
+
+    def test_outline_no_headings(self):
+        blocks = [
+            mcp_server.DisplayBlock(index=1, id="p1", type="p", subtype="", markdown="Text", estimated_tokens=2),
+        ]
+        result = mcp_server.build_block_outline(blocks)
+        self.assertIn("文档无标题结构", result)
+
+    def test_outline_hierarchy(self):
+        blocks = [
+            mcp_server.DisplayBlock(index=1, id="h1", type="h", subtype="h2", markdown="## Parent", estimated_tokens=5, is_heading=True, heading_level=2, heading_text="Parent"),
+            mcp_server.DisplayBlock(index=5, id="h2", type="h", subtype="h3", markdown="### Child", estimated_tokens=5, is_heading=True, heading_level=3, heading_text="Child"),
+            mcp_server.DisplayBlock(index=10, id="h3", type="h", subtype="h2", markdown="## Sibling", estimated_tokens=5, is_heading=True, heading_level=2, heading_text="Sibling"),
+        ]
+        result = mcp_server.build_block_outline(blocks)
+        # Child should be indented under Parent
+        self.assertIn("block 1", result)
+        self.assertIn("## Parent", result)
+        self.assertIn("block 5", result)
+        self.assertIn("### Child", result)
+        self.assertIn("block 10", result)
+        self.assertIn("## Sibling", result)
+
+
+# ── Window preview tests ──────────────────────────────────────────────
+
+class WindowPreviewTests(unittest.TestCase):
+    def _make_blocks(self, count: int, with_headings: int = 0, start_hlevel: int = 2) -> list:
+        blocks = []
+        for i in range(1, count + 1):
+            if i <= with_headings:
+                htext = f"Section {i}"
+                blocks.append(mcp_server.DisplayBlock(
+                    index=i, id=f"h{i}", type="h", subtype=f"h{start_hlevel}",
+                    markdown=f"{'#' * start_hlevel} {htext}", estimated_tokens=5,
+                    is_heading=True, heading_level=start_hlevel, heading_text=htext,
+                ))
+            else:
+                blocks.append(mcp_server.DisplayBlock(
+                    index=i, id=f"p{i}", type="p", subtype="",
+                    markdown=f"Paragraph number {i} with some content to fill space and test preview extraction.", estimated_tokens=10,
+                ))
+        return blocks
+
+    def test_no_preview_when_enough_headings(self):
+        blocks = self._make_blocks(150, with_headings=5)
+        result = mcp_server.build_window_preview(blocks)
+        self.assertEqual(result, "")
+
+    def test_no_preview_when_few_blocks(self):
+        blocks = self._make_blocks(50, with_headings=2)
+        result = mcp_server.build_window_preview(blocks)
+        self.assertEqual(result, "")
+
+    def test_preview_when_low_headings_many_blocks(self):
+        blocks = self._make_blocks(120, with_headings=3)
+        result = mcp_server.build_window_preview(blocks)
+        self.assertIn("标题较少", result)
+        self.assertIn("block 1:", result)
+        self.assertIn("block 51:", result)
+        self.assertIn("block 101:", result)
+
+    def test_preview_sampling_every_50(self):
+        blocks = self._make_blocks(200, with_headings=2)
+        result = mcp_server.build_window_preview(blocks)
+        self.assertIn("block 1:", result)
+        self.assertIn("block 51:", result)
+        self.assertIn("block 101:", result)
+        self.assertIn("block 151:", result)
+        # Should only have 4 samples for 200 blocks
+        self.assertEqual(result.count("block "), 4)
+
+    def test_preview_unaffected_by_heading_count_equal_five(self):
+        blocks = self._make_blocks(120, with_headings=5)
+        result = mcp_server.build_window_preview(blocks)
+        self.assertEqual(result, "")
+
+
+# ── Read document integration tests (new block window path) ───────────
+
+class McpServerReadBlockWindowTests(unittest.TestCase):
+    def setUp(self):
+        self.root = Path.cwd() / ".test_tmp" / "mcp_blockwin"
+        shutil.rmtree(self.root, ignore_errors=True)
+        base = self.root / "knowledge_base"
+        base.mkdir(parents=True, exist_ok=True)
+        (base / "notebooks.json").write_text(
+            json.dumps([{"id": "nb1", "name": "Main"}], ensure_ascii=False),
+            encoding="utf-8",
+        )
+        docs = [
+            {
+                "id": "doc1",
+                "notebook_id": "nb1",
+                "notebook_name": "Main",
+                "hpath": "/Test Doc",
+                "title": "Test Doc",
+                "path": "/doc1.sy",
+                "tags": [],
+                "word_count": 10,
+                "block_count": 3,
+                "updated": "20260501010101",
+            },
+        ]
+        (base / "docs.jsonl").write_text(
+            "".join(json.dumps(doc, ensure_ascii=False) + "\n" for doc in docs),
+            encoding="utf-8",
+        )
+
+    def _make_client(self, blocks_for_doc=None):
+        class ChildFakeClient(FakeSearchClient):
+            def get_child_blocks(self, block_id):
+                blocks = self._blocks.get(block_id)
+                if isinstance(blocks, list):
+                    return blocks
+                # Fallback: search across all stored blocks for matching parent_id
+                children = []
+                for block_list in self._blocks.values():
+                    if isinstance(block_list, list):
+                        children.extend(b for b in block_list if str(b.get("parent_id", "")) == block_id)
+                children.sort(key=lambda b: int(b.get("sort", 0)))
+                return children
+
+        client = ChildFakeClient([])
+        if blocks_for_doc:
+            client._blocks = blocks_for_doc
+        client._docs["doc1"] = "## Section\n\nBody text here.\n"
+        return client
+
+    def _read(self, args: dict[str, Any], blocks_for_doc=None):
+        client = self._make_client(blocks_for_doc)
+        server = mcp_server.McpServer(self.root)
+        original = mcp_server.get_working_client
+
+        def fake_client(_config):
+            return client
+
+        mcp_server.get_working_client = fake_client
+        try:
+            return server.siyuan_read_document(args)
+        finally:
+            mcp_server.get_working_client = original
+
+    def test_default_block_window_mode(self):
+        blocks = {
+            "doc1": [
+                {"id": "h1", "parent_id": "doc1", "type": "h", "subtype": "h2", "markdown": "## Section", "sort": 1},
+                {"id": "p1", "parent_id": "doc1", "type": "p", "markdown": "Body text here.", "sort": 2},
+            ]
+        }
+        result = self._read({"document_id": "doc1"}, blocks_for_doc=blocks)
+        self.assertIn("普通阅读", result)
+        self.assertIn("展示块:", result)
+        self.assertIn("估算 tokens:", result)
+        self.assertIn("## Section", result)
+        self.assertIn("Body text here.", result)
+        # Should NOT contain old chunk header
+        self.assertNotIn("Chunk ", result)
+
+    def test_block_window_header_shows_range(self):
+        blocks = {
+            "doc1": [
+                {"id": "h1", "parent_id": "doc1", "type": "h", "subtype": "h2", "markdown": "## Section", "sort": 1},
+                {"id": "p1", "parent_id": "doc1", "type": "p", "markdown": "Body text here.", "sort": 2},
+            ]
+        }
+        result = self._read({"document_id": "doc1"}, blocks_for_doc=blocks)
+        self.assertIn("展示块: 1-2 / 2", result)
+
+    def test_block_start_pagination(self):
+        blocks = {
+            "doc1": [
+                {"id": "h1", "parent_id": "doc1", "type": "h", "subtype": "h2", "markdown": "## First", "sort": 1},
+                {"id": "p1", "parent_id": "doc1", "type": "p", "markdown": "First paragraph.", "sort": 2},
+                {"id": "h2", "parent_id": "doc1", "type": "h", "subtype": "h2", "markdown": "## Second", "sort": 3},
+                {"id": "p2", "parent_id": "doc1", "type": "p", "markdown": "Second paragraph.", "sort": 4},
+            ]
+        }
+        result = self._read({"document_id": "doc1", "block_start": 3}, blocks_for_doc=blocks)
+        self.assertIn("展示块: 3-4 / 4", result)
+        # Body (after last ---) should contain Second but not First
+        body_start = result.rindex("---")
+        body = result[body_start:]
+        self.assertIn("## Second", body)
+        self.assertIn("Second paragraph.", body)
+        self.assertNotIn("## First", body)
+        # Outline (above body) still shows all headings
+        self.assertIn("block 1: ## First", result)
+
+    def test_block_limit_restricts_window(self):
+        blocks = {}
+        blocks["doc1"] = []
+        for i in range(10):
+            blocks["doc1"].append({
+                "id": f"p{i}", "parent_id": "doc1", "type": "p",
+                "markdown": f"Paragraph {i}.", "sort": i,
+            })
+        result = self._read({"document_id": "doc1", "block_limit": 3}, blocks_for_doc=blocks)
+        self.assertIn("展示块: 1-3 / 10", result)
+        self.assertIn("Paragraph 0.", result)
+        self.assertIn("Paragraph 2.", result)
+        self.assertNotIn("Paragraph 3.", result)
+
+    def test_token_budget_stops_at_block_boundary(self):
+        blocks = {
+            "doc1": [
+                {"id": "p1", "parent_id": "doc1", "type": "p", "markdown": "Short.", "sort": 1},
+                {"id": "p2", "parent_id": "doc1", "type": "p", "markdown": "Another.", "sort": 2},
+                {"id": "p3", "parent_id": "doc1", "type": "p", "markdown": "A" + "x" * 500 + " really long paragraph that would blow budget.", "sort": 3},
+            ]
+        }
+        # Very small budget should return at least block 1
+        result = self._read({"document_id": "doc1", "token_budget": 10}, blocks_for_doc=blocks)
+        self.assertIn("Short.", result)
+        # Budget 10 should be very tight
+        self.assertIn("估算 tokens:", result)
+        # At least one block returned
+        self.assertIn("Short.", result)
+
+    def test_next_window_hint(self):
+        blocks = {}
+        blocks["doc1"] = []
+        for i in range(10):
+            blocks["doc1"].append({
+                "id": f"p{i}", "parent_id": "doc1", "type": "p",
+                "markdown": f"Paragraph {i}.", "sort": i,
+            })
+        result = self._read({"document_id": "doc1", "block_limit": 5}, blocks_for_doc=blocks)
+        self.assertIn("下一窗口:", result)
+        self.assertIn("block_start=6", result)
+
+    def test_include_block_ids_is_reference_reading(self):
+        blocks = {
+            "doc1": [
+                {"id": "p1", "parent_id": "doc1", "type": "p", "markdown": "Hello world.", "sort": 1},
+            ]
+        }
+        result = self._read({"document_id": "doc1", "include_block_ids": True}, blocks_for_doc=blocks)
+        self.assertIn("引用阅读", result)
+        self.assertIn("<!-- siyuan:block id=p1 type=p -->", result)
+
+    def test_window_preview_integration(self):
+        blocks = {}
+        blocks["doc1"] = []
+        for i in range(1, 121):
+            blocks["doc1"].append({
+                "id": f"p{i}", "parent_id": "doc1", "type": "p",
+                "markdown": f"Paragraph number {i} content here.", "sort": i,
+            })
+        result = self._read({"document_id": "doc1", "block_limit": 200, "token_budget": 200000}, blocks_for_doc=blocks)
+        # 0 headings, 120 blocks → should show window preview
+        self.assertIn("标题较少（0 个）", result)
+        self.assertIn("block 1:", result)
+        self.assertIn("block 51:", result)
+        self.assertIn("block 101:", result)
+
+    def test_no_window_preview_with_headings(self):
+        blocks = {}
+        blocks["doc1"] = []
+        # 5 headings, 120 blocks → no preview
+        for i in range(1, 121):
+            if i <= 5:
+                blocks["doc1"].append({
+                    "id": f"h{i}", "parent_id": "doc1", "type": "h", "subtype": "h2",
+                    "markdown": f"## Heading {i}", "sort": i,
+                })
+            else:
+                blocks["doc1"].append({
+                    "id": f"p{i}", "parent_id": "doc1", "type": "p",
+                    "markdown": f"Paragraph {i}.", "sort": i,
+                })
+        result = self._read({"document_id": "doc1", "block_limit": 200, "token_budget": 200000}, blocks_for_doc=blocks)
+        self.assertNotIn("标题较少", result)
+        self.assertIn("大纲", result)
+
+    def test_outline_shows_block_positions(self):
+        blocks = {
+            "doc1": [
+                {"id": "h1", "parent_id": "doc1", "type": "h", "subtype": "h2", "markdown": "## Section One", "sort": 1},
+                {"id": "p1", "parent_id": "doc1", "type": "p", "markdown": "Body paragraph.", "sort": 2},
+            ]
+        }
+        result = self._read({"document_id": "doc1"}, blocks_for_doc=blocks)
+        self.assertIn("block 1:", result)
+        self.assertIn("## Section One", result)
+
+    def test_old_chunk_path_still_works(self):
+        result = self._read({"document_id": "doc1", "chunk": 1})
+        # When chunk>0, uses old path which calls export_markdown
+        self.assertIn("旧 chunk 兼容路径", result)
+        self.assertIn("大纲 (1 chunks", result)
+        self.assertIn("## Section", result)
+        self.assertIn("Body text here.", result)
+
+
+# Keep the original McpServerReadBlockIdTests for backward compat of the
+# include_block_ids integration, now adapted to block window format.
+
 class McpServerReadBlockIdTests(unittest.TestCase):
-    """Integration tests for siyuan_read_document with include_block_ids."""
+    """Integration tests for reference reading with include_block_ids."""
 
     def setUp(self):
         self.root = Path.cwd() / ".test_tmp" / "mcp_blockid"
@@ -837,14 +1285,32 @@ class McpServerReadBlockIdTests(unittest.TestCase):
         )
 
     def _make_client(self, blocks_for_doc=None):
-        client = FakeSearchClient([])
+        class ChildFakeClient(FakeSearchClient):
+            def get_child_blocks(self, block_id):
+                blocks = self._blocks.get(block_id)
+                if isinstance(blocks, list):
+                    return blocks
+                children = []
+                for block_list in self._blocks.values():
+                    if isinstance(block_list, list):
+                        children.extend(b for b in block_list if str(b.get("parent_id", "")) == block_id)
+                children.sort(key=lambda b: int(b.get("sort", 0)))
+                return children
+
+        client = ChildFakeClient([])
         if blocks_for_doc:
             client._blocks = blocks_for_doc
         client._docs["doc1"] = self.doc_md
         return client
 
     def test_default_excludes_block_ids(self):
-        client = self._make_client()
+        blocks = {
+            "doc1": [
+                {"id": "h1", "parent_id": "doc1", "type": "h", "subtype": "h2", "markdown": "## Section One", "sort": 1},
+                {"id": "p1", "parent_id": "doc1", "type": "p", "markdown": "Body paragraph here.", "sort": 2},
+            ]
+        }
+        client = self._make_client(blocks_for_doc=blocks)
         server = mcp_server.McpServer(self.root)
         original = mcp_server.get_working_client
 
@@ -855,16 +1321,17 @@ class McpServerReadBlockIdTests(unittest.TestCase):
         try:
             result = server.siyuan_read_document({"document_id": "doc1"})
             self.assertNotIn("<!-- siyuan:block", result)
+            self.assertIn("普通阅读", result)
             self.assertIn("## Section One", result)
             self.assertIn("Body paragraph here.", result)
         finally:
             mcp_server.get_working_client = original
 
-    def test_include_block_ids_builds_from_blocks(self):
+    def test_include_block_ids_builds_reference_view(self):
         blocks = {
             "doc1": [
-                {"id": "block-h1", "parent_id": "doc1", "type": "h", "subtype": "h2", "markdown": "## Section One", "content": "Section One", "sort": 1},
-                {"id": "block-p1", "parent_id": "doc1", "type": "p", "subtype": "", "markdown": "Body paragraph here.", "content": "Body paragraph here.", "sort": 2},
+                {"id": "block-h1", "parent_id": "doc1", "type": "h", "subtype": "h2", "markdown": "## Section One", "sort": 1},
+                {"id": "block-p1", "parent_id": "doc1", "type": "p", "markdown": "Body paragraph here.", "sort": 2},
             ]
         }
         client = self._make_client(blocks_for_doc=blocks)
@@ -881,18 +1348,16 @@ class McpServerReadBlockIdTests(unittest.TestCase):
             self.assertIn("## Section One", result)
             self.assertIn("<!-- siyuan:block id=block-p1 type=p -->", result)
             self.assertIn("Body paragraph here.", result)
-            self.assertIn("块 ID 注入: 2 已注入 (实验模式)", result)
-            # Should NOT contain exported markdown format (uses block-built format)
-            self.assertNotIn(self.doc_md, result)
+            self.assertIn("引用阅读", result)
         finally:
             mcp_server.get_working_client = original
 
     def test_include_block_ids_preserves_outline(self):
         blocks = {
             "doc1": [
-                {"id": "block-h1", "parent_id": "doc1", "type": "h", "subtype": "h2", "markdown": "## Section One", "content": "Section One", "sort": 1},
-                {"id": "block-p1", "parent_id": "doc1", "type": "p", "subtype": "", "markdown": "Body paragraph here.", "content": "Body paragraph here.", "sort": 2},
-                {"id": "block-p2", "parent_id": "doc1", "type": "p", "subtype": "", "markdown": "Another paragraph.", "content": "Another paragraph.", "sort": 3},
+                {"id": "block-h1", "parent_id": "doc1", "type": "h", "subtype": "h2", "markdown": "## Section One", "sort": 1},
+                {"id": "block-p1", "parent_id": "doc1", "type": "p", "markdown": "Body paragraph here.", "sort": 2},
+                {"id": "block-p2", "parent_id": "doc1", "type": "p", "markdown": "Another paragraph.", "sort": 3},
             ]
         }
         client = self._make_client(blocks_for_doc=blocks)

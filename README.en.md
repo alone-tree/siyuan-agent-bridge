@@ -57,7 +57,7 @@ The MCP server provides these tools (default read-only, write on explicit confir
 - `siyuan_refresh_index`: refresh safe indexes mid-session when the user explicitly asks. Also cleans `ai_workspace/` (preserves README.md).
 - `siyuan_list`: list visible notebooks (no args) or return the document tree for one notebook (with `notebook_id`), including word counts and update times.
 - `siyuan_find_documents`: search through SiYuan search APIs, then apply privacy rules before returning results. Supports 4 modes (`keyword`/`query`/`regex`/`sql`), 2 scopes (`headings`/`full`), and optional notebook filters.
-- `siyuan_read_document`: read a visible document with outline. Hidden documents are not readable through MCP even when their IDs are known, unless they are explicitly opened with a temporary allow rule first. Short docs return full text; long docs return one chunk; use `chunk=N` to navigate. Attachments (images, PDFs, spreadsheets, etc.) are automatically extracted to `ai_workspace/`, preserving original references unchanged.
+- `siyuan_read_document`: read a visible document with outline (heading→block position mapping). Default block window mode (`block_limit=200`, `token_budget=50000`) returns complete consecutive blocks without mid-character truncation. Use `block_start=N` for pagination. `include_block_ids=true` enables reference reading with block ID HTML comments for cross-document block references and precise edit targeting. Old `chunk/max_chars` path retained. Attachments (images, PDFs, spreadsheets, etc.) are automatically extracted to `ai_workspace/`, preserving original references unchanged.
 - `siyuan_create_document`: create a new document in a visible notebook. Creates a SiYuan workspace snapshot before writing; refuses if the snapshot fails. Requires `confirmed=true`. User can manually roll back via SiYuan snapshots.
 - `siyuan_edit_document`: edit a visible document using `old_text` → `new_text` text anchors. `old_text=""` appends to the end; `new_text=""` deletes matching text. Only single-block edits supported; cross-block text requires multiple calls. Creates a snapshot before writing. Requires `confirmed=true`.
 - `siyuan_propose_guide_update`: save a proposed guide update in `ai_workspace/`.
@@ -77,7 +77,7 @@ Default chunk size:
 
 Agents can pass `max_chars` to adjust the size. The current range is 2,000 to 30,000 characters.
 
-`siyuan_read_document` always returns the document outline (heading→chunk mapping) first. For long documents, call with `chunk=0` for the first chunk or `chunk=N` to jump to a specific section.
+`siyuan_read_document` always returns the document outline first (heading→block position mapping). Long documents are paginated with `block_start=N`. When headings are fewer than 5 and total blocks exceed 100, a window preview with snippets every 50 blocks is included.
 
 ## Ignore Rules
 

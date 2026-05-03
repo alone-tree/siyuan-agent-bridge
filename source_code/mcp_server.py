@@ -4,6 +4,7 @@ import json
 import re
 import shutil
 import sys
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
@@ -189,6 +190,215 @@ def build_markdown_from_child_blocks(client: Any, root_id: str) -> str:
         visit(child)
 
     return "\n\n".join(parts)
+
+
+# ── Block Window data model and helpers ──────────────────────────────
+
+DEFAULT_BLOCK_LIMIT = 200
+MIN_BLOCK_LIMIT = 1
+MAX_BLOCK_LIMIT = 1000
+DEFAULT_TOKEN_BUDGET = 50000
+MIN_TOKEN_BUDGET = 1000
+MAX_TOKEN_BUDGET = 200000
+WINDOW_PREVIEW_INTERVAL = 50
+WINDOW_PREVIEW_MIN_HEADINGS = 5
+WINDOW_PREVIEW_MIN_BLOCKS = 100
+WINDOW_PREVIEW_PREFIX_LEN = 80
+
+
+@dataclass
+class DisplayBlock:
+    index: int
+    id: str
+    type: str
+    subtype: str
+    markdown: str
+    estimated_tokens: int
+    is_heading: bool = False
+    heading_level: int | None = None
+    heading_text: str = ""
+
+
+def estimate_token_count(text: str) -> int:
+    """Heuristic token estimator. CJK ~1.0 tok/char, Latin ~1.3 tok/word, digits ~0.8 tok/item, punctuation ~0.4 tok/char."""
+    if not text:
+        return 0
+    cjk = 0
+    latin_words = 0
+    digits = 0
+    punct = 0
+    buf = ""
+    for ch in text:
+        cp = ord(ch)
+        if cp >= 0x4E00 and cp <= 0x9FFF or cp >= 0x3400 and cp <= 0x4DBF or cp >= 0x20000 and cp <= 0x2A6DF:
+            if buf:
+                latin_words += len(buf.split())
+                buf = ""
+            cjk += 1
+        elif ch.isdigit():
+            if buf:
+                latin_words += len(buf.split())
+                buf = ""
+            digits += 1
+        elif ch.isalpha():
+            buf += ch
+        else:
+            if buf:
+                latin_words += len(buf.split())
+                buf = ""
+            if not ch.isspace() and not cp >= 0x4E00:
+                punct += 1
+    if buf:
+        latin_words += len(buf.split())
+    return int(cjk * 1.0 + latin_words * 1.3 + digits * 0.8 + punct * 0.4)
+
+
+def build_display_blocks(client: Any, root_id: str, *, include_block_ids: bool = False) -> list[DisplayBlock]:
+    """Build ordered list of DisplayBlock using SiYuan's getChildBlocks API."""
+    blocks: list[DisplayBlock] = []
+    visited: set[str] = set()
+
+    def visit(block: dict[str, Any]) -> None:
+        block_id = block_field(block, "id")
+        if not block_id or block_id in visited:
+            return
+        visited.add(block_id)
+
+        block_type = block_field(block, "type")
+        # Skip document roots and list containers (they are structural)
+        if block_type in SKIP_BLOCK_TYPES:
+            # Still traverse children of list containers
+            if block_type in CHILD_TRAVERSAL_BLOCK_TYPES:
+                for child in client.get_child_blocks(block_id):
+                    visit(child)
+            return
+
+        subtype = block_field(block, "subtype", "subType")
+        block_md = block_field(block, "markdown")
+
+        is_heading = block_type == "h"
+        heading_level = None
+        heading_text = ""
+        if is_heading:
+            try:
+                heading_level = int(subtype[1]) if subtype.startswith("h") else None
+            except (ValueError, IndexError):
+                heading_level = None
+            heading_text = block_md.lstrip("#").strip()
+
+        display_md = block_md
+        if include_block_ids and block_type not in COMMENT_ONLY_BLOCK_TYPES and block_md.strip():
+            subtype_str = f" subtype={subtype}" if subtype else ""
+            comment = f"<!-- siyuan:block id={block_id} type={block_type}{subtype_str} -->"
+            display_md = f"{comment}\n{block_md}"
+        elif include_block_ids and block_type in COMMENT_ONLY_BLOCK_TYPES:
+            subtype_str = f" subtype={subtype}" if subtype else ""
+            display_md = f"<!-- siyuan:block id={block_id} type={block_type}{subtype_str} -->"
+
+        # Skip blocks with no visible content in normal mode
+        if not include_block_ids and not block_md.strip():
+            if block_type in CHILD_TRAVERSAL_BLOCK_TYPES:
+                for child in client.get_child_blocks(block_id):
+                    visit(child)
+            return
+
+        estimated_tokens = estimate_token_count(block_md)
+        blocks.append(DisplayBlock(
+            index=len(blocks) + 1,
+            id=block_id,
+            type=block_type,
+            subtype=subtype,
+            markdown=display_md,
+            estimated_tokens=estimated_tokens,
+            is_heading=is_heading,
+            heading_level=heading_level,
+            heading_text=heading_text,
+        ))
+
+        # List items and tables: their markdown already contains subtree content — skip children
+        if block_type in SUBTREE_MARKDOWN_BLOCK_TYPES:
+            return
+        # Continue traversing children for headings, super blocks, list containers
+        if block_type in CHILD_TRAVERSAL_BLOCK_TYPES:
+            for child in client.get_child_blocks(block_id):
+                visit(child)
+
+    for child in client.get_child_blocks(root_id):
+        visit(child)
+
+    return blocks
+
+
+def build_block_outline(display_blocks: list[DisplayBlock]) -> str:
+    """Build an outline showing heading block positions."""
+    headings = [b for b in display_blocks if b.is_heading]
+    if not headings:
+        return "## 大纲\n\n(文档无标题结构)"
+
+    roots: list[dict[str, Any]] = []
+    stack: list[tuple[int, dict[str, Any]]] = []
+
+    for db in headings:
+        node: dict[str, Any] = {
+            "text": db.heading_text,
+            "level": db.heading_level or 1,
+            "block_index": db.index,
+            "children": [],
+        }
+
+        while stack and stack[-1][0] >= (db.heading_level or 1):
+            stack.pop()
+
+        if stack:
+            stack[-1][1]["children"].append(node)
+        else:
+            roots.append(node)
+
+        stack.append((db.heading_level or 1, node))
+
+    def _fmt(node: dict[str, Any], indent: int) -> list[str]:
+        prefix = "  " * indent
+        lines = [f"{prefix}- block {node['block_index']}: {'#' * node['level']} {node['text']}"]
+        for child in node["children"]:
+            lines.extend(_fmt(child, indent + 1))
+        return lines
+
+    body: list[str] = []
+    for r in roots:
+        body.extend(_fmt(r, 0))
+
+    total = len(display_blocks)
+    parts = [f"## 大纲 ({len(headings)} 个标题, {total} 个展示块)"]
+    parts.extend(body)
+    return "\n".join(parts)
+
+
+def build_window_preview(display_blocks: list[DisplayBlock]) -> str:
+    """Build a window preview for low-heading, high-block documents.
+
+    Only when headings < 5 AND total blocks > 100.
+    Previews every 50 blocks with a short snippet of the block text.
+    """
+    heading_count = sum(1 for b in display_blocks if b.is_heading)
+    total = len(display_blocks)
+    if heading_count >= WINDOW_PREVIEW_MIN_HEADINGS or total <= WINDOW_PREVIEW_MIN_BLOCKS:
+        return ""
+
+    lines = [
+        f"本文档标题较少（{heading_count} 个），抽取每 {WINDOW_PREVIEW_INTERVAL} 个块的开头片段帮助选择阅读窗口：",
+        "",
+    ]
+    for db in display_blocks:
+        if (db.index - 1) % WINDOW_PREVIEW_INTERVAL == 0:
+            text = db.markdown
+            # Strip block ID comment for preview
+            if text.startswith("<!-- siyuan:block"):
+                text = text.split("-->", 1)[-1].strip()
+            snippet = text[:WINDOW_PREVIEW_PREFIX_LEN].replace("\n", " ")
+            lines.append(f"- block {db.index}: {snippet}")
+
+    lines.append("")
+    return "\n".join(lines)
 
 
 def main() -> int:
@@ -603,21 +813,30 @@ class McpServer:
 
     def siyuan_read_document(self, args: dict[str, Any]) -> str:
         doc = self.resolve_visible_document(args)
+        doc_id = str(doc.get("id"))
         notebook_id = str(doc.get("notebook_id", ""))
         config = load_config(self.root)
         client = get_working_client(config)
         include_block_ids = bool(args.get("include_block_ids"))
-        injected_count = 0
-        with ensure_notebooks_open(client, [notebook_id]):
-            if include_block_ids:
-                markdown = build_markdown_from_child_blocks(client, str(doc["id"]))
-                injected_count = markdown.count("<!-- siyuan:block ")
-            else:
-                markdown = client.export_markdown(str(doc["id"]))
+        chunk_param = int(args.get("chunk") or 0)
+
+        # ── Old chunk path (explicit chunk > 0) ──
+        if chunk_param > 0:
+            return self._read_document_chunk(doc, client, include_block_ids, args)
+
+        # ── New block window path (default) ──
+        return self._read_document_block_window(doc, client, include_block_ids, args)
+
+    def _read_document_chunk(
+        self, doc: dict[str, Any], client: Any, include_block_ids: bool, args: dict[str, Any]
+    ) -> str:
+        """Old character-chunk reading path, kept for backward compatibility."""
         doc_id = str(doc.get("id"))
+        notebook_id = str(doc.get("notebook_id", ""))
+        with ensure_notebooks_open(client, [notebook_id]):
+            markdown = client.export_markdown(doc_id)
         attachment_count = extract_attachments(markdown, client, doc_id, self.root)
         max_chars = clamp_int(args.get("max_chars"), DEFAULT_CHUNK_CHARS, 2000, MAX_CHUNK_CHARS)
-        chunk_param = int(args.get("chunk") or 0)
         chunks = split_markdown_chunks(markdown, max_chars=max_chars)
 
         doc_path = str(doc.get("hpath") or doc.get("title") or doc.get("id"))
@@ -628,9 +847,8 @@ class McpServer:
             f"# Document: {doc_path}",
             f"Document ID: `{doc_id}`",
             f"字数: {markdown_wc:,} | 块数: {doc.get('block_count', 0)} | 字符: {len(markdown):,} | 更新: {date}",
+            f"阅读模式: 旧 chunk 兼容路径 (chunk={int(args.get('chunk') or 0)})",
         ]
-        if include_block_ids:
-            header_lines.append(f"块 ID 注入: {injected_count} 已注入 (实验模式)")
         if attachment_count:
             header_lines.append(f"附件: {attachment_count} 个已提取到 ai_workspace/attachments/{doc_id}/")
         header = "\n".join(header_lines)
@@ -640,6 +858,7 @@ class McpServer:
         if len(chunks) <= 1:
             return "\n".join([header, "", outline, "", "---", "", markdown])
 
+        chunk_param = int(args.get("chunk") or 0)
         if chunk_param == 0:
             chunk_index = 1
         elif chunk_param < 1 or chunk_param > len(chunks):
@@ -663,6 +882,112 @@ class McpServer:
             "",
             chunk_content,
         ])
+
+    def _read_document_block_window(
+        self, doc: dict[str, Any], client: Any, include_block_ids: bool, args: dict[str, Any]
+    ) -> str:
+        """New block window reading path — uses getChildBlocks for display order."""
+        doc_id = str(doc.get("id"))
+        notebook_id = str(doc.get("notebook_id", ""))
+
+        with ensure_notebooks_open(client, [notebook_id]):
+            display_blocks = build_display_blocks(client, doc_id, include_block_ids=include_block_ids)
+
+        # Fallback: if block build returns empty (e.g., very unusual document), use export
+        if not display_blocks:
+            with ensure_notebooks_open(client, [notebook_id]):
+                markdown = client.export_markdown(doc_id)
+            attachment_count = extract_attachments(markdown, client, doc_id, self.root)
+            doc_path = str(doc.get("hpath") or doc.get("title") or doc.get("id"))
+            markdown_wc = compute_word_count(markdown)
+            date = format_date(str(doc.get("updated", "")))
+            header_lines = [
+                f"# Document: {doc_path}",
+                f"Document ID: `{doc_id}`",
+                f"字数: {markdown_wc:,} | 块数: {doc.get('block_count', 0)} | 字符: {len(markdown):,} | 更新: {date}",
+                "阅读模式: 普通阅读（降级到导出 Markdown）",
+            ]
+            if attachment_count:
+                header_lines.append(f"附件: {attachment_count} 个已提取到 ai_workspace/attachments/{doc_id}/")
+            return "\n".join(["\n".join(header_lines), "", "---", "", markdown])
+
+        # Compute stats
+        total_blocks = len(display_blocks)
+        heading_count = sum(1 for b in display_blocks if b.is_heading)
+
+        # Extract attachments from the markdown (use export for attachment discovery)
+        with ensure_notebooks_open(client, [notebook_id]):
+            full_md = client.export_markdown(doc_id)
+        attachment_count = extract_attachments(full_md, client, doc_id, self.root)
+
+        # Clamp block window params
+        block_start = max(int(args.get("block_start") or 1), 1)
+        block_limit = clamp_int(args.get("block_limit"), DEFAULT_BLOCK_LIMIT, MIN_BLOCK_LIMIT, MAX_BLOCK_LIMIT)
+        token_budget = clamp_int(args.get("token_budget"), DEFAULT_TOKEN_BUDGET, MIN_TOKEN_BUDGET, MAX_TOKEN_BUDGET)
+
+        # Select window
+        start_idx = max(block_start - 1, 0)
+        end_idx = min(start_idx + block_limit, total_blocks)
+
+        # Apply token budget — include at least one block
+        window_blocks: list[DisplayBlock] = []
+        token_sum = 0
+        for db in display_blocks[start_idx:end_idx]:
+            if window_blocks and token_sum + db.estimated_tokens > token_budget:
+                break
+            window_blocks.append(db)
+            token_sum += db.estimated_tokens
+
+        window_tokens = token_sum
+        first_idx = window_blocks[0].index if window_blocks else start_idx + 1
+        last_idx = window_blocks[-1].index if window_blocks else start_idx
+
+        # Build header
+        doc_path = str(doc.get("hpath") or doc.get("title") or doc.get("id"))
+        date = format_date(str(doc.get("updated", "")))
+        total_chars = sum(len(b.markdown) for b in display_blocks)
+
+        mode_label = "引用阅读（已插入块 ID 注释）" if include_block_ids else "普通阅读"
+        header_lines = [
+            f"# Document: {doc_path}",
+            f"Document ID: `{doc_id}`",
+            f"展示块: {first_idx}-{last_idx} / {total_blocks}",
+            f"估算 tokens: {window_tokens:,} / {token_budget:,}",
+        ]
+        if start_idx + block_limit < total_blocks:
+            next_start = last_idx + 1
+            header_lines.append(f"下一窗口: block_start={next_start}, block_limit={block_limit}")
+        header_lines.append(f"阅读模式: {mode_label}")
+        if attachment_count:
+            header_lines.append(f"附件: {attachment_count} 个已提取到 ai_workspace/attachments/{doc_id}/")
+        header = "\n".join(header_lines)
+
+        # Build outline (always full document outline with block positions)
+        outline = build_block_outline(display_blocks)
+
+        # Build window preview (only when headings < 5 AND total blocks > 100)
+        window_preview = build_window_preview(display_blocks)
+
+        # Build block text for current window
+        body_lines: list[str] = []
+        for db in window_blocks:
+            if db.markdown.strip():
+                body_lines.append(db.markdown)
+        body = "\n\n".join(body_lines)
+
+        parts = [header, "", outline]
+        if window_preview:
+            parts.extend(["", window_preview])
+        parts.extend(["", "---", "", body])
+
+        if last_idx < total_blocks:
+            parts.extend([
+                "",
+                "---",
+                f"> 继续阅读: `block_start={last_idx + 1}, block_limit={block_limit}`",
+            ])
+
+        return "\n".join(parts)
 
     def resolve_visible_document(self, args: dict[str, Any]) -> dict[str, Any]:
         locator = str(args.get("document_id") or args.get("locator") or "").strip()
@@ -1260,14 +1585,17 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_read_document",
-            "description": "Read a visible SiYuan document as Markdown. Always returns the document outline (heading to chunk mapping). Short documents (≤max_chars) return the full text. Long documents return the outline plus one chunk; use chunk=0 for the first chunk or chunk=N to jump to a specific chunk. By default returns clean Markdown. Set include_block_ids=true only for precise block reference or edit diagnostics.",
+            "description": "Read a visible SiYuan document as Markdown. Always returns the document outline (heading to block mapping). By default reads in block window mode using SiYuan's native block order, returning complete consecutive blocks without mid-character truncation. Use block_start/block_limit for pagination, token_budget as a safety valve. Set include_block_ids=true for reference reading (precise block references and edit targeting). Old chunk/max_chars path is available for backward compatibility via explicit chunk=N.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "document_id": {"type": "string", "description": "Document id, exact hpath, title, or unique partial match."},
-                    "chunk": {"type": "integer", "default": 0, "description": "0=auto (chunk 1 for long docs, full text for short docs), 1..N=specific chunk."},
-                    "max_chars": {"type": "integer", "default": DEFAULT_CHUNK_CHARS, "description": "Characters per chunk, 2000–30000."},
-                    "include_block_ids": {"type": "boolean", "default": False, "description": "Experimental. Rebuild a diagnostic Markdown view from the SiYuan block tree and include HTML comments with block IDs. Use only when precise block reference or edit diagnostics are needed."},
+                    "chunk": {"type": "integer", "default": 0, "description": "Explicit chunk number (1..N). When >0, uses old character-chunk path. Omit to use block window (recommended)."},
+                    "max_chars": {"type": "integer", "default": DEFAULT_CHUNK_CHARS, "description": "Characters per chunk, 2000–30000. Only used when chunk>0 (old path)."},
+                    "block_start": {"type": "integer", "default": 1, "description": "Starting display block index (1-based). Default 1 reads from the first block."},
+                    "block_limit": {"type": "integer", "default": DEFAULT_BLOCK_LIMIT, "description": "Maximum display blocks to return in this window, 1–1000."},
+                    "token_budget": {"type": "integer", "default": DEFAULT_TOKEN_BUDGET, "description": "Estimated token ceiling for this window. Blocks stop before exceeding budget (at least one block always returned)."},
+                    "include_block_ids": {"type": "boolean", "default": False, "description": "Enable reference reading — injects block ID HTML comments for precise cross-document block references and edit targeting."},
                 },
                 "additionalProperties": False,
             },
