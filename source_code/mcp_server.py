@@ -717,22 +717,33 @@ class McpServer:
         except Exception:
             pass
 
+        # Auto-refresh index
+        refresh_ok = False
+        try:
+            refresh_index(client, self.root)
+            refresh_ok = True
+        except Exception:
+            pass
+
+        notebook_name = str(nb.get('name', notebook_id))
         parts = [
-            "# Document Created",
+            "# 文档创建成功",
             "",
-            f"**Title:** {title}",
-            f"**Path:** {path}",
-            f"**Notebook:** {nb.get('name', notebook_id)} (`{notebook_id}`)",
+            f"**标题:** {title}",
+            f"**路径:** {path}",
+            f"**笔记本:** {notebook_name} (`{notebook_id}`)",
         ]
         if doc_id:
-            parts.append(f"**Document ID:** `{doc_id}`")
+            parts.append(f"**文档 ID:** `{doc_id}`")
+        parts.append(f"**端点:** {client.base_url}")
+        parts.append(f"**快照:** {snapshot_status}")
+        if refresh_ok:
+            parts.append(f"**索引:** 已自动刷新")
+        else:
+            parts.append(f"**索引:** 自动刷新失败，请手动运行 `siyuan_refresh_index`")
         parts.extend([
-            f"**Endpoint:** {client.base_url}",
-            f"**Snapshot:** {snapshot_status}",
             "",
-            "The user can manually roll back via SiYuan snapshots if needed.",
-            "",
-            "Run `siyuan_refresh_index` to update the safe index with this new document.",
+            "如需回滚，可通过思源快照手动恢复。",
         ])
         return "\n".join(parts)
 

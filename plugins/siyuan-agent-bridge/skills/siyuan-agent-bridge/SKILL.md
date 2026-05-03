@@ -1,6 +1,6 @@
 ---
 name: siyuan-agent-bridge
-description: Use when the user wants to read or search their private SiYuan notes (思源笔记). Triggers on mentions of 思源, 知识库, or when the agent needs personal context from the user's notes.
+description: Use when the user wants to read, search, or write their private SiYuan notes (思源笔记). Triggers on mentions of 思源, 知识库, or when the agent needs personal context from the user's notes.
 ---
 
 # SiYuan Agent Bridge
@@ -30,7 +30,7 @@ description: Use when the user wants to read or search their private SiYuan note
 - `siyuan_privacy` / `siyuan_temporary_allow`（open）—— 必须 `confirmed=true`，仅在用户明确批准后设置。`document` 表示该文档及其所有子文档。
 
 **写入工具：**
-- `siyuan_create_document` —— 在可见笔记本中创建新文档。写入前自动创建思源工作空间快照；快照失败拒绝写入。必须 `confirmed=true`，仅在用户明确批准后调用。创建后通知用户在思源 UI 中可见。用户可手动通过思源快照回滚。
+- `siyuan_create_document` —— 在可见笔记本中创建新文档。`path` 支持嵌套路径（如 `/父文档/子文档`），可在已有文档下创建子文档。写入前自动创建思源工作空间快照；快照失败拒绝写入。创建成功后自动刷新索引。必须 `confirmed=true`。
 - `siyuan_edit_document` —— 用 `old_text` → `new_text` 文本锚点在可见文档中编辑。`old_text=""` 将 `new_text` 追加到文档末尾；`new_text=""` 删除匹配文本。不支持跨块文本（遇到时返回错误，需拆成多次单块编辑）。写入前自动创建快照。必须 `confirmed=true`。
 
 ## Safety Rules
