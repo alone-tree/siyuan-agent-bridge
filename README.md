@@ -15,7 +15,8 @@ SiYuan Agent Bridge 是一个私有、本地优先的思源笔记适配器。它
 - 生成 `knowledge_base/` 下的安全索引、总览和笔记本地图。
 - 对可见文档计算完整字数，让 AI 可以把文档长度作为重要性信号。
 - 提供 MCP 工具，让 Claude Code、Codex、OpenCode 等 agent 在安全索引范围内读取思源资料。**搜索和阅读时也会临时打开关闭的笔记本，以保持资料完整性。**
-- 图文混排文档会保留 Markdown 图片引用，AI 可以按分段读取图片前后的文字上下文。
+- 长文档按展示块窗口分页返回，以 `block_limit` 和 `token_budget` 控制分段。
+- 图文混排文档会保留 Markdown 图片引用，AI 可以按块读取图片前后的文字上下文。
 - 支持通过 CC Switch 导入 Skill 压缩包，并手动/JSON/deep link 注册 MCP。
 
 ## 日常怎么用
@@ -60,7 +61,7 @@ siyuan_start
 - `siyuan_refresh_index`：在用户明确要求时，在会话中途刷新安全索引（siyuan_start 已在启动时刷新）。
 - `siyuan_list`：无参数时列出所有可见笔记本；给定 `notebook_id` 时返回文档树，含字数和更新时间。
 - `siyuan_find_documents`：通过思源搜索 API 检索标题/大纲/正文块，返回前应用隐藏规则过滤；搜索时会临时打开关闭的笔记本并在结束后恢复。支持 4 种模式（`keyword`/`query`/`regex`/`sql`）、2 种范围（`headings`/`full`），可选限定笔记本。同一文档默认展示前 5 个命中块，可用 `max_snippets_per_doc` 调整，并会报告总命中块数。
-- `siyuan_read_document`：读取可见文档，始终返回大纲（标题→block 位置映射）。默认按展示块窗口返回（`block_limit=200`、`token_budget=50000`），不截断字符。用 `block_start=N` 翻页，`block_limit` 和 `token_budget` 控制窗口大小。`include_block_ids=true` 进入引用阅读模式，自动在块前插入 `<!-- siyuan:block id=... -->` HTML 注释，用于跨文档块引用和精确定位编辑。旧 `chunk/max_chars` 路径保留为兼容降级方案。附件（图片、PDF、表格等）自动提取到 `ai_workspace/`，保留原始引用不变。
+- `siyuan_read_document`：读取可见文档，始终返回大纲（标题→block 位置映射）。默认按展示块窗口返回（`block_limit=200`、`token_budget=50000`），不截断字符。用 `block_start=N` 翻页，`block_limit` 和 `token_budget` 控制窗口大小。`include_block_ids=true` 进入引用阅读模式，自动在块前插入 `<!-- siyuan:block id=... -->` HTML 注释，用于跨文档块引用和精确定位编辑。附件（图片、PDF、表格等）自动提取到 `ai_workspace/`，保留原始引用不变。
 - `siyuan_create_document`：在可见笔记本中创建新文档。写入前自动创建思源工作空间快照；快照失败拒绝写入。必须 `confirmed=true`。用户可手动通过思源快照回滚。
 - `siyuan_edit_document`：用 `old_text` → `new_text` 文本锚点在可见文档中编辑。`old_text=""` 追加到末尾，`new_text=""` 删除匹配文本。仅支持单块编辑，跨块文本需拆成多次调用。写入前自动创建快照。必须 `confirmed=true`。
 - `siyuan_propose_guide_update`：把建议的指南更新保存到 `ai_workspace/`，不直接修改指南。
@@ -70,17 +71,9 @@ siyuan_start
 
 ## 长文档
 
-长文档不会再一次性完整返回，避免 MCP 客户端或模型界面在中间截断。
+长文档通过块窗口分页返回。默认窗口是 200 个展示块，50,000 token 预算。用 `block_start=N` 翻页，用 `block_limit`（1-1000）和 `token_budget`（1,000-200,000）调整窗口大小。
 
-默认分段长度是：
-
-```text
-10,000 字符
-```
-
-AI 可以通过 `block_limit`（1-1000）和 `token_budget`（1000-200000）控制窗口大小。旧 `chunk/max_chars` 参数仍保留兼容。
-
-`siyuan_read_document` 始终先返回文档大纲（标题→block 位置映射）。长文档用 `block_start=N` 翻页继续阅读。标题少于 5 个且总展示块超过 100 时，会自动提供每 50 块的原文窗口预览片段。
+`siyuan_read_document` 始终先返回文档大纲（标题→block 位置映射）。标题少于 5 个且总展示块超过 100 时，会自动提供每 50 块的原文窗口预览片段。
 
 ## 隐藏规则
 
@@ -124,11 +117,13 @@ siyuan.ignore.local.json
 
 ## CC Switch 使用
 
-Skill 可以用压缩包导入。当前最新生成的包在：
+Skill 可以用压缩包导入。运行以下命令打包：
 
-```text
-dist/siyuan-agent-bridge-skill-latest.zip
+```bash
+python pack_skill.py
 ```
+
+生成的 zip 在 `dist/` 目录下。
 
 MCP 可以在 CC Switch 的“新增 MCP / 自定义”界面里填入：
 

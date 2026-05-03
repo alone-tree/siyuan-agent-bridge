@@ -23,17 +23,18 @@ knowledge_base/      生成的索引（Git 忽略，仅本地存在）
   index.md           → AI 生成的语义导航索引
 ai_workspace/        AI 工作区（Git 忽略）
 dist/                构建产物（Skill zip + MCP 配置）
+pack_skill.py        一键打包 Skill 压缩包到 dist/
 tests/               测试
-PRO.md               项目思路与各类问题的考虑。
+docs/                说明文档（PRO.md、计划、API 文档等）
 ```
 
 ## Documentation
 
-修改设计决策、发现新问题、完成重要讨论后，必须更新 `PRO.md`。不要遗漏。这是项目知识持续积累的核心机制。
+修改设计决策、发现新问题、完成重要讨论后，必须更新 `docs/PRO.md`。不要遗漏。这是项目知识持续积累的核心机制。
 
 ## Architecture
 
-- **MCP-first**：所有用户功能通过 MCP 工具暴露，CLI 可有可无。
+- **MCP-first**：所有用户功能通过 MCP 工具暴露，CLI 只作为开发者诊断临时使用。
 - **默认只读，确认后可写**：AI 不应直接调用底层思源写 API。只有在用户明确要求写入时，才使用 `siyuan_create_document` 或 `siyuan_edit_document`。写入前自动创建思源工作空间快照。
 - **隐私预过滤**：`docs.jsonl` 生成时已过滤隐藏内容；搜索时以此做门控。
 - **关闭笔记本透明打开**：索引、搜索和写入前自动临时打开关闭的笔记本，完成后恢复。
@@ -65,5 +66,5 @@ pytest tests/ -v
 
 - MCP server 通过 stdin/stdout JSON-RPC 通信，由 `plugins/…/scripts/run_mcp.py` 启动。
 - `config.local.json` 包含思源 API token，已被 Git 忽略。
-- Skill zip 打包脚本在 `dist/` 目录。
+- Skill zip 打包：运行 `python pack_skill.py` 生成 `dist/siyuan-agent-bridge-skill-<时间戳>.zip`。
 - 索引刷新时 `guide.md` 不会被覆盖（ensure），`tree.md` 和 `docs.jsonl` 会被覆盖。

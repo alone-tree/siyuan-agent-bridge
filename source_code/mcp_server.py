@@ -43,8 +43,6 @@ from .indexer import (
 
 SERVER_NAME = "siyuan-agent-bridge"
 SERVER_VERSION = "0.1.0"
-DEFAULT_CHUNK_CHARS = 10000
-MAX_CHUNK_CHARS = 30000
 DEFAULT_SNIPPETS_PER_DOC = 5
 
 
@@ -813,75 +811,10 @@ class McpServer:
 
     def siyuan_read_document(self, args: dict[str, Any]) -> str:
         doc = self.resolve_visible_document(args)
-        doc_id = str(doc.get("id"))
-        notebook_id = str(doc.get("notebook_id", ""))
         config = load_config(self.root)
         client = get_working_client(config)
         include_block_ids = bool(args.get("include_block_ids"))
-        chunk_param = int(args.get("chunk") or 0)
-
-        # ── Old chunk path (explicit chunk > 0) ──
-        if chunk_param > 0:
-            return self._read_document_chunk(doc, client, include_block_ids, args)
-
-        # ── New block window path (default) ──
         return self._read_document_block_window(doc, client, include_block_ids, args)
-
-    def _read_document_chunk(
-        self, doc: dict[str, Any], client: Any, include_block_ids: bool, args: dict[str, Any]
-    ) -> str:
-        """Old character-chunk reading path, kept for backward compatibility."""
-        doc_id = str(doc.get("id"))
-        notebook_id = str(doc.get("notebook_id", ""))
-        with ensure_notebooks_open(client, [notebook_id]):
-            markdown = client.export_markdown(doc_id)
-        attachment_count = extract_attachments(markdown, client, doc_id, self.root)
-        max_chars = clamp_int(args.get("max_chars"), DEFAULT_CHUNK_CHARS, 2000, MAX_CHUNK_CHARS)
-        chunks = split_markdown_chunks(markdown, max_chars=max_chars)
-
-        doc_path = str(doc.get("hpath") or doc.get("title") or doc.get("id"))
-        markdown_wc = compute_word_count(markdown)
-        date = format_date(str(doc.get("updated", "")))
-
-        header_lines = [
-            f"# Document: {doc_path}",
-            f"Document ID: `{doc_id}`",
-            f"字数: {markdown_wc:,} | 块数: {doc.get('block_count', 0)} | 字符: {len(markdown):,} | 更新: {date}",
-            f"阅读模式: 旧 chunk 兼容路径 (chunk={int(args.get('chunk') or 0)})",
-        ]
-        if attachment_count:
-            header_lines.append(f"附件: {attachment_count} 个已提取到 ai_workspace/attachments/{doc_id}/")
-        header = "\n".join(header_lines)
-
-        outline = build_outline(markdown, chunks, max_chars)
-
-        if len(chunks) <= 1:
-            return "\n".join([header, "", outline, "", "---", "", markdown])
-
-        chunk_param = int(args.get("chunk") or 0)
-        if chunk_param == 0:
-            chunk_index = 1
-        elif chunk_param < 1 or chunk_param > len(chunks):
-            raise ValueError(f"chunk must be between 1 and {len(chunks)}")
-        else:
-            chunk_index = chunk_param
-
-        chunk_content = chunks[chunk_index - 1]
-        chunk_wc = compute_word_count(chunk_content)
-
-        return "\n".join([
-            header,
-            "",
-            outline,
-            "",
-            "> 输入 `chunk=N` 跳转到指定 chunk。chunk 0 返回 chunk 1。",
-            "",
-            "---",
-            "",
-            f"## Chunk {chunk_index}/{len(chunks)} ({chunk_wc:,} 字)",
-            "",
-            chunk_content,
-        ])
 
     def _read_document_block_window(
         self, doc: dict[str, Any], client: Any, include_block_ids: bool, args: dict[str, Any]
@@ -1585,13 +1518,11 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_read_document",
-            "description": "Read a visible SiYuan document as Markdown. Always returns the document outline (heading to block mapping). By default reads in block window mode using SiYuan's native block order, returning complete consecutive blocks without mid-character truncation. Use block_start/block_limit for pagination, token_budget as a safety valve. Set include_block_ids=true for reference reading (precise block references and edit targeting). Old chunk/max_chars path is available for backward compatibility via explicit chunk=N.",
+            "description": "Read a visible SiYuan document as Markdown. Always returns the document outline (heading to block mapping). Reads in block window mode using SiYuan's native block order, returning complete consecutive blocks without mid-character truncation. Use block_start/block_limit for pagination, token_budget as a safety valve. Set include_block_ids=true for reference reading (precise block references and edit targeting).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "document_id": {"type": "string", "description": "Document id, exact hpath, title, or unique partial match."},
-                    "chunk": {"type": "integer", "default": 0, "description": "Explicit chunk number (1..N). When >0, uses old character-chunk path. Omit to use block window (recommended)."},
-                    "max_chars": {"type": "integer", "default": DEFAULT_CHUNK_CHARS, "description": "Characters per chunk, 2000–30000. Only used when chunk>0 (old path)."},
                     "block_start": {"type": "integer", "default": 1, "description": "Starting display block index (1-based). Default 1 reads from the first block."},
                     "block_limit": {"type": "integer", "default": DEFAULT_BLOCK_LIMIT, "description": "Maximum display blocks to return in this window, 1–1000."},
                     "token_budget": {"type": "integer", "default": DEFAULT_TOKEN_BUDGET, "description": "Estimated token ceiling for this window. Blocks stop before exceeding budget (at least one block always returned)."},
@@ -1702,60 +1633,6 @@ def clamp_int(value: Any, default: int, minimum: int, maximum: int) -> int:
     return max(minimum, min(maximum, number))
 
 
-def split_markdown_chunks(markdown: str, *, max_chars: int = DEFAULT_CHUNK_CHARS) -> list[str]:
-    text = markdown.strip()
-    if not text:
-        return [""]
-    blocks = re.split(r"(\n{2,})", text)
-    units = []
-    for index in range(0, len(blocks), 2):
-        block = blocks[index]
-        sep = blocks[index + 1] if index + 1 < len(blocks) else ""
-        if block:
-            units.append(block + sep)
-
-    chunks: list[str] = []
-    current = ""
-    for unit in units:
-        if len(unit) > max_chars:
-            if current.strip():
-                chunks.append(current.strip())
-                current = ""
-            chunks.extend(split_large_unit(unit, max_chars))
-            continue
-        if current and len(current) + len(unit) > max_chars:
-            chunks.append(current.strip())
-            current = unit
-        else:
-            current += unit
-    if current.strip() or not chunks:
-        chunks.append(current.strip())
-    return chunks
-
-
-def split_large_unit(text: str, max_chars: int) -> list[str]:
-    lines = text.splitlines(keepends=True)
-    chunks: list[str] = []
-    current = ""
-    for line in lines:
-        if current and len(current) + len(line) > max_chars:
-            chunks.append(current.strip())
-            current = line
-        else:
-            current += line
-    if current.strip():
-        chunks.append(current.strip())
-    return chunks
-
-
-def first_heading(markdown: str) -> str:
-    for line in markdown.splitlines():
-        stripped = line.strip()
-        if stripped:
-            return stripped[:120]
-    return "(empty chunk)"
-
-
 def find_markdown_images(markdown: str) -> list[str]:
     return re.findall(r"!\[[^\]]*\]\(([^)]+)\)", markdown)
 
@@ -1782,68 +1659,6 @@ def extract_attachments(markdown: str, client: SiYuanClient, doc_id: str, worksp
             pass
 
     return count
-
-
-def build_outline(markdown: str, chunks: list[str], max_chars: int) -> str:
-    heading_pattern = re.compile(r"^(#{1,3})\s+(.+)$", re.MULTILINE)
-    raw: list[tuple[int, str]] = []
-    for m in heading_pattern.finditer(markdown):
-        raw.append((len(m.group(1)), m.group(2).strip()))
-
-    header = f"## 大纲 ({len(chunks)} chunks, {max_chars:,} 字/chunk)"
-
-    if not raw:
-        return header + "\n\n(文档无标题结构)"
-
-    heading_chunk: dict[tuple[int, str], int] = {}
-    for level, text in raw:
-        marker = "#" * level + " " + text
-        found = False
-        for i, chunk in enumerate(chunks, start=1):
-            if marker in chunk:
-                heading_chunk[(level, text)] = i
-                found = True
-                break
-        if not found:
-            heading_chunk[(level, text)] = 1
-
-    roots: list[dict[str, Any]] = []
-    stack: list[tuple[int, dict[str, Any]]] = []
-
-    for level, text in raw:
-        chunk_num = heading_chunk[(level, text)]
-        node: dict[str, Any] = {"text": text, "level": level, "chunk": chunk_num, "children": []}
-
-        while stack and stack[-1][0] >= level:
-            stack.pop()
-
-        if stack:
-            stack[-1][1]["children"].append(node)
-        else:
-            roots.append(node)
-
-        stack.append((level, node))
-
-    def _fmt(node: dict[str, Any], indent: int) -> list[str]:
-        prefix = "  " * indent
-        if node["children"]:
-            child_chunks = [c["chunk"] for c in node["children"]]
-            all_c = [node["chunk"]] + child_chunks
-            mn, mx = min(all_c), max(all_c)
-            cs = f"**chunk {mn}**" if mn == mx else f"**chunk {mn}-{mx}**"
-        else:
-            cs = f"chunk {node['chunk']}"
-
-        lines = [f"{prefix}- {node['text']} → {cs}"]
-        for child in node["children"]:
-            lines.extend(_fmt(child, indent + 1))
-        return lines
-
-    body: list[str] = []
-    for r in roots:
-        body.extend(_fmt(r, 0))
-
-    return header + "\n\n" + "\n".join(body)
 
 
 def make_result(request_id: Any, result: Any) -> dict[str, Any]:

@@ -14,7 +14,7 @@ It is not a SiYuan plugin, not a public package, and not a vector-search system.
 - Generates safe indexes, overview files, and notebook maps under `knowledge_base/`.
 - Computes full-document word counts from exported Markdown for visible documents, so agents can use length as an importance signal.
 - Provides MCP tools for Claude Code, Codex, OpenCode, and similar agents.
-- Chunks long documents. The default chunk size is 10,000 characters and can be adjusted with `max_chars`.
+- Paginates long documents by display block windows with `block_limit` and `token_budget`.
 - Automatically extracts attachments (images, PDFs, spreadsheets, etc.) referenced in documents to `ai_workspace/` so AI can read them alongside the text. Original Markdown references are preserved unchanged.
 - Supports CC Switch skill import and MCP registration.
 
@@ -57,7 +57,7 @@ The MCP server provides these tools (default read-only, write on explicit confir
 - `siyuan_refresh_index`: refresh safe indexes mid-session when the user explicitly asks. Also cleans `ai_workspace/` (preserves README.md).
 - `siyuan_list`: list visible notebooks (no args) or return the document tree for one notebook (with `notebook_id`), including word counts and update times.
 - `siyuan_find_documents`: search through SiYuan search APIs, then apply privacy rules before returning results. Supports 4 modes (`keyword`/`query`/`regex`/`sql`), 2 scopes (`headings`/`full`), and optional notebook filters.
-- `siyuan_read_document`: read a visible document with outline (heading→block position mapping). Default block window mode (`block_limit=200`, `token_budget=50000`) returns complete consecutive blocks without mid-character truncation. Use `block_start=N` for pagination. `include_block_ids=true` enables reference reading with block ID HTML comments for cross-document block references and precise edit targeting. Old `chunk/max_chars` path retained. Attachments (images, PDFs, spreadsheets, etc.) are automatically extracted to `ai_workspace/`, preserving original references unchanged.
+- `siyuan_read_document`: read a visible document with outline (heading→block position mapping). Default block window mode (`block_limit=200`, `token_budget=50000`) returns complete consecutive blocks without mid-character truncation. Use `block_start=N` for pagination. `include_block_ids=true` enables reference reading with block ID HTML comments for cross-document block references and precise edit targeting. Attachments (images, PDFs, spreadsheets, etc.) are automatically extracted to `ai_workspace/`, preserving original references unchanged.
 - `siyuan_create_document`: create a new document in a visible notebook. Creates a SiYuan workspace snapshot before writing; refuses if the snapshot fails. Requires `confirmed=true`. User can manually roll back via SiYuan snapshots.
 - `siyuan_edit_document`: edit a visible document using `old_text` → `new_text` text anchors. `old_text=""` appends to the end; `new_text=""` deletes matching text. Only single-block edits supported; cross-block text requires multiple calls. Creates a snapshot before writing. Requires `confirmed=true`.
 - `siyuan_propose_guide_update`: save a proposed guide update in `ai_workspace/`.
@@ -67,17 +67,9 @@ The MCP server provides these tools (default read-only, write on explicit confir
 
 ## Long Documents
 
-Long documents are not returned in one large MCP response, because clients and model UIs may truncate the output.
+Long documents are returned with block window pagination. The default window is 200 display blocks with a 50,000 token budget. Use `block_start=N` to page forward, and adjust the window with `block_limit` (1–1000) and `token_budget` (1,000–200,000).
 
-Default chunk size:
-
-```text
-10,000 characters
-```
-
-Agents can pass `max_chars` to adjust the size. The current range is 2,000 to 30,000 characters.
-
-`siyuan_read_document` always returns the document outline first (heading→block position mapping). Long documents are paginated with `block_start=N`. When headings are fewer than 5 and total blocks exceed 100, a window preview with snippets every 50 blocks is included.
+`siyuan_read_document` always returns the document outline first (heading→block position mapping). When headings are fewer than 5 and total blocks exceed 100, a window preview with snippets every 50 blocks is included.
 
 ## Ignore Rules
 
@@ -121,11 +113,13 @@ After editing, ask the AI agent to refresh the index. Previously visible documen
 
 ## CC Switch
 
-The latest skill zip is:
+Package the skill zip with:
 
-```text
-dist/siyuan-agent-bridge-skill-latest.zip
+```bash
+python pack_skill.py
 ```
+
+The zip is generated in the `dist/` directory.
 
 For MCP registration, use this custom stdio config:
 

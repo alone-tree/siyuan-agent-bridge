@@ -65,9 +65,9 @@ with its notebook ID. As you read the map, classify the internal structure:
 
 After classifying, **read hub documents** according to the reading depth the
 user specified. Use `siyuan_read_document` with the document ID. The tool returns
-the document outline first, then the content. For long documents, `chunk=0`
-(default) returns the first chunk — a preview is enough for index purposes. Use
-`chunk=N` to jump to specific sections if needed.
+the document outline first, then the content. For long documents, `block_start=1`
+(default) returns the first block window — a preview is enough for index purposes. Use
+`block_start=N` to jump to specific sections if needed.
 
 ### Step 3 — Generate index.md
 

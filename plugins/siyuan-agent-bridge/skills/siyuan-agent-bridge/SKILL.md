@@ -14,7 +14,7 @@ description: Use when the user wants to read, search, or write their private SiY
 3. **以 index.md 为导航主入口。** 快速导航表将用户意图映射到笔记本，笔记本详情是 AI 扫描后浓缩的结构摘要和判断——信任它来定位相关笔记本。
 4. 若启动包不包含 index.md，提示用户："我可以先快速扫一遍你的笔记本结构，创建一个导航索引，之后每次新会话都能更快定位。"
 5. 用 `siyuan_list`（带 `notebook_id`）查看单个笔记本的文档树，含字数和更新时间。
-6. 用 `siyuan_read_document` 按需深读。默认按展示块窗口返回，不会从字符中间截断。始终返回大纲（标题→block 位置映射）。长文档用 `block_start=N` 继续翻页，用 `block_limit` 和 `token_budget` 控制窗口大小。需要精确跨文档块引用或编辑定位时，开启 `include_block_ids=true`（引用阅读模式）。
+6. 用 `siyuan_read_document` 按需深读。始终按展示块窗口返回，不截断字符。始终返回大纲（标题→block 位置映射）。长文档用 `block_start=N` 翻页继续阅读，用 `block_limit` 和 `token_budget` 控制窗口大小。需要精确跨文档块引用或编辑定位时，开启 `include_block_ids=true`（引用阅读模式）。
 7. 遵循 `knowledge_base/guide.md` 中的持久偏好。
 
 若 MCP 工具不可用，告知用户 SiYuan Agent Bridge MCP 未注册或不可达。不要回退到扫描文件。
@@ -26,7 +26,7 @@ description: Use when the user wants to read, search, or write their private SiY
 **读取工具：**
 - `siyuan_start` —— 始终最先调用。
 - `siyuan_find_documents` —— 搜索知识库，通过思源 API 实时搜索后经隐私规则过滤返回结果。
-- `siyuan_read_document` —— 只读取可见文档；隐藏文档即使已知 ID 也不会被读取，除非先显式临时开放。附件（图片、PDF 等）自动提取到 `ai_workspace/attachments/<doc-id>/`，保留原始引用。默认 `block_limit=200`、`token_budget=50000` 按展示块窗口返回，不截断字符。用 `block_start=N` 翻页继续阅读。大纲显示标题所在 block 位置。`include_block_ids=true` 进入引用阅读，自动在块前插入 `<!-- siyuan:block id=... type=... -->` HTML 注释，用于跨文档块引用和精确定位编辑。
+- `siyuan_read_document` —— 只读取可见文档；隐藏文档即使已知 ID 也不会被读取，除非先显式临时开放。附件（图片、PDF 等）自动提取到 `ai_workspace/attachments/<doc-id>/`，保留原始引用。`block_limit=200`、`token_budget=50000` 按展示块窗口返回，不截断字符。用 `block_start=N` 翻页继续阅读。大纲显示标题所在 block 位置。`include_block_ids=true` 进入引用阅读，自动在块前插入 `<!-- siyuan:block id=... type=... -->` HTML 注释，用于跨文档块引用和精确定位编辑。
 - `siyuan_privacy` / `siyuan_temporary_allow`（open）—— 必须 `confirmed=true`，仅在用户明确批准后设置。`document` 表示该文档及其所有子文档。
 
 **写入工具：**

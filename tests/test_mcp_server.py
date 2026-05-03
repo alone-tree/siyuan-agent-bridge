@@ -1240,18 +1240,6 @@ class McpServerReadBlockWindowTests(unittest.TestCase):
         self.assertIn("block 1:", result)
         self.assertIn("## Section One", result)
 
-    def test_old_chunk_path_still_works(self):
-        result = self._read({"document_id": "doc1", "chunk": 1})
-        # When chunk>0, uses old path which calls export_markdown
-        self.assertIn("旧 chunk 兼容路径", result)
-        self.assertIn("大纲 (1 chunks", result)
-        self.assertIn("## Section", result)
-        self.assertIn("Body text here.", result)
-
-
-# Keep the original McpServerReadBlockIdTests for backward compat of the
-# include_block_ids integration, now adapted to block window format.
-
 class McpServerReadBlockIdTests(unittest.TestCase):
     """Integration tests for reference reading with include_block_ids."""
 
