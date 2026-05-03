@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from source_code import mcp_server
+from source_code.ignore import PrivacyRules, write_privacy_rules_cache
 
 
 class FakeSearchClient:
@@ -27,6 +28,9 @@ class FakeSearchClient:
 
     def list_notebooks(self):
         return [{"id": "nb1", "name": "Main", "closed": self.closed}]
+
+    def create_notebook(self, name):
+        return {"id": f"nb-{name}", "name": name}
 
     def open_notebook(self, notebook_id):
         self.opened.append(notebook_id)
@@ -109,6 +113,7 @@ class McpServerTests(unittest.TestCase):
             json.dumps([{"id": "nb1", "name": "Main"}], ensure_ascii=False),
             encoding="utf-8",
         )
+        write_privacy_rules_cache(self.root, PrivacyRules(ignore=[], allow=[]))
         docs = [
             {
                 "id": "doc1",
@@ -252,9 +257,9 @@ class McpServerTests(unittest.TestCase):
         self.assertIn("block6", output)
 
     def test_find_documents_filters_live_results_with_privacy_rules(self):
-        (self.root / "siyuan.ignore.local.json").write_text(
-            json.dumps({"ignore": [{"scope": "document", "id": "doc2"}]}, ensure_ascii=False),
-            encoding="utf-8",
+        write_privacy_rules_cache(
+            self.root,
+            PrivacyRules(ignore=[{"scope": "document", "id": "doc2"}], allow=[]),
         )
         client = FakeSearchClient([
             {
@@ -274,9 +279,9 @@ class McpServerTests(unittest.TestCase):
         self.assertNotIn("doc2", output)
 
     def test_find_documents_document_privacy_hides_child_live_results(self):
-        (self.root / "siyuan.ignore.local.json").write_text(
-            json.dumps({"ignore": [{"scope": "document", "id": "doc1"}]}, ensure_ascii=False),
-            encoding="utf-8",
+        write_privacy_rules_cache(
+            self.root,
+            PrivacyRules(ignore=[{"scope": "document", "id": "doc1"}], allow=[]),
         )
         client = FakeSearchClient([
             {
@@ -296,9 +301,9 @@ class McpServerTests(unittest.TestCase):
         self.assertNotIn("doc3", output)
 
     def test_find_documents_filters_notebook_name_rules_with_live_names(self):
-        (self.root / "siyuan.ignore.local.json").write_text(
-            json.dumps({"ignore": [{"scope": "notebook", "name": "Main"}]}, ensure_ascii=False),
-            encoding="utf-8",
+        write_privacy_rules_cache(
+            self.root,
+            PrivacyRules(ignore=[{"scope": "notebook", "name": "Main"}], allow=[]),
         )
         client = FakeSearchClient([
             {
@@ -360,6 +365,7 @@ class McpServerWriteTests(unittest.TestCase):
             json.dumps([{"id": "nb1", "name": "Main"}], ensure_ascii=False),
             encoding="utf-8",
         )
+        write_privacy_rules_cache(self.root, PrivacyRules(ignore=[], allow=[]))
         docs = [
             {
                 "id": "doc1",
@@ -595,9 +601,9 @@ class McpServerWriteTests(unittest.TestCase):
             mcp_server.get_working_client = original
 
     def test_edit_document_refuses_hidden_document(self):
-        (self.root / "siyuan.ignore.local.json").write_text(
-            json.dumps({"ignore": [{"scope": "document", "id": "doc1"}]}, ensure_ascii=False),
-            encoding="utf-8",
+        write_privacy_rules_cache(
+            self.root,
+            PrivacyRules(ignore=[{"scope": "document", "id": "doc1"}], allow=[]),
         )
         server, client, original = self._server_and_client()
         try:
@@ -1044,6 +1050,7 @@ class McpServerReadBlockWindowTests(unittest.TestCase):
             json.dumps([{"id": "nb1", "name": "Main"}], ensure_ascii=False),
             encoding="utf-8",
         )
+        write_privacy_rules_cache(self.root, PrivacyRules(ignore=[], allow=[]))
         docs = [
             {
                 "id": "doc1",
@@ -1252,6 +1259,7 @@ class McpServerReadBlockIdTests(unittest.TestCase):
             json.dumps([{"id": "nb1", "name": "Main"}], ensure_ascii=False),
             encoding="utf-8",
         )
+        write_privacy_rules_cache(self.root, PrivacyRules(ignore=[], allow=[]))
         self.doc_md = "## Section One\n\nBody paragraph here.\n\nAnother paragraph.\n"
         docs = [
             {

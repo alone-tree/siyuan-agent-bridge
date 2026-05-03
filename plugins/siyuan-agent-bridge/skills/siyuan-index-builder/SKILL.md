@@ -192,4 +192,4 @@ When the user asks to update the index:
 - Do not read hidden documents or notebooks. Work only from visible safe indexes.
 - Do not overwrite human annotations in the Workspace Index. Add your updates around them.
 - The user's words are the only confirmation needed. "Create index" means create it. "Update index" means update it. No extra approval step.
-- Do not treat `思源代理桥` notebook as user source material when building the index. It contains system documents, not user knowledge.
+- Do not treat `思源代理桥` / `SiYuan Agent Bridge` system notebook as user source material when building the index. It contains system documents (AI Guide, Workspace Index, About, Privacy Rules), not user knowledge.

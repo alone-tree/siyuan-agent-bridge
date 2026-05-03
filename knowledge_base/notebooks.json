@@ -1,9 +1,31 @@
 [
   {
+    "id": "20260503191305-jkcm1dj",
+    "name": "被隐藏的笔记本",
+    "icon": "",
+    "sort": 0,
+    "sortMode": 15,
+    "closed": false,
+    "newFlashcardCount": 0,
+    "dueFlashcardCount": 0,
+    "flashcardCount": 0
+  },
+  {
+    "id": "20260503190950-0nqfw9m",
+    "name": "思源代理桥",
+    "icon": "",
+    "sort": 1,
+    "sortMode": 15,
+    "closed": false,
+    "newFlashcardCount": 0,
+    "dueFlashcardCount": 0,
+    "flashcardCount": 0
+  },
+  {
     "id": "20260503071335-bo0syfe",
     "name": "测试笔记本",
     "icon": "",
-    "sort": 0,
+    "sort": 2,
     "sortMode": 15,
     "closed": false,
     "newFlashcardCount": 0,
@@ -14,7 +36,7 @@
     "id": "20260131224133-oxnmsfq",
     "name": "一个新的笔记本",
     "icon": "",
-    "sort": 1,
+    "sort": 3,
     "sortMode": 15,
     "closed": false,
     "newFlashcardCount": 0,

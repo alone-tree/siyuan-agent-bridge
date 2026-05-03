@@ -9,18 +9,9 @@ from typing import Sequence
 from .client import SiYuanApiError, SiYuanClient, SiYuanConnectionError
 from .config import Config, load_config
 from .ignore import (
-    IGNORE_FILE,
-    add_persistent_ignore,
-    close_temporary_allow,
     filter_documents,
     filter_notebooks,
-    initialize_ignore_files,
     load_privacy_rules,
-    load_temporary_allow,
-    make_temporary_allow,
-    make_privacy_rule,
-    remove_persistent_ignore,
-    write_temporary_allow,
 )
 from .indexer import (
     DOCS_SQL,
@@ -95,44 +86,6 @@ def build_parser() -> argparse.ArgumentParser:
     read = sub.add_parser("read", help="Read one SiYuan document as Markdown.")
     read.add_argument("locator", help="Document id, exact hpath, title, or unique partial match.")
     read.set_defaults(func=cmd_read)
-
-    hide = sub.add_parser("hide", help="Hide a notebook, document tree, or explicit subtree, then refresh indexes.")
-    hide.add_argument("scope", choices=("notebook", "document", "subtree"))
-    hide.add_argument("locator", help="Notebook name/id, document id, exact hpath, title, or unique partial match.")
-    hide.add_argument("--reason", default="")
-    hide.set_defaults(func=cmd_hide)
-
-    unhide = sub.add_parser("unhide", help="Remove a persistent hide rule, then refresh indexes.")
-    unhide.add_argument("scope", choices=("notebook", "document", "subtree"))
-    unhide.add_argument("locator", help="Notebook name/id, document id, exact hpath, title, or unique partial match.")
-    unhide.set_defaults(func=cmd_unhide)
-
-    allow = sub.add_parser("allow", help="Temporarily allow a hidden notebook, document tree, or explicit subtree.")
-    allow.add_argument("scope", choices=("notebook", "document", "subtree"))
-    allow.add_argument("locator", help="Notebook name/id, document id, exact hpath, title, or unique partial match.")
-    allow.add_argument("--minutes", type=int, default=60)
-    allow.add_argument("--reason", default="")
-    allow.set_defaults(func=cmd_allow)
-
-    ignore = sub.add_parser("ignore", help="Manage local privacy ignore and temporary allow rules.")
-    ignore_sub = ignore.add_subparsers(dest="ignore_command", required=True)
-
-    ignore_init = ignore_sub.add_parser("init", help="Create local ignore files if missing.")
-    ignore_init.set_defaults(func=cmd_ignore_init)
-
-    ignore_status = ignore_sub.add_parser("status", help="Show ignore and temporary allow status.")
-    ignore_status.add_argument("--verbose", action="store_true", help="Print rule details.")
-    ignore_status.set_defaults(func=cmd_ignore_status)
-
-    ignore_allow = ignore_sub.add_parser("allow", help="Temporarily allow an ignored notebook/document tree/subtree.")
-    ignore_allow.add_argument("locator", help="Notebook id, document id, exact hpath, title, or unique partial match.")
-    ignore_allow.add_argument("--scope", choices=("notebook", "document", "subtree"), default="document")
-    ignore_allow.add_argument("--minutes", type=int, default=60)
-    ignore_allow.add_argument("--reason", default="")
-    ignore_allow.set_defaults(func=cmd_ignore_allow)
-
-    ignore_close = ignore_sub.add_parser("close", help="Clear all temporary allow rules immediately.")
-    ignore_close.set_defaults(func=cmd_ignore_close)
 
     return parser
 
@@ -246,11 +199,7 @@ def cmd_tree(_args: argparse.Namespace, config: Config) -> int:
 def cmd_find(args: argparse.Namespace, config: Config) -> int:
     docs = load_docs(config.root)
     privacy = load_privacy_rules(config.root)
-    if privacy.allow:
-        client = get_working_client(config)
-        docs = filter_documents(load_live_docs(client), privacy)
-    else:
-        docs = filter_documents(docs, privacy)
+    docs = filter_documents(docs, privacy)
     if not docs:
         print("No local index found. Run `python -m source_code refresh` first.", file=sys.stderr)
         return 1
@@ -267,17 +216,11 @@ def cmd_read(args: argparse.Namespace, config: Config) -> int:
     status, matches = resolve_document(docs, args.locator)
 
     if status in ("missing", "no_index"):
-        client = get_working_client(config)
-        privacy = load_privacy_rules(config.root)
-        if privacy.allow:
-            live_docs = filter_documents(load_live_docs(client), privacy)
-            status, matches = resolve_document(live_docs, args.locator)
-        if status in ("missing", "no_index"):
-            print(
-                "No matching visible document. It may be hidden by ignore, not indexed, or the locator is wrong.",
-                file=sys.stderr,
-            )
-            return 1
+        print(
+            "No matching visible document. It may be hidden, not indexed, or the locator is wrong.",
+            file=sys.stderr,
+        )
+        return 1
 
     if status == "ambiguous":
         print("Locator matched multiple documents. Use one exact document id:", file=sys.stderr)
@@ -290,107 +233,14 @@ def cmd_read(args: argparse.Namespace, config: Config) -> int:
     return 0
 
 
-def cmd_ignore_init(_args: argparse.Namespace, config: Config) -> int:
-    created, local_path, example_path = initialize_ignore_files(config.root)
-    state = "Created" if created else "Already exists"
-    print(f"{state}: {local_path}")
-    print(f"Example: {example_path}")
-    print("After editing ignore rules, run `python -m source_code refresh`.")
-    return 0
-
-
-def cmd_ignore_status(args: argparse.Namespace, config: Config) -> int:
-    privacy = load_privacy_rules(config.root)
-    all_temp = load_temporary_allow(config.root)
-    active_temp = [rule for rule in all_temp if rule in privacy.allow]
-    expired_temp = len(all_temp) - len(active_temp)
-    print(f"Ignore file: {config.root / IGNORE_FILE}")
-    print(f"Persistent ignore rules: {len(privacy.ignore)}")
-    print(f"Active temporary allow rules: {len(active_temp)}")
-    print(f"Expired temporary allow rules: {expired_temp}")
-    if args.verbose:
-        print("")
-        print("Persistent ignore:")
-        print_rule_list(privacy.ignore)
-        print("")
-        print("Active temporary allow:")
-        print_rule_list(active_temp)
-    return 0
-
-
-def cmd_ignore_allow(args: argparse.Namespace, config: Config) -> int:
-    return add_temporary_allow(args.scope, args.locator, args.minutes, args.reason, config)
-
-
-def cmd_allow(args: argparse.Namespace, config: Config) -> int:
-    return add_temporary_allow(args.scope, args.locator, args.minutes, args.reason, config)
-
-
-def add_temporary_allow(scope: str, locator: str, minutes: int, reason: str, config: Config) -> int:
-    if minutes <= 0:
-        raise ValueError("--minutes must be greater than 0")
-
-    client = get_working_client(config)
-    resolved = resolve_privacy_locator(client, scope, locator)
-    rule = make_temporary_allow(
-        scope,
-        locator,
-        minutes=minutes,
-        reason=reason,
-        resolved=resolved,
-    )
-    existing = load_temporary_allow(config.root)
-    existing.append(rule)
-    write_temporary_allow(config.root, existing)
-    print(f"Temporary allow added for {scope}. Expires in {minutes} minutes.")
-    print("This does not rewrite knowledge_base. The item will be hidden again automatically after expiry.")
-    return 0
-
-
-def cmd_ignore_close(_args: argparse.Namespace, config: Config) -> int:
-    count = close_temporary_allow(config.root)
-    print(f"Cleared {count} temporary allow rule(s). Hidden items are closed again.")
-    return 0
-
-
-def cmd_hide(args: argparse.Namespace, config: Config) -> int:
-    initialize_ignore_files(config.root)
-    client = get_working_client(config)
-    resolved = resolve_privacy_locator(client, args.scope, args.locator)
-    rule = make_privacy_rule(args.scope, args.locator, reason=args.reason, resolved=resolved)
-    added = add_persistent_ignore(config.root, rule)
-    if added:
-        print(f"Added hide rule for {args.scope}: {describe_rule(rule)}")
-    else:
-        print(f"Hide rule already exists for {args.scope}: {describe_rule(rule)}")
-    result = refresh_index(client, config.root)
-    print(
-        f"Refreshed safe index. Visible: {result.document_count}/{result.total_document_count} documents. "
-        f"Hidden: {result.hidden_document_count}."
-    )
-    return 0
-
-
-def cmd_unhide(args: argparse.Namespace, config: Config) -> int:
-    client = get_working_client(config)
-    resolved = resolve_privacy_locator(client, args.scope, args.locator)
-    rule = make_privacy_rule(args.scope, args.locator, resolved=resolved)
-    removed = remove_persistent_ignore(config.root, rule)
-    if removed:
-        print(f"Removed {removed} hide rule(s) for {args.scope}: {describe_rule(rule)}")
-    else:
-        print(f"No matching hide rule found for {args.scope}: {describe_rule(rule)}")
-    result = refresh_index(client, config.root)
-    print(
-        f"Refreshed safe index. Visible: {result.document_count}/{result.total_document_count} documents. "
-        f"Hidden: {result.hidden_document_count}."
-    )
-    return 0
-
-
 def get_working_client(config: Config) -> SiYuanClient:
     errors: list[str] = []
-    for url in config.urls:
+    # Always try 6806 as a last-resort fallback
+    urls = list(config.urls)
+    for fallback in ("http://127.0.0.1:6806", "http://localhost:6806"):
+        if fallback not in urls:
+            urls.append(fallback)
+    for url in urls:
         client = SiYuanClient(url, token=config.token)
         try:
             client.version()
@@ -405,40 +255,6 @@ def load_live_docs(client: SiYuanClient) -> list[dict[str, object]]:
     return normalize_documents(client.query_sql(DOCS_SQL), notebooks)
 
 
-def resolve_privacy_locator(client: SiYuanClient, scope: str, locator: str) -> dict[str, object] | None:
-    if scope == "notebook":
-        notebooks = client.list_notebooks()
-        matches = [item for item in notebooks if str(item.get("id", "")) == locator]
-        if not matches:
-            matches = [item for item in notebooks if str(item.get("name", "")).casefold() == locator.casefold()]
-        if not matches:
-            matches = [item for item in notebooks if locator.casefold() in str(item.get("name", "")).casefold()]
-        if len(matches) > 1:
-            print("Locator matched multiple notebooks. Use the exact notebook id or full name:", file=sys.stderr)
-            for notebook in matches:
-                print(f"{notebook.get('id', '')}\t{notebook.get('name', '')}", file=sys.stderr)
-            raise ValueError("Notebook locator is ambiguous")
-        if matches:
-            notebook = matches[0]
-            return {
-                "id": notebook.get("id"),
-                "notebook_id": notebook.get("id"),
-                "notebook_name": notebook.get("name"),
-                "title": notebook.get("name"),
-            }
-        raise ValueError(f"No notebook matched: {locator}")
-
-    docs = load_live_docs(client)
-    status, matches = resolve_document(docs, locator)
-    if status == "ambiguous":
-        print("Locator matched multiple live documents. Use one exact document id:", file=sys.stderr)
-        print_document_candidates(matches, file=sys.stderr)
-        raise ValueError("Temporary allow locator is ambiguous")
-    if status == "ok":
-        return matches[0]
-    raise ValueError(f"No document matched: {locator}")
-
-
 def print_document_candidates(matches: list[dict[str, object]], *, file=sys.stdout) -> None:
     for doc in matches:
         tags = doc.get("tags") or []
@@ -447,21 +263,6 @@ def print_document_candidates(matches: list[dict[str, object]], *, file=sys.stdo
             f"{doc.get('id', '')}\t{doc.get('notebook_name', '')}\t{doc.get('hpath', '')}{tag_text}",
             file=file,
         )
-
-
-def print_rule_list(rules: list[dict[str, object]]) -> None:
-    if not rules:
-        print("- none")
-        return
-    for rule in rules:
-        scope = rule.get("scope") or rule.get("type") or "unknown"
-        target = rule.get("id") or rule.get("hpath") or rule.get("notebook_id") or rule.get("name") or "unknown"
-        expires = f" expires:{rule.get('expires_at')}" if rule.get("expires_at") else ""
-        print(f"- {scope}: {target}{expires}")
-
-
-def describe_rule(rule: dict[str, object]) -> str:
-    return str(rule.get("name") or rule.get("title") or rule.get("hpath") or rule.get("id") or rule.get("notebook_id") or "unknown")
 
 
 def format_refresh_summary(result: object) -> str:

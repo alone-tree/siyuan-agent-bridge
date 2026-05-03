@@ -10,35 +10,17 @@ from pathlib import Path
 from typing import Any, Generator, Iterable
 
 from .client import SiYuanClient
-from .ignore import filter_documents, filter_notebooks, load_privacy_rules
+from .ignore import (
+    PrivacyRules,
+    filter_documents,
+    filter_notebooks,
+    load_privacy_rules,
+    write_privacy_rules_cache,
+)
 
 
 KNOWLEDGE_BASE_DIR = "knowledge_base"
 AI_WORKSPACE_DIR = "ai_workspace"
-SYSTEM_NOTEBOOK_NAME = "思源代理桥"
-
-ABOUT_TEMPLATE = """<!-- template_version: 1 -->
-
-# 关于 SiYuan Agent Bridge / About SiYuan Agent Bridge
-
-本文档由 SiYuan Agent Bridge 自动维护，可能在刷新时更新。请不要在这里记录个人内容。This document is maintained by SiYuan Agent Bridge and may be updated during refresh. Do not store personal notes here.
-
-SiYuan Agent Bridge 是连接思源笔记和 AI agent 的本地桥接工具。它让 AI 在隐私规则保护下阅读、搜索和维护你的思源知识库。SiYuan Agent Bridge is a local bridge between SiYuan notes and AI agents, letting AI read, search, and maintain your knowledge base under privacy rules.
-
-## 系统笔记本里的三份文档 / Three Documents in This Notebook
-
-- **AI Guide**：给 AI 看的长期规则，你可以在这里写下偏好、重点笔记本、写作风格和限制。AI Guide stores long-term instructions for AI — your preferences, important notebooks, writing style, and constraints.
-- **Workspace Index**：AI 生成的语义导航索引，帮助新会话快速了解这个工作空间里有什么。Workspace Index is an AI-generated semantic navigation map for new sessions.
-- **About SiYuan Agent Bridge**：就是本文档，给人看的工具说明。About SiYuan Agent Bridge is this document — a human-readable introduction to the tool.
-
-## 日常怎么用 / How to Use
-
-你平时正常在思源里写笔记。需要时告诉 AI"帮我查一下笔记里关于 XX 的内容"。如果某些笔记不想被 AI 看到，使用隐藏规则，不要删除或隐藏这个系统笔记本。You write notes in SiYuan as usual. When needed, ask AI to search your notes. To hide content from AI, use hide rules — do not delete or hide this system notebook.
-
-更多信息请阅读项目 README、项目网站，或联系开发者。For more details, read the project README, visit the project website, or contact the developer.
-"""
-
-ABOUT_TEMPLATE_VERSION_MARKER = "<!-- template_version: 1 -->"
 
 DOCS_SQL = """
 SELECT
@@ -106,90 +88,33 @@ def ensure_notebooks_open(
             client.close_notebook(nid)
 
 
-def ensure_system_notebook(client: SiYuanClient, root: Path) -> dict[str, Any]:
-    """Ensure the system notebook and its fixed documents exist.
-
-    Returns a dict with keys: notebook_id, ai_guide_exists, workspace_index_exists, about_exists.
-    """
-    notebooks = client.list_notebooks()
-    system_nb = None
-    for nb in notebooks:
-        if str(nb.get("name", "")) == SYSTEM_NOTEBOOK_NAME:
-            system_nb = nb
-            break
-
-    if system_nb is None:
-        result = client.create_notebook(SYSTEM_NOTEBOOK_NAME)
-        nb_id = str(result.get("id", ""))
-        if not nb_id:
-            # Re-list to find the newly created notebook
-            for nb in client.list_notebooks():
-                if str(nb.get("name", "")) == SYSTEM_NOTEBOOK_NAME:
-                    nb_id = str(nb.get("id", ""))
-                    break
-        if not nb_id:
-            raise RuntimeError(f"无法创建系统笔记本: {SYSTEM_NOTEBOOK_NAME}")
-    else:
-        nb_id = str(system_nb.get("id", ""))
-
-    # Ensure /AI Guide
-    ai_guide_exists = False
-    with ensure_notebooks_open(client, [nb_id]):
-        for doc in client.query_sql(f"SELECT id, path FROM blocks WHERE type='d' AND box='{nb_id}'"):
-            if str(doc.get("path", "")).strip("/") == "/AI Guide":
-                ai_guide_exists = True
-                break
-
-    if not ai_guide_exists:
-        with ensure_notebooks_open(client, [nb_id]):
-            guide_content = "# AI Guide\n\n此文档给 AI 看的长期规则。你可以在这里写下偏好、重点笔记本、写作风格和限制。This document stores long-term instructions for AI — your preferences, important notebooks, writing style, and constraints.\n\n## 使用说明 / Usage\n\n- 在思源中直接编辑本文档即可修改规则。Edit this document directly in SiYuan to change rules.\n- `siyuan_refresh_index` 不会覆盖已存在的 AI Guide。siyuan_refresh_index will not overwrite an existing AI Guide.\n- 让 AI 读到的格式是 Markdown，保持简洁。Keep it concise — AI reads Markdown.\n\n## 偏好与规则 / Preferences & Rules\n\n> TODO: 在这里添加你的长期偏好。Add your long-term preferences here.\n"
-            client.create_doc_with_md(nb_id, "/AI Guide", guide_content)
-
-    # Ensure /About SiYuan Agent Bridge
-    about_exists = False
-    about_doc_id = None
-    about_content_current = ""
-    with ensure_notebooks_open(client, [nb_id]):
-        for doc in client.query_sql(f"SELECT id, path, markdown FROM blocks WHERE type='d' AND box='{nb_id}'"):
-            if str(doc.get("path", "")).strip("/") == "/About SiYuan Agent Bridge":
-                about_exists = True
-                about_doc_id = str(doc.get("id", ""))
-                about_content_current = str(doc.get("markdown", ""))
-                break
-
-    if not about_exists:
-        with ensure_notebooks_open(client, [nb_id]):
-            client.create_doc_with_md(nb_id, "/About SiYuan Agent Bridge", ABOUT_TEMPLATE)
-    elif ABOUT_TEMPLATE_VERSION_MARKER not in about_content_current:
-        # Template version changed — overwrite with new version
-        with ensure_notebooks_open(client, [nb_id]):
-            if about_doc_id:
-                client.update_block(about_doc_id, ABOUT_TEMPLATE)
-
-    # Check /Workspace Index (never auto-create)
-    workspace_index_exists = False
-    with ensure_notebooks_open(client, [nb_id]):
-        for doc in client.query_sql(f"SELECT id, path FROM blocks WHERE type='d' AND box='{nb_id}'"):
-            if str(doc.get("path", "")).strip("/") == "/Workspace Index":
-                workspace_index_exists = True
-                break
-
-    return {
-        "notebook_id": nb_id,
-        "ai_guide_exists": ai_guide_exists,
-        "workspace_index_exists": workspace_index_exists,
-        "about_exists": about_exists,
-    }
+def _is_privacy_rules_doc(
+    doc: dict[str, Any], system_notebook_id: str, privacy_rules_doc_id: str
+) -> bool:
+    """Check if a document is the Privacy Rules document (hard-hidden from AI)."""
+    if str(doc.get("notebook_id", "")) != system_notebook_id:
+        return False
+    if privacy_rules_doc_id and str(doc.get("id", "")) == privacy_rules_doc_id:
+        return True
+    # Also check by known hpath patterns
+    hpath = str(doc.get("hpath", "")).strip("/")
+    return hpath in ("隐私规则", "Privacy Rules")
 
 
-def refresh_index(client: SiYuanClient, root: Path) -> RefreshResult:
+def refresh_index(
+    client: SiYuanClient,
+    root: Path,
+    *,
+    system_notebook_id: str = "",
+    privacy_rules_doc_id: str = "",
+) -> RefreshResult:
     cache_dir = root / KNOWLEDGE_BASE_DIR
     workspace_dir = root / AI_WORKSPACE_DIR
     cache_dir.mkdir(parents=True, exist_ok=True)
     workspace_dir.mkdir(parents=True, exist_ok=True)
 
     all_notebooks = client.list_notebooks()
-    privacy = load_privacy_rules(root, include_temporary=False)
+    privacy = load_privacy_rules(root)
     notebooks = filter_notebooks(all_notebooks, privacy)
 
     with ensure_notebooks_open(client):
@@ -197,12 +122,20 @@ def refresh_index(client: SiYuanClient, root: Path) -> RefreshResult:
         docs = filter_documents(all_docs, privacy)
         update_document_stats(client, docs)
 
+    # Hard-remove Privacy Rules document from all AI-facing indexes
+    if system_notebook_id:
+        docs = [
+            doc for doc in docs
+            if not _is_privacy_rules_doc(doc, system_notebook_id, privacy_rules_doc_id)
+        ]
+
     write_json(cache_dir / "notebooks.json", notebooks)
     write_jsonl(cache_dir / "docs.jsonl", docs)
     write_text(cache_dir / "tree.md", render_tree(notebooks, docs))
     ensure_text(workspace_dir / "README.md", render_workspace_readme())
 
-    ensure_system_notebook(client, root)
+    # Cache privacy rules
+    write_privacy_rules_cache(root, privacy)
 
     return RefreshResult(
         total_notebook_count=len(all_notebooks),

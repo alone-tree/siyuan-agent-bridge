@@ -9,30 +9,22 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from .cli import get_working_client, load_live_docs, resolve_privacy_locator
+from .cli import get_working_client, load_live_docs
 from .client import SiYuanApiError, SiYuanClient, SiYuanConnectionError
 from .config import load_config
 from .ignore import (
-    add_persistent_ignore,
-    close_temporary_allow,
+    PrivacyRules,
     compile_rules,
     filter_documents,
-    initialize_ignore_files,
     load_privacy_rules,
-    load_temporary_allow,
-    make_privacy_rule,
-    make_temporary_allow,
-    remove_persistent_ignore,
     rule_matches_doc,
-    write_temporary_allow,
+    write_privacy_rules_cache,
 )
 from .indexer import (
     KNOWLEDGE_BASE_DIR,
-    SYSTEM_NOTEBOOK_NAME,
     build_notebook_overview,
     compute_word_count,
     ensure_notebooks_open,
-    ensure_system_notebook,
     extract_snippet,
     format_date,
     load_docs,
@@ -41,6 +33,13 @@ from .indexer import (
     resolve_document,
     search_content,
 )
+from .agent_notebook import (
+    AgentNotebookState,
+    ensure_agent_notebook,
+    is_privacy_rules_document,
+    is_system_notebook_name,
+)
+from .i18n import build_language_config
 
 
 SERVER_NAME = "siyuan-agent-bridge"
@@ -457,8 +456,6 @@ class McpServer:
             "siyuan_read_document": self.siyuan_read_document,
             "siyuan_propose_guide_update": self.siyuan_propose_guide_update,
             "siyuan_apply_guide_update": self.siyuan_apply_guide_update,
-            "siyuan_privacy": self.siyuan_privacy,
-            "siyuan_temporary_allow": self.siyuan_temporary_allow,
             "siyuan_create_document": self.siyuan_create_document,
             "siyuan_edit_document": self.siyuan_edit_document,
         }
@@ -484,42 +481,55 @@ class McpServer:
     def siyuan_start(self, _args: dict[str, Any]) -> str:
         config = load_config(self.root)
         client = get_working_client(config)
-        refresh_index(client, self.root)
-        system_info = ensure_system_notebook(client, self.root)
         version = client.version()
-        nb_id = str(system_info["notebook_id"])
 
-        # Read AI Guide from SiYuan
-        ai_guide = ""
-        with ensure_notebooks_open(client, [nb_id]):
-            for doc in client.query_sql(f"SELECT id, path, markdown FROM blocks WHERE type='d' AND box='{nb_id}'"):
-                if str(doc.get("path", "")).strip("/") == "/AI Guide":
-                    ai_guide = str(doc.get("markdown", ""))
-                    break
+        # Ensure system notebook and parse privacy rules
+        state = ensure_agent_notebook(client, self.root)
+        nb_id = state.notebook_id
 
-        # Read Workspace Index from SiYuan
-        workspace_index = ""
-        with ensure_notebooks_open(client, [nb_id]):
-            for doc in client.query_sql(f"SELECT id, path, markdown FROM blocks WHERE type='d' AND box='{nb_id}'"):
-                if str(doc.get("path", "")).strip("/") == "/Workspace Index":
-                    workspace_index = str(doc.get("markdown", ""))
-                    break
+        # Cache privacy rules for other tools
+        write_privacy_rules_cache(self.root, state.privacy_rules)
 
+        # Refresh indexes using cached privacy rules
+        refresh_index(
+            client, self.root,
+            system_notebook_id=nb_id,
+            privacy_rules_doc_id=state.privacy_rules_doc_id,
+        )
+
+        lang_config = build_language_config(state.language)
         overview = build_notebook_overview(self.root)
         parts: list[str] = [
             "# SiYuan Agent Bridge Startup Packet",
             "",
             f"SiYuan connection: OK, version {version}",
-            f"System notebook: `{SYSTEM_NOTEBOOK_NAME}` (`{nb_id}`)",
+            f"System notebook: `{state.notebook_name}` (`{nb_id}`)",
+            "",
+            lang_config.startup_header,
             "",
             overview,
         ]
-        if workspace_index:
+
+        # Privacy rules status (no specific rules exposed)
+        ignore_count = len(state.privacy_rules.ignore)
+        if ignore_count > 0:
+            notebook_rules = [r for r in state.privacy_rules.ignore if r.get("scope") == "notebook"]
+            doc_rules = [r for r in state.privacy_rules.ignore if r.get("scope") == "document"]
+            parts.append("")
+            parts.append(
+                f"隐私规则：已加载，{len(notebook_rules)} 条笔记本规则，"
+                f"{len(doc_rules)} 条文档规则。"
+            )
+        else:
+            parts.append("")
+            parts.append("隐私规则：已加载，无规则。")
+
+        if state.workspace_index_markdown:
             parts.extend([
                 "",
                 "## Workspace Index (语义导航索引)",
                 "",
-                workspace_index.strip(),
+                state.workspace_index_markdown.strip(),
             ])
         else:
             parts.extend([
@@ -530,7 +540,7 @@ class McpServer:
             "",
             "## AI Guide (用户偏好与规则)",
             "",
-            ai_guide.strip() if ai_guide else "(AI Guide is empty — use siyuan_propose_guide_update to propose content, then siyuan_apply_guide_update with user approval)",
+            state.ai_guide_markdown.strip() if state.ai_guide_markdown else "(AI Guide is empty — use siyuan_propose_guide_update to propose content, then siyuan_apply_guide_update with user approval)",
             "",
         ])
         # Mention About document but don't include full text
@@ -545,6 +555,10 @@ class McpServer:
         config = load_config(self.root)
         client = get_working_client(config)
 
+        # Ensure system notebook and parse privacy rules
+        state = ensure_agent_notebook(client, self.root)
+        write_privacy_rules_cache(self.root, state.privacy_rules)
+
         workspace_dir = self.root / "ai_workspace"
         if workspace_dir.exists():
             for item in workspace_dir.iterdir():
@@ -555,7 +569,11 @@ class McpServer:
                 else:
                     item.unlink()
 
-        result = refresh_index(client, self.root)
+        result = refresh_index(
+            client, self.root,
+            system_notebook_id=state.notebook_id,
+            privacy_rules_doc_id=state.privacy_rules_doc_id,
+        )
         return (
             "# SiYuan Index Refreshed\n\n"
             f"Scanned {result.total_document_count} documents from {result.total_notebook_count} notebooks.\n"
@@ -736,6 +754,9 @@ class McpServer:
                 continue
             if not is_live_doc_visible(doc, compiled_ignore, compiled_allow):
                 continue
+            # Hard-filter Privacy Rules document
+            if is_privacy_rules_document(str(doc.get("hpath", ""))):
+                continue
 
             if block_id:
                 seen_blocks.add(block_id)
@@ -792,6 +813,9 @@ class McpServer:
             if notebook_filter and nb_id not in notebook_filter:
                 continue
             if not is_live_doc_visible(doc, compiled_ignore, compiled_allow):
+                continue
+            # Hard-filter Privacy Rules document
+            if is_privacy_rules_document(str(doc.get("hpath", ""))):
                 continue
 
             seen.add(doc_id)
@@ -966,7 +990,12 @@ class McpServer:
                 status, matches = resolve_document(live_docs, locator)
         if status != "ok":
             raise ValueError("No matching visible document. It may be hidden, unindexed, or the locator is wrong.")
-        return matches[0]
+        doc = matches[0]
+        if is_privacy_rules_document(str(doc.get("hpath", ""))):
+            raise ValueError(
+                "Privacy Rules 文档不可通过 AI 访问。隐私规则由人类在思源中维护。"
+            )
+        return doc
 
     def export_document_markdown(self, document_id: str) -> str:
         config = load_config(self.root)
@@ -996,27 +1025,14 @@ class McpServer:
         config = load_config(self.root)
         client = get_working_client(config)
 
-        # Find the AI Guide document in the system notebook
-        notebooks = client.list_notebooks()
-        nb_id = ""
-        for nb in notebooks:
-            if str(nb.get("name", "")) == SYSTEM_NOTEBOOK_NAME:
-                nb_id = str(nb.get("id", ""))
-                break
-        if not nb_id:
-            raise ValueError(f"系统笔记本 '{SYSTEM_NOTEBOOK_NAME}' 不存在。请先运行 siyuan_start。")
+        # Find system notebook and AI Guide document
+        state = ensure_agent_notebook(client, self.root)
+        if not state.ai_guide_doc_id:
+            raise ValueError("AI Guide 文档不存在。请先运行 siyuan_start。")
 
-        ai_guide_id = ""
-        current_md = ""
-        with ensure_notebooks_open(client, [nb_id]):
-            for doc in client.query_sql(f"SELECT id, path, markdown FROM blocks WHERE type='d' AND box='{nb_id}'"):
-                if str(doc.get("path", "")).strip("/") == "/AI Guide":
-                    ai_guide_id = str(doc.get("id", ""))
-                    current_md = str(doc.get("markdown", ""))
-                    break
-
-        if not ai_guide_id:
-            raise ValueError(f"AI Guide 文档不存在。请先运行 siyuan_start。")
+        nb_id = state.notebook_id
+        ai_guide_id = state.ai_guide_doc_id
+        current_md = state.ai_guide_markdown
 
         # Create snapshot before editing
         ts = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -1049,88 +1065,6 @@ class McpServer:
 
         return f"AI Guide 已更新。Run siyuan_start before using the updated guide."
 
-    def siyuan_privacy(self, args: dict[str, Any]) -> str:
-        action = str(args.get("action") or "").strip()
-        if action not in ("hide", "unhide"):
-            raise ValueError("action must be 'hide' or 'unhide'")
-        confirmed = bool(args.get("confirmed"))
-        if not confirmed:
-            raise ValueError("confirmed=true is required. Only set after explicit user approval.")
-        scope = str(args.get("scope") or "").strip()
-        if scope not in ("notebook", "document", "subtree"):
-            raise ValueError("scope must be notebook, document, or subtree")
-        locator = str(args.get("locator") or "").strip()
-        if not locator:
-            raise ValueError("locator is required")
-
-        config = load_config(self.root)
-        client = get_working_client(config)
-        resolved = resolve_privacy_locator(client, scope, locator)
-
-        if action == "hide":
-            reason = str(args.get("reason") or "").strip()
-            initialize_ignore_files(self.root)
-            rule = make_privacy_rule(scope, locator, reason=reason, resolved=resolved)
-            added = add_persistent_ignore(self.root, rule)
-            result = refresh_index(client, self.root)
-            target = str(resolved.get("title") or resolved.get("name") or locator) if resolved else locator
-            status = "Added" if added else "Already exists"
-            return (
-                f"# Privacy: hide {scope}\n\n"
-                f"**{status}** hide rule for {scope}: {target}\n\n"
-                f"Refreshed safe index. Visible: {result.document_count}/{result.total_document_count} documents. "
-                f"Hidden: {result.hidden_document_count}."
-            )
-        else:
-            rule = make_privacy_rule(scope, locator, resolved=resolved)
-            removed = remove_persistent_ignore(self.root, rule)
-            result = refresh_index(client, self.root)
-            target = str(resolved.get("title") or resolved.get("name") or locator) if resolved else locator
-            return (
-                f"# Privacy: unhide {scope}\n\n"
-                f"**Removed {removed} hide rule(s)** for {scope}: {target}\n\n"
-                f"Refreshed safe index. Visible: {result.document_count}/{result.total_document_count} documents. "
-                f"Hidden: {result.hidden_document_count}."
-            )
-
-    def siyuan_temporary_allow(self, args: dict[str, Any]) -> str:
-        action = str(args.get("action") or "open").strip()
-        if action not in ("open", "close"):
-            raise ValueError("action must be 'open' or 'close'")
-
-        if action == "close":
-            count = close_temporary_allow(self.root)
-            plural = "s" if count != 1 else ""
-            return f"# Privacy: close temporary allow\n\nCleared {count} temporary allow rule{plural}. Hidden items are closed again."
-
-        confirmed = bool(args.get("confirmed"))
-        if not confirmed:
-            raise ValueError("confirmed=true is required for open. Only set after explicit user approval.")
-        scope = str(args.get("scope") or "").strip()
-        if scope not in ("notebook", "document", "subtree"):
-            raise ValueError("scope must be notebook, document, or subtree")
-        locator = str(args.get("locator") or "").strip()
-        if not locator:
-            raise ValueError("locator is required")
-        minutes = max(int(args.get("minutes") or 60), 1)
-        reason = str(args.get("reason") or "").strip()
-
-        config = load_config(self.root)
-        client = get_working_client(config)
-        resolved = resolve_privacy_locator(client, scope, locator)
-        rule = make_temporary_allow(scope, locator, minutes=minutes, reason=reason, resolved=resolved)
-        existing = load_temporary_allow(self.root)
-        existing.append(rule)
-        write_temporary_allow(self.root, existing)
-
-        target = str(resolved.get("title") or resolved.get("name") or locator) if resolved else locator
-        return (
-            f"# Privacy: temporary allow {scope}\n\n"
-            f"Temporary allow added for {scope}: {target}\n"
-            f"Expires in {minutes} minutes.\n\n"
-            "This does not rewrite `knowledge_base/`. The item will be hidden again after expiry."
-        )
-
     def siyuan_create_document(self, args: dict[str, Any]) -> str:
         confirmed = bool(args.get("confirmed"))
         if not confirmed:
@@ -1159,6 +1093,12 @@ class McpServer:
         nb = next((n for n in notebooks if str(n.get("id", "")) == notebook_id), None)
         if nb is None:
             raise ValueError(f"Notebook {notebook_id} is not visible. It may be hidden by privacy rules.")
+
+        # Prevent creating Privacy Rules document
+        if is_privacy_rules_document(path.strip("/")):
+            raise ValueError(
+                "Privacy Rules 文档不可通过 AI 创建。隐私规则由人类在思源中维护。"
+            )
 
         config = load_config(self.root)
         client = get_working_client(config)
@@ -1624,38 +1564,6 @@ def tool_specs() -> list[dict[str, Any]]:
                     "confirmed": {"type": "boolean"},
                 },
                 "required": ["content", "confirmed"],
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "siyuan_privacy",
-            "description": "Manage persistent hide rules. action='hide': hide a notebook, document tree, or explicit subtree and refresh the index. Document rules hide the document and all child documents under it. action='unhide': remove the hide rule and refresh. Both require confirmed=true. Changes persist across sessions.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "action": {"type": "string", "enum": ["hide", "unhide"], "description": "Whether to add or remove a hide rule."},
-                    "scope": {"type": "string", "enum": ["notebook", "document", "subtree"], "description": "What to hide or unhide. document hides that document and all child documents."},
-                    "locator": {"type": "string", "description": "Notebook name/id, document id, exact hpath, title, or unique partial match."},
-                    "reason": {"type": "string", "description": "Optional reason for hiding."},
-                    "confirmed": {"type": "boolean", "description": "Must be true. This is a destructive privacy action."},
-                },
-                "required": ["action", "scope", "locator", "confirmed"],
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "siyuan_temporary_allow",
-            "description": "Manage temporary allow rules for hidden content. action='open': temporarily allow a hidden notebook, document tree, or explicit subtree (expires in N minutes, requires confirmed=true). Document rules allow that document and all child documents. action='close': immediately clear all temporary allow rules. Items become hidden again after expiry or close.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "action": {"type": "string", "enum": ["open", "close"], "default": "open", "description": "open = add a temporary allow rule; close = clear all temporary allow rules."},
-                    "scope": {"type": "string", "enum": ["notebook", "document", "subtree"], "description": "What to temporarily allow. document allows that document and all child documents. Required for action='open'."},
-                    "locator": {"type": "string", "description": "Notebook name/id, document id, exact hpath, title, or unique partial match. Required for action='open'."},
-                    "minutes": {"type": "integer", "default": 60, "description": "How many minutes before the allow expires. Only for action='open'."},
-                    "reason": {"type": "string", "description": "Optional reason for the temporary allow."},
-                    "confirmed": {"type": "boolean", "description": "Must be true for action='open'. Only set after explicit user approval."},
-                },
                 "additionalProperties": False,
             },
         },
