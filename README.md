@@ -110,7 +110,7 @@ siyuan-agent-bridge/
 └── README.md                     # 本文件（给人看）
 ```
 
-更多工程细节考量请见[PRO文档](docs/PRO.md)。
+更多工程设计考虑请见[PRO文档](docs/PRO.md)。也欢迎来[社区](https://ld246.com/article/1777909344378)进行交流。
 
 ---
 
