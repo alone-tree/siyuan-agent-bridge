@@ -194,12 +194,14 @@ class SiYuanClient:
             raise SiYuanApiError("Unexpected createDocWithMd response shape")
         return data
 
-    def update_block(self, block_id: str, markdown: str) -> dict[str, Any]:
+    def update_block(self, block_id: str, markdown: str, ial: str | None = None) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "id": block_id,
             "dataType": "markdown",
             "data": markdown,
         }
+        if ial is not None:
+            payload["ial"] = ial
         data = self._post("/api/block/updateBlock", payload)
         if data is None:
             return {}
@@ -208,6 +210,18 @@ class SiYuanClient:
         if not isinstance(data, dict):
             return {}
         return data
+
+    def set_block_attrs(self, block_id: str, attrs: dict[str, str]) -> dict[str, Any]:
+        result = self._post("/api/attr/setBlockAttrs", {"id": block_id, "attrs": attrs})
+        if not result:
+            return {}
+        return result
+
+    def get_attribute_view(self, av_id: str) -> dict[str, Any]:
+        result = self._post("/api/av/getAttributeView", {"id": av_id})
+        if not result:
+            return {}
+        return result.get("av", {})
 
     def append_block(self, parent_id: str, markdown: str) -> dict[str, Any]:
         payload: dict[str, Any] = {

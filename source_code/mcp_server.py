@@ -66,6 +66,98 @@ SKIP_BLOCK_TYPES = frozenset({"l", "d"})
 SUBTREE_MARKDOWN_BLOCK_TYPES = frozenset({"i", "t"})
 COMMENT_ONLY_BLOCK_TYPES = frozenset({"s"})
 CHILD_TRAVERSAL_BLOCK_TYPES = frozenset({"h", "l", "s"})
+DATABASE_BLOCK_TYPES = frozenset({"av"})
+
+
+import re as _re
+
+_AV_ID_PATTERN = _re.compile(r'data-av-id="([^"]+)"')
+_IAL_ATTR_PATTERN = _re.compile(r'(\w[\w-]*)\s*=\s*"([^"]*)"')
+
+
+def _parse_ial_attrs(ial: str) -> dict[str, str]:
+    """Parse SiYuan IAL into custom attrs, excluding id and updated (managed by kernel)."""
+    attrs: dict[str, str] = {}
+    for m in _IAL_ATTR_PATTERN.finditer(ial):
+        key = m.group(1)
+        if key in ("id", "updated"):
+            continue
+        attrs[key] = m.group(2)
+    return attrs
+
+
+def _extract_av_id(block_md: str) -> str:
+    m = _AV_ID_PATTERN.search(block_md) if block_md else None
+    return m.group(1) if m else ""
+
+
+def _render_av_cell(value: dict[str, Any], field_type: str) -> str:
+    if field_type == "block":
+        block = value.get("block")
+        if isinstance(block, dict):
+            return str(block.get("content", ""))
+        return ""
+    if field_type == "select":
+        mselect = value.get("mSelect")
+        if isinstance(mselect, list) and mselect:
+            return ", ".join(str(s.get("content", "")) for s in mselect)
+        return ""
+    block = value.get("block")
+    if isinstance(block, dict):
+        val = block.get("content")
+        if val is not None:
+            return str(val)
+    content = value.get("content")
+    if content is not None:
+        return str(content)
+    return ""
+
+
+def _render_av_as_table(av_data: dict[str, Any], block_id: str, include_block_ids: bool) -> str:
+    if not av_data:
+        return ""
+    key_values = av_data.get("keyValues")
+    if not key_values:
+        return ""
+    key_ids = av_data.get("keyIDs", [])
+    fields: list[dict[str, Any]] = []
+    kv_by_key_id: dict[str, dict[str, Any]] = {
+        kv["key"]["id"]: kv for kv in key_values if kv.get("key", {}).get("id")
+    }
+    if key_ids and kv_by_key_id:
+        for kid in key_ids:
+            if kid in kv_by_key_id:
+                fields.append(kv_by_key_id[kid])
+    if not fields:
+        fields = list(key_values)
+    row_count = max((len(f.get("values", [])) for f in fields), default=0)
+    if row_count == 0:
+        return ""
+    headers = [f["key"]["name"] for f in fields]
+    field_types = [f["key"]["type"] for f in fields]
+    rows: list[list[str]] = []
+    for i in range(row_count):
+        row: list[str] = []
+        for f, ftype in zip(fields, field_types):
+            values = f.get("values", [])
+            if i < len(values):
+                row.append(_render_av_cell(values[i], ftype))
+            else:
+                row.append("")
+        rows.append(row)
+    lines = ["|" + "|".join(headers) + "|"]
+    lines.append("|" + "|".join(" --- " for _ in headers) + "|")
+    for row in rows:
+        lines.append("|" + "|".join(row) + "|")
+    table_md = "\n".join(lines)
+    av_id = av_data.get("id", "")
+    annotation = (
+        f"<!-- siyuan:database av-id={av_id} type=table readonly=true -->\n"
+        f"> 此表格为数据库（属性视图），只读。如需编辑数据，请在文档末尾追加新表格。\n\n"
+    )
+    if include_block_ids:
+        annotation = f"<!-- siyuan:block id={block_id} type=av -->\n" + annotation
+    return annotation + table_md
 
 
 def block_field(block: dict[str, Any], *names: str) -> str:
@@ -270,6 +362,31 @@ def build_display_blocks(client: Any, root_id: str, *, include_block_ids: bool =
             if block_type in CHILD_TRAVERSAL_BLOCK_TYPES:
                 for child in client.get_child_blocks(block_id):
                     visit(child)
+            return
+
+        # Database/attribute view blocks: render via av API, not raw markdown
+        if block_type in DATABASE_BLOCK_TYPES:
+            block_md = block_field(block, "markdown")
+            av_id = _extract_av_id(block_md)
+            if av_id:
+                av_data = client.get_attribute_view(av_id)
+                display_md = _render_av_as_table(av_data, block_id, include_block_ids) if av_data else ""
+            else:
+                display_md = ""
+            if not display_md:
+                display_md = f"<!-- siyuan:block id={block_id} type={block_type} -->\n> 数据库数据获取失败"
+            estimated_tokens = estimate_token_count(display_md)
+            blocks.append(DisplayBlock(
+                index=len(blocks) + 1,
+                id=block_id,
+                type=block_type,
+                subtype="",
+                markdown=display_md,
+                estimated_tokens=estimated_tokens,
+                is_heading=False,
+                heading_level=None,
+                heading_text="",
+            ))
             return
 
         subtype = block_field(block, "subtype", "subType")
@@ -1187,6 +1304,7 @@ class McpServer:
 
         old_text = str(args.get("old_text") or "")
         new_text = str(args.get("new_text") or "")
+        target_block_id = str(args.get("block_id") or "").strip()
 
         if not old_text and not new_text:
             raise ValueError("old_text 和 new_text 不能同时为空")
@@ -1229,10 +1347,53 @@ class McpServer:
             ])
 
         # Text anchor mode: search for old_text in document blocks
-        with ensure_notebooks_open(client, [notebook_id]):
-            match_result = self._match_old_text(client, doc_id, old_text)
+        if target_block_id:
+            # Direct block targeting via block_id — verify ID, document, and text
+            with ensure_notebooks_open(client, [notebook_id]):
+                id_rows = client.query_sql(
+                    f"SELECT id, type, markdown FROM blocks WHERE id = '{target_block_id}' "
+                    "AND markdown IS NOT NULL AND markdown != ''"
+                )
+            if not id_rows:
+                raise ValueError(
+                    f"块 ID 不存在或内容为空：`{target_block_id}`。"
+                    "请检查块 ID 是否正确。"
+                )
+            id_row = id_rows[0]
+            block_type = str(id_row.get("type", ""))
+            if block_type == "av":
+                raise ValueError(
+                    "目标块为数据库/属性视图，不支持直接编辑。"
+                    "如需修改数据，请用 old_text=\"\"（追加模式）在文档末尾创建新表格。"
+                )
+            # Verify block belongs to this document
+            doc_rows = client.query_sql(
+                f"SELECT id FROM blocks WHERE root_id = '{doc_id}' AND id = '{target_block_id}'"
+            )
+            if not doc_rows:
+                raise ValueError(
+                    f"块 `{target_block_id}` 不属于文档「{doc_title}」。"
+                    "请确认块 ID 和文档 ID 的对应关系。"
+                )
+            block_md = str(id_row.get("markdown", ""))
+            if old_text not in block_md:
+                raise ValueError(
+                    f"块 `{target_block_id}` 存在，但 old_text 与该块内容不匹配。"
+                    "请用 siyuan_read_document(include_block_ids=true) 重新确认块内容。"
+                )
+            match_result: tuple = ("found", target_block_id, block_md, [(target_block_id, block_md, block_md.strip() == old_text.strip())])
+        else:
+            with ensure_notebooks_open(client, [notebook_id]):
+                match_result = self._match_old_text(client, doc_id, old_text)
 
         match_type = match_result[0]
+
+        if match_type == "database_block":
+            raise ValueError(
+                "匹配到的 old_text 位于数据库/属性视图块中，不支持直接编辑。"
+                "如需修改数据，请用 old_text=\"\"（追加模式）在文档末尾创建新表格。"
+                "如需更新数据库数据，请在思源 UI 中直接操作。"
+            )
 
         if match_type == "not_found":
             raise ValueError(
@@ -1268,6 +1429,12 @@ class McpServer:
                 ) from exc
             raise ValueError(f"快照创建失败，拒绝写入。错误：{msg}") from exc
 
+        # Read current block IAL before edit (to restore style attrs after update_block resets them)
+        ial_rows = client.query_sql(f"SELECT ial FROM blocks WHERE id = '{block_id}'")
+        custom_attrs: dict[str, str] = {}
+        if ial_rows:
+            custom_attrs = _parse_ial_attrs(str(ial_rows[0].get("ial", "")))
+
         # Execute the edit
         if old_text.strip() == block_md.strip():
             # Full block replacement
@@ -1278,6 +1445,10 @@ class McpServer:
 
         with ensure_notebooks_open(client, [notebook_id]):
             client.update_block(block_id, new_block_md)
+
+        # Restore block style attributes silently — update_block resets IAL
+        if custom_attrs:
+            client.set_block_attrs(block_id, custom_attrs)
 
         try:
             client.push_msg(f"思源代理桥：已编辑「{doc_title}」")
@@ -1307,11 +1478,12 @@ class McpServer:
         Returns:
             ("found", block_id, block_markdown, matches)  — single match
             ("not_found", None, None, [])                 — no match
+            ("database_block", None, None, [])            — matched only in av/database blocks
             ("ambiguous", None, None, matches)            — multiple matches, each (block_id, markdown, is_full)
         """
         rows = client.query_sql(
             f"SELECT id, markdown FROM blocks WHERE root_id = '{doc_id}' "
-            "AND type != 'd' AND markdown IS NOT NULL AND markdown != '' "
+            "AND type NOT IN ('d', 'av') AND markdown IS NOT NULL AND markdown != '' "
             "ORDER BY sort"
         )
 
@@ -1323,6 +1495,14 @@ class McpServer:
                 matches.append((block_id, md, md.strip() == old_text.strip()))
 
         if not matches:
+            # Check if old_text matches database blocks (av) — those are read-only
+            av_rows = client.query_sql(
+                f"SELECT id, markdown FROM blocks WHERE root_id = '{doc_id}' "
+                "AND type = 'av' AND markdown IS NOT NULL AND markdown != '' "
+            )
+            for row in av_rows:
+                if old_text in str(row.get("markdown", "")):
+                    return ("database_block", None, None, [])
             return ("not_found", None, None, [])
         if len(matches) > 1:
             return ("ambiguous", None, None, matches)
@@ -1584,13 +1764,14 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_edit_document",
-            "description": "Edit a visible SiYuan document using an exact old_text -> new_text anchor. Creates a SiYuan workspace snapshot before writing. Refuses ambiguous, missing, hidden, or unconfirmed edits. old_text=\"\" appends new_text to document end. old_text=\"原文\", new_text=\"\" deletes matching text. Only single-block edits are supported in this phase; cross-block text returns an error asking the AI to re-read and make multiple single-block edits.",
+            "description": "Edit a visible SiYuan document using an exact old_text -> new_text anchor. Creates a SiYuan workspace snapshot before writing. Refuses ambiguous, missing, hidden, or unconfirmed edits. old_text=\"\" appends new_text to document end. old_text=\"原文\", new_text=\"\" deletes matching text. Use optional block_id to target a specific block when old_text alone is ambiguous (e.g., single short words). Only single-block edits are supported in this phase; cross-block text returns an error asking the AI to re-read and make multiple single-block edits.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "document_id": {"type": "string", "description": "Document id, exact hpath, title, or unique partial match."},
                     "old_text": {"type": "string", "default": "", "description": "Exact text to find (from the Markdown you just read). Empty = append new_text to document end."},
                     "new_text": {"type": "string", "default": "", "description": "Replacement text. Empty with non-empty old_text = delete the matching text."},
+                    "block_id": {"type": "string", "default": "", "description": "Optional. When old_text is ambiguous (matches multiple blocks), specify the block ID (from include_block_ids=true reading) to precisely target that block. Both block_id AND old_text must match — block_id alone is not sufficient."},
                     "confirmed": {"type": "boolean", "description": "Must be true. Editing SiYuan documents requires explicit user approval."},
                 },
                 "required": ["document_id", "old_text", "new_text", "confirmed"],

@@ -1216,7 +1216,7 @@ AI 调用 siyuan_edit_document / siyuan_create_document
 - 超级块和布局信息不会以特殊结构返回。水平合并、垂直合并、叠加合并会被思源导出逻辑展开为普通 Markdown 段落，顺序大致是阅读顺序。
 - 表格会导出为 Markdown 表格；图片会导出为 Markdown 图片引用；列表会导出为 Markdown 列表。
 - 空块可能表现为空行或零宽占位符。
-- 数据库/属性视图不会作为特殊数据库对象返回。当前测试中，AI 看到的是普通 Markdown 表格，例如只有 `|主键|单选|` 这样的列头，看不到字段类型、选项、视图、筛选、排序、行 ID 等数据库语义。
+- **数据库/属性视图（已升级，2026-05-04）**：不再依赖导出 Markdown 中空的 `<div>` 占位符。`build_display_blocks` 检测到 `type=av` 块后，调用 `/api/av/getAttributeView` 获取字段定义和行数据，按 `keyIDs` 顺序转置列向数据为 Markdown 表格。AI 看到实际数据（列名 + 所有行），并通过 HTML 注释标注只读。详见下方 [数据库/属性视图处理](#数据库属性视图处理)。
 
 **原始块层的复杂性**：
 
@@ -1244,7 +1244,7 @@ AI 调用 siyuan_edit_document / siyuan_create_document
 | 多块连续文本替换 | 中。用户会有需求，但边界复杂 | 中低 | 后续谨慎实现，只处理连续普通文本块 |
 | 删除块 | 中。误删代价高，空块语义复杂 | 中 | 后续作为内部语义处理，不单独暴露工具 |
 | 超级块/布局编辑 | 低到中。使用频率低，失败代价高 | 低 | 不追求精确支持 |
-| 数据库/属性视图编辑 | 低。不是普通写作编辑 | 低 | 不纳入当前写入工具 |
+| 数据库/属性视图编辑 | 低。不是普通写作编辑 | N/A | 不编辑——拦截并提示用追加模式新建表格 |
 | 文档整体覆盖 | 表面价值高，实际风险大 | 低 | 不做；用创建新文档替代 |
 
 **建议的实现约束**：
@@ -1259,6 +1259,104 @@ AI 调用 siyuan_edit_document / siyuan_create_document
 **最终取舍**：功能完备性让位于可实现性和安全性。日常价值最高的是“可靠地读、搜、创建、追加、改一小段”，不是完整复刻思源编辑器。
 
 后续将通过 [`块ID阅读实验计划.md`](./块ID阅读实验计划.md) 验证可选块 ID 返回模式：先观察复杂文档和普通文档在带块 ID 输出中的差异，再决定是否给编辑工具增加 `block_id` 辅助参数。这个实验不改变默认纯 Markdown 阅读策略，也不直接承诺复杂结构编辑能力。
+
+#### 数据库/属性视图处理
+
+**实现日期**：2026-05-04
+
+**问题**：思源数据库（属性视图）在导出 Markdown 中显示为空 `<div>` 占位符，AI 看不到任何数据行。但思源原生搜索能穿透数据库找到内容——三端不一致（搜索能看到，阅读看不到，编辑碰不到）。
+
+**实现决策**：
+
+1. **阅读**：`build_display_blocks` 检测到 `type=av` 块后，不再使用块自身的空 Markdown（即 `<div>` 占位符），而是从块 Markdown 中提取 `data-av-id`，调用 `/api/av/getAttributeView` 获取属性视图的完整数据，按 `keyIDs` 顺序转置列向数据（`keyValues[].key.name` 为列头，`keyValues[].values[]` 为列值）为 Markdown 表格。在表格上方注入 HTML 注释和引用提示：
+
+   ```markdown
+   <!-- siyuan:database av-id=xxx type=table readonly=true -->
+   > 此表格为数据库（属性视图），只读。如需编辑数据，请在文档末尾追加新表格。
+
+   |主键|单选|
+   | --- | --- |
+   |1|A|
+   |...|...|
+   ```
+
+   注释仅供 AI 解析（标注只读属性），引用提示供人阅读。在引用阅读模式（`include_block_ids=true`）下，额外注入 `<!-- siyuan:block id=xxx type=av -->` 保留块级定位。
+
+2. **编辑拦截**：`_match_old_text` 的 SQL 查询排除 `type=av`（`type NOT IN ('d', 'av')`）。若 `old_text` 仅命中数据库块，返回 `"database_block"` 状态并抛出明确错误：
+
+   > 匹配到的 old_text 位于数据库/属性视图块中，不支持直接编辑。如需修改数据，请用 old_text=""（追加模式）在文档末尾创建新表格。
+
+3. **替代工作流**：AI 被告知可以用 `old_text=""` 在文档末尾追加建议表格，但不直接修改数据库。用户看到 AI 的建议后在思源 UI 中手动操作。
+
+4. **搜索**：保持现状。思源原生搜索能穿透数据库找到内容，搜索结果中数据库所在文档会被列出来。
+
+**技术细节**：
+
+- `client.py` 新增 `get_attribute_view(av_id)` 方法，封装 `/api/av/getAttributeView`。注意 `_post` 已剥离 `data` 信封，直接返回 `result.get("av", {})`。
+- 列值渲染根据字段类型处理：`block` 类型取 `value.block.content`，`select` 类型 merge `value.mSelect[].content`，其他类型 fallback 到 `value.block.content` 或 `value.content`。
+- `DATABASE_BLOCK_TYPES = frozenset({"av"})` 独立于 `SKIP_BLOCK_TYPES`，语义清晰：av 块不跳过（需要渲染），但数据来源是 API 而非块自身的 Markdown。
+- av 块不遍历子节点（数据库内部行结构对 AI 无意义且可能导致重复视图）。
+
+**为何不做结构化数据库视图**：不暴露字段类型、选项列表、视图配置、筛选/排序规则等数据库语义。AI 的价值是理解和建议，不是替代思源数据库 UI。完整数据库管理器（如 `siyuan-query-mcp`）是独立项目。
+
+#### 块样式属性（IAL）静默保留
+
+**实现日期**：2026-05-04
+
+**问题**：思源块的行级样式（信息/成功/警告/错误等背景色）存储在 `blocks.ial` 字段中（如 `style="color: var(--b3-card-info-color);background-color: var(--b3-card-info-background);"`）。`siyuan_edit_document` 调用 `update_block` 时只传了 `dataType: "markdown"` 和 `data`，未传 `ial`，思源内核会重置 IAL，导致编辑后样式丢失。
+
+**实现决策**：
+
+- `client.update_block()` 增加可选 `ial` 参数，有值时传入 `{"ial": "..." }` 字段。
+- 编辑流程在调用 `update_block` 前，用 SQL `SELECT ial FROM blocks WHERE id = '{block_id}'` 静默读取当前块的 IAL。
+- IAL **完全不暴露给 AI**——不在 `siyuan_read_document` 输出、搜索片段或编辑预览中出现。AI 无需知道样式细节。
+- AI 无法通过 MCP 工具修改样式属性，只能修改文本内容。样式由思源原样保留。
+
+#### 块 ID 精确定位编辑
+
+**实现日期**：2026-05-04
+
+**问题**：当 `old_text` 很短（如单个词"信息"）时，可能同时匹配多个块，导致编辑失败。纯文本锚点无法区分同内容的块。
+
+**实现决策**：
+
+- `siyuan_edit_document` 增加可选 `block_id` 参数。
+- 提供 `block_id` 时，跳过文本搜索，直接用 ID 定位块，但**必须同时验证**：
+  1. 块 ID 存在且内容非空 → 否则报"块 ID 不存在或内容为空"
+  2. 块属于当前文档（`root_id` 匹配）→ 否则报"块不属于该文档"
+  3. 块不是数据库块（`type=av`）→ 否则报数据库不可编辑
+  4. `old_text` 是块内容的子串 → 否则报"ID 和文本不匹配"
+- 四项全部通过才执行编辑。这避免了 ID 写错导致改错块的风险。
+- AI 用 `siyuan_read_document(include_block_ids=true)` 获取块 ID 后，可精确编辑。
+
+**使用场景**：歧义消解（短词多匹配）、编辑后二次修改（已知块 ID，无需重新搜索）。
+
+#### 复杂渲染块类型编辑支持
+
+**实现日期**：2026-05-04
+
+**问题**：思源支持多种复杂渲染块类型（ABC 五线谱、ECharts 图表、Flowchart 流程图、Graphviz 关系图、Mermaid 图表、Mindmap 思维导图、PlantUML 等），它们本质上都是 `type=c`（代码块），通过 IAL 中的语言标识区分渲染引擎。早期测试仅修改了块旁介绍文字，未验证这些块的内容能否被 MCP 工具正确编辑。
+
+**测试验证**（2026-05-04，`/格式测试/其他类型`）：
+
+| 块类型 | 块 ID | 测试内容 | 结果 |
+|---|---|---|---|
+| ABC 五线谱 | `20260504130705-2xuukj5` | 《小星星》完整乐谱（16 小节，ABC 记谱法） | ✅ |
+| ECharts | `20260504130637-z767o1q` | 柱状图 JSON 配置（标题、坐标轴、系列数据） | ✅ |
+| Flowchart | `20260504130841-s304vf4` | 身份验证流程图（4 节点 + 条件分支） | ✅ |
+| Graphviz | `20260504130912-v0xm5no` | 系统架构 DOT 图（4 节点带样式和边标签） | ✅ |
+| Mermaid | `20260504130930-rq1c8ek` | 编辑-存储-同步时序图（3 参与者，7 步交互） | ✅ |
+| Mindmap | `20260504130953-o0oo50e` | 思源生态系统三级思维导图 | ✅ |
+| PlantUML | `20260504131115-ib6vjwg` | 用户-笔记本-文档类图（带属性和关联） | ✅ |
+
+**结论**：
+
+- 所有这些类型本质都是代码块（`type=c`），`update_block` API 对其文本内容的处理与普通代码块完全一致。
+- 由于编辑流程已实现 IAL 静默保留（编辑前读取 IAL → edit 后 `setBlockAttrs` 恢复），代码块的语言标识（如 `data-type="abc"` 等）不会因编辑而丢失，渲染引擎正常工作。
+- 不需要为每种渲染类型做特殊处理。现有架构（文本锚点搜索 + block_id 双重验证 + IAL 两步保留）天然支持所有以 `type=c` 存储的复杂块类型。
+- MCP 工具对复杂块的功能边界：可以编辑文本源码，但不对源码语义做校验（如不检查 JSON 是否是合法 ECharts 配置、ABC 是否合法记谱）。语义错误由思源渲染引擎在 UI 中暴露。
+
+**AI 使用建议**：当用户要求"画一个 XX 图"时，AI 应直接用 `siyuan_edit_document` 编辑对应代码块的内容（或用 `old_text=""` 追加新代码块），填入合法的 DSL 源码。不需要用 `siyuan_create_document` 新建文档。
 
 #### 多工作空间连接配置问题
 
@@ -1383,7 +1481,20 @@ Skill 注册策略：
 - 如果用户的 AI 客户端支持 Skill，AI Agent 将 Skill 复制到对应目录。
 - 如果客户端不支持 Skill，AI Agent 至少注册 MCP，并把 README / Skill 内容作为使用说明参考。
 
-这个发布路径的核心不是让用户手工理解 MCP，而是让用户的 AI Agent 能够“读懂包、解压、配置、验证”。因此 ZIP 包根目录的说明文件和诊断脚本比传统产品界面更重要。
+这个发布路径的核心不是让用户手工理解 MCP，而是让用户的 AI Agent 能够”读懂包、解压、配置、验证”。因此 ZIP 包根目录的说明文件和诊断脚本比传统产品界面更重要。
+
+**安装目录灵活性**：ZIP 可以解压到任意文件夹，不强制 `%LOCALAPPDATA%`。`run_mcp.py` 通过 `Path(__file__).resolve().parents[1]` 自动解析安装根目录，不依赖固定路径。
+
+**版本更新行为**（实测验证）：
+
+| 组件 | 覆盖解压后 | 说明 |
+|------|:---:|------|
+| MCP | 自动更新 | MCP 配置存的是 `run_mcp.py` 的路径，覆盖文件后路径不变，重启 Claude Code 即生效 |
+| Skill | 需手动同步 | CC Switch 通过 ZIP 导入时把 Skill 复制到自身存储（`~/.cc-switch/skills/`），而非直接引用源文件。覆盖安装目录不影响 CC Switch 内的 Skill 副本 |
+| `config.local.json` | 不受影响 | 不在 ZIP 包内，覆盖解压不会丢失 |
+| `knowledge_base/` | 不受影响 | 运行时生成，不在 ZIP 包内 |
+
+**Skill 更新步骤**：在 CC Switch 中先删除旧 Skill，再导入新 ZIP。直接导入新 ZIP 而不删旧的可能导致残留文件。CC Switch 的 symlink/file-copy 同步模式影响的是它到 CLI 工具目录的连接方式（`~/.cc-switch/skills/` → `~/.claude/skills/`），不影响与安装目录源文件的关系。
 
 #### 安全机制
 

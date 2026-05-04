@@ -1,0 +1,186 @@
+{
+  "code": 0,
+  "msg": "",
+  "data": {
+    "av": {
+      "spec": 4,
+      "id": "20260504124328-4ws6eci",
+      "name": "这是数据库",
+      "keyValues": [
+        {
+          "key": {
+            "id": "20260504124328-3soikai",
+            "name": "主键",
+            "type": "block",
+            "icon": "",
+            "desc": "",
+            "numberFormat": "",
+            "template": ""
+          },
+          "values": [
+            {
+              "id": "20260504124338-fxznvxs",
+              "keyID": "20260504124328-3soikai",
+              "blockID": "20260504124338-t01lnv1",
+              "type": "block",
+              "isDetached": true,
+              "createdAt": 1777869818809,
+              "updatedAt": 1777869824880,
+              "block": {
+                "content": "1",
+                "created": 1777869818809,
+                "updated": 1777869824880
+              }
+            },
+            {
+              "id": "20260504124345-bdjm0xh",
+              "keyID": "20260504124328-3soikai",
+              "blockID": "20260504124345-zjovywy",
+              "type": "block",
+              "isDetached": true,
+              "createdAt": 1777869825792,
+              "updatedAt": 1777869831439,
+              "block": {
+                "content": "2",
+                "created": 1777869825792,
+                "updated": 1777869831439
+              }
+            },
+            {
+              "id": "20260504124612-l940wm2",
+              "keyID": "20260504124328-3soikai",
+              "blockID": "20260504124612-cnp2tme",
+              "type": "block",
+              "isDetached": true,
+              "createdAt": 1777869972407,
+              "updatedAt": 1777870043519,
+              "block": {
+                "content": "xhtfjx",
+                "created": 1777869972407,
+                "updated": 1777870043519
+              }
+            }
+          ]
+        },
+        {
+          "key": {
+            "id": "20260504124328-1hnfit8",
+            "name": "单选",
+            "type": "select",
+            "icon": "",
+            "desc": "",
+            "options": [
+              {
+                "name": "A",
+                "color": "1",
+                "desc": ""
+              },
+              {
+                "name": "B",
+                "color": "2",
+                "desc": ""
+              },
+              {
+                "name": "C",
+                "color": "3",
+                "desc": ""
+              }
+            ],
+            "numberFormat": "",
+            "template": ""
+          },
+          "values": [
+            {
+              "id": "20260504124338-h52h6in",
+              "keyID": "20260504124328-1hnfit8",
+              "blockID": "20260504124338-t01lnv1",
+              "type": "select",
+              "createdAt": 1777869824880,
+              "updatedAt": 1777869825880,
+              "mSelect": [
+                {
+                  "content": "A",
+                  "color": "1"
+                }
+              ]
+            },
+            {
+              "id": "20260504124345-b9nloiz",
+              "keyID": "20260504124328-1hnfit8",
+              "blockID": "20260504124345-zjovywy",
+              "type": "select",
+              "createdAt": 1777869831439,
+              "updatedAt": 1777869832439,
+              "mSelect": [
+                {
+                  "content": "B",
+                  "color": "2"
+                }
+              ]
+            },
+            {
+              "id": "20260504124612-qkfzgt1",
+              "keyID": "20260504124328-1hnfit8",
+              "blockID": "20260504124612-cnp2tme",
+              "type": "select",
+              "createdAt": 1777870043519,
+              "updatedAt": 1777870044519,
+              "mSelect": [
+                {
+                  "content": "C",
+                  "color": "3"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "keyIDs": null,
+      "viewID": "20260504124328-7lmcygs",
+      "views": [
+        {
+          "id": "20260504124328-7lmcygs",
+          "icon": "",
+          "name": "表格",
+          "hideAttrViewName": false,
+          "desc": "",
+          "pageSize": 50,
+          "type": "table",
+          "table": {
+            "spec": 0,
+            "id": "20260504124328-id2otz0",
+            "showIcon": true,
+            "wrapField": false,
+            "columns": [
+              {
+                "id": "20260504124328-3soikai",
+                "wrap": false,
+                "hidden": false,
+                "pin": false,
+                "width": ""
+              },
+              {
+                "id": "20260504124328-1hnfit8",
+                "wrap": false,
+                "hidden": false,
+                "pin": false,
+                "width": ""
+              }
+            ],
+            "rowIds": null
+          },
+          "itemIds": [
+            "20260504124338-t01lnv1",
+            "20260504124345-zjovywy",
+            "20260504124612-cnp2tme"
+          ],
+          "groupCreated": 0,
+          "groupItemIds": null,
+          "groupFolded": false,
+          "groupHidden": 0,
+          "groupSort": 0
+        }
+      ]
+    }
+  }
+}
