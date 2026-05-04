@@ -31,7 +31,7 @@ if exist "%INSTALL_DIR%config.local.json" (
     echo [OK] config.local.json 存在
 ) else (
     echo [失败] config.local.json 不存在
-    echo        请运行 install.bat 或手动创建配置文件。
+    echo        请手动创建配置文件 config.local.json。
     pause
     exit /b 1
 )
@@ -46,7 +46,7 @@ if errorlevel 1 (
     echo 请确认：
     echo   1. 思源笔记正在运行
     echo   2. Token 正确（设置 → 关于 → API Token）
-    echo   3. 端口为 6806
+    echo   3. 思源笔记正在运行且端口正确（默认 6806）
 ) else (
     echo [OK] 思源连接正常
 )

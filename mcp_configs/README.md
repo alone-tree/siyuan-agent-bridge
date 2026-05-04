@@ -2,7 +2,7 @@
 
 本目录包含各 AI 客户端/平台的 MCP 注册配置模板。配置中的路径使用占位符 `<INSTALL_DIR>`，AI Agent 或用户在安装时替换为实际安装目录的绝对路径。
 
-默认安装目录：`C:\Users\<用户名>\AppData\Local\siyuan-agent-bridge`
+安装目录由用户在安装时选择，无固定默认值。AI Agent 应按 [INSTALL_FOR_AI.md](../INSTALL_FOR_AI.md) 步骤 1 询问用户。
 
 ## 支持的客户端
 
@@ -11,7 +11,7 @@
 | `cc-switch.json` | CC Switch | Claude Code 插件管理工具 |
 | `claude-code-vscode.json` | Claude Code VSCode 插件 | 项目级 `.mcp.json` |
 | `claude-code-desktop.json` | Claude Code 桌面版 | 全局 MCP 配置 |
-| `codex.json` | Codex | 通过 `.codex-plugin/plugin.json` 注册 |
+
 | `openclaw.json` | OpenClaw | 通过 MCP 配置文件注册 |
 
 ## 通用配置格式

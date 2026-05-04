@@ -33,12 +33,12 @@ ai_workspace/        AI 工作区（Git 忽略）
 dist/                构建产物（Skill zip + MCP 配置）
 pack_skill.py        一键打包 Skill 压缩包到 dist/
 tests/               测试
-docs/                说明文档（PRO.md、计划、API 文档等）
+docs/                说明文档（PRO.md 设计文档、devlog.md 工程日志、API 文档等）
 ```
 
 ## Documentation
 
-修改设计决策、发现新问题、完成重要讨论后，必须更新 `docs/PRO.md`。不要遗漏。这是项目知识持续积累的核心机制。
+设计决策更新 `docs/PRO.md`；工程实施细节、问题排查记录、阶段性结论更新 `docs/devlog.md`。不要遗漏。两个文档共同构成项目知识积累的核心机制。
 
 ## Architecture
 
@@ -74,7 +74,7 @@ pytest tests/ -v
 - `config.local.json` 包含思源 API token，已被 Git 忽略。
 - Skill zip 打包：运行 `python pack_skill.py` 生成 `dist/siyuan-agent-bridge-skill-<时间戳>.zip`。
 - Release zip 打包：运行 `python pack_release.py` 生成 `dist/siyuan-agent-bridge-release-<时间戳>.zip`。
-  - Release ZIP 包含：source_code/、plugins/、mcp_configs/、README.md、config.example.json、INSTALL_FOR_AI.md、PROMPT_FOR_AI_INSTALL.md、install.bat、doctor.bat。
+  - Release ZIP 包含：source_code/、plugins/、mcp_configs/、README.md、config.example.json、INSTALL_FOR_AI.md、doctor.bat。
   - Release ZIP 不包含：config.local.json、knowledge_base/、ai_workspace/、tests/、dist/、docs/、.git/。
 - 索引刷新时 `knowledge_base/tree.md` 和 `docs.jsonl` 会被覆盖。AI Guide 和 About 文档通过思源系统笔记本管理：AI Guide 确保存在但不覆盖，About 通过版本标识判断是否更新，Workspace Index 不自动创建。
 
@@ -82,9 +82,7 @@ pytest tests/ -v
 
 | 文件 | 用途 |
 |------|------|
-| `INSTALL_FOR_AI.md` | AI Agent 安装说明（AI 读这个） |
-| `PROMPT_FOR_AI_INSTALL.md` | 用户复制给 AI 的提示词模板 |
-| `install.bat` | Windows 交互式安装脚本 |
+| `INSTALL_FOR_AI.md` | AI Agent 安装说明 |
 | `doctor.bat` | 诊断脚本 |
 | `mcp_configs/` | 多平台 MCP 配置模板（CC Switch、Claude Code、Codex、OpenClaw 等） |
 | `pack_release.py` | ZIP 发布包打包脚本 |

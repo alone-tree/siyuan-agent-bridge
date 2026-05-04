@@ -3,6 +3,10 @@
     {
       "name": "主工作空间",
       "token": "replace-with-your-siyuan-api-token"
+    },
+    {
+      "name": "另一个工作空间",
+      "token": "replace-with-another-siyuan-api-token"
     }
   ],
   "language": "zh-CN"

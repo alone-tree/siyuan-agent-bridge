@@ -53,8 +53,6 @@ ROOT_FILES = [
     "README.md",
     "config.example.json",
     "INSTALL_FOR_AI.md",
-    "PROMPT_FOR_AI_INSTALL.md",
-    "install.bat",
     "doctor.bat",
 ]
 
