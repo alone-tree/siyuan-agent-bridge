@@ -1429,6 +1429,43 @@ class McpServer:
                 ) from exc
             raise ValueError(f"快照创建失败，拒绝写入。错误：{msg}") from exc
 
+        # Insert-after-anchor-block mode: when new_text = old_text + new content
+        # and the anchor block content is an exact match for old_text, the AI is
+        # following the Claude Code Edit pattern — keep the anchor, add after it.
+        # Instead of replacing the anchor block, insert new blocks after it.
+        if (
+            len(new_text) > len(old_text)
+            and new_text.startswith(old_text)
+            and block_md.strip() == old_text.strip()
+        ):
+            suffix = new_text[len(old_text):].lstrip("\n")
+            if not suffix:
+                raise ValueError(
+                    "new_text 仅包含 old_text 锚点，未跟随新块内容。"
+                    "如需删除该块，请使用 old_text 原文 + new_text=\"\"。"
+                )
+
+            with ensure_notebooks_open(client, [notebook_id]):
+                result = client.insert_block_after(block_id, suffix)
+
+            try:
+                client.push_msg(f"思源代理桥：已在「{doc_title}」指定位置插入新块")
+            except Exception:
+                pass
+
+            preview = suffix[:200]
+            return "\n".join([
+                "# 文档已编辑（插入）",
+                "",
+                f"**文档：**{doc_title}（`{doc_id}`）",
+                f"**操作：**在块 `{block_id}` 之后插入了新块",
+                f"**端点：**{client.base_url}",
+                f"**快照：**{snapshot_status}",
+                f"**预览：**{preview}",
+                "",
+                "如需回滚，可通过思源快照手动恢复。",
+            ])
+
         # Read current block IAL before edit (to restore style attrs after update_block resets them)
         ial_rows = client.query_sql(f"SELECT ial FROM blocks WHERE id = '{block_id}'")
         custom_attrs: dict[str, str] = {}
@@ -1764,14 +1801,14 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_edit_document",
-            "description": "Edit a visible SiYuan document using an exact old_text -> new_text anchor. Creates a SiYuan workspace snapshot before writing. Refuses ambiguous, missing, hidden, or unconfirmed edits. old_text=\"\" appends new_text to document end. old_text=\"原文\", new_text=\"\" deletes matching text. Use optional block_id to target a specific block when old_text alone is ambiguous (e.g., single short words). Only single-block edits are supported in this phase; cross-block text returns an error asking the AI to re-read and make multiple single-block edits.",
+            "description": "Edit a visible SiYuan document using an exact old_text -> new_text anchor. Creates a SiYuan workspace snapshot before writing. Refuses ambiguous, missing, hidden, or unconfirmed edits.\n\nThree modes:\n- Replace: old_text=\"原文\", new_text=\"修改后\". Replaces matching block content.\n- Append: old_text=\"\", new_text=\"内容\". Appends new blocks to document end.\n- Insert after anchor (Claude Code Edit pattern): old_text is the exact anchor block text, new_text = old_text + new content. When the anchor block content matches old_text exactly and new_text is longer, the new content is inserted as new blocks after the anchor.\n\nUse optional block_id with old_text to disambiguate short text that matches multiple blocks. block_id alone is not sufficient — old_text must also match.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "document_id": {"type": "string", "description": "Document id, exact hpath, title, or unique partial match."},
-                    "old_text": {"type": "string", "default": "", "description": "Exact text to find (from the Markdown you just read). Empty = append new_text to document end."},
+                    "old_text": {"type": "string", "default": "", "description": "Exact text to find (from the Markdown you just read). Empty = append new_text to document end. Non-empty and new_text starts with old_text + has more content = insert new blocks after the anchor block (Claude Code Edit pattern)."},
                     "new_text": {"type": "string", "default": "", "description": "Replacement text. Empty with non-empty old_text = delete the matching text."},
-                    "block_id": {"type": "string", "default": "", "description": "Optional. When old_text is ambiguous (matches multiple blocks), specify the block ID (from include_block_ids=true reading) to precisely target that block. Both block_id AND old_text must match — block_id alone is not sufficient."},
+                    "block_id": {"type": "string", "default": "", "description": "Optional. Disambiguation only — use when old_text is too short and matches multiple blocks. Read with include_block_ids=true to get block IDs, then specify the target block here. Both block_id AND old_text must match; when they match, the block is precisely targeted."},
                     "confirmed": {"type": "boolean", "description": "Must be true. Editing SiYuan documents requires explicit user approval."},
                 },
                 "required": ["document_id", "old_text", "new_text", "confirmed"],
