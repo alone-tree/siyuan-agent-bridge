@@ -612,6 +612,17 @@ class McpServer:
         # Cache privacy rules for other tools
         write_privacy_rules_cache(self.root, state.privacy_rules)
 
+        # Clean ai_workspace (preserve README.md)
+        workspace_dir = self.root / "ai_workspace"
+        if workspace_dir.exists():
+            for item in workspace_dir.iterdir():
+                if item.name == "README.md":
+                    continue
+                if item.is_dir():
+                    shutil.rmtree(item)
+                else:
+                    item.unlink()
+
         # Refresh indexes using cached privacy rules
         refresh_index(
             client, self.root,
@@ -681,16 +692,6 @@ class McpServer:
         # Ensure system notebook and parse privacy rules
         state = ensure_agent_notebook(client, self.root, config_language=config.language or None)
         write_privacy_rules_cache(self.root, state.privacy_rules)
-
-        workspace_dir = self.root / "ai_workspace"
-        if workspace_dir.exists():
-            for item in workspace_dir.iterdir():
-                if item.name == "README.md":
-                    continue
-                if item.is_dir():
-                    shutil.rmtree(item)
-                else:
-                    item.unlink()
 
         result = refresh_index(
             client, self.root,
@@ -1466,19 +1467,38 @@ class McpServer:
                 "如需回滚，可通过思源快照手动恢复。",
             ])
 
+        # Compute new block content after replacement
+        if old_text.strip() == block_md.strip():
+            new_block_md = new_text
+        else:
+            new_block_md = block_md.replace(old_text, new_text)
+
+        # If the result is empty, truly delete the block instead of leaving an empty husk
+        if not new_block_md.strip():
+            with ensure_notebooks_open(client, [notebook_id]):
+                client.delete_block(block_id)
+
+            try:
+                client.push_msg(f"思源代理桥：已删除「{doc_title}」中的块")
+            except Exception:
+                pass
+
+            return "\n".join([
+                "# 文档已编辑（删除）",
+                "",
+                f"**文档：**{doc_title}（`{doc_id}`）",
+                f"**操作：**已删除块 `{block_id}`",
+                f"**端点：**{client.base_url}",
+                f"**快照：**{snapshot_status}",
+                "",
+                "如需回滚，可通过思源快照手动恢复。",
+            ])
+
         # Read current block IAL before edit (to restore style attrs after update_block resets them)
         ial_rows = client.query_sql(f"SELECT ial FROM blocks WHERE id = '{block_id}'")
         custom_attrs: dict[str, str] = {}
         if ial_rows:
             custom_attrs = _parse_ial_attrs(str(ial_rows[0].get("ial", "")))
-
-        # Execute the edit
-        if old_text.strip() == block_md.strip():
-            # Full block replacement
-            new_block_md = new_text
-        else:
-            # Substring replacement within the block
-            new_block_md = block_md.replace(old_text, new_text)
 
         with ensure_notebooks_open(client, [notebook_id]):
             client.update_block(block_id, new_block_md)
@@ -1712,7 +1732,7 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_refresh_index",
-            "description": "Explicitly refresh the safe SiYuan index when the user asks or the index is missing/stale. Also cleans ai_workspace (preserves README.md).",
+            "description": "Explicitly refresh the safe SiYuan index when the user asks or the index is missing/stale.",
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
         {

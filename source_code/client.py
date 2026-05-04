@@ -152,6 +152,9 @@ class SiYuanClient:
             raise SiYuanApiError("Unexpected child blocks response shape")
         return [item for item in data if isinstance(item, dict)]
 
+    def delete_block(self, block_id: str) -> None:
+        self._post("/api/block/deleteBlock", {"id": block_id})
+
     def create_snapshot(self, memo: str) -> dict[str, Any]:
         data = self._post("/api/repo/createSnapshot", {"memo": memo})
         if data is None:
