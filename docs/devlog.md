@@ -1865,3 +1865,82 @@ siyuan-agent-bridge/
 6. **最终可靠**：AI 写的 Workspace Index 可能过时，但程序生成的 tree.md 始终准确。如果 Workspace Index 没找到答案，AI 应该 fallback 到 tree.md + `siyuan_list`。
 
 7. **人控覆盖**：用户在思源中编辑 `隐私规则` / `Privacy Rules` 文档的 Markdown 表格控制隐藏范围，编辑 `AI Guide` 控制 AI 行为。AI 只读、只提议，不能修改隐私规则文档。
+
+---
+
+## 多平台打包策略草案（2026-05-06）
+
+### 背景
+
+当前项目的产品形态不是单纯的 MCP server，而是“核心 MCP 能力 + AI 行为工作流 + 安装诊断材料”的组合。MCP 提供读、搜、写、刷新、隐私预过滤等机制能力；Skill / Agent Guide 负责告诉 AI 如何启动、如何检索、如何尊重隐私、如何按需构建 Workspace Index；安装指南负责让 AI 帮用户完成本地安装、Token 配置、MCP 注册和诊断。
+
+因此，发布策略不应把 MCP 和 Skill 当作两个互不相关的产物。更合适的方向是：核心能力只维护一套，面向不同 AI 平台生成不同适配包。
+
+### 决策
+
+采用 **Source once, package many** 的打包思路：
+
+1. 维护一套核心 MCP 代码：`source_code/` 作为唯一能力实现。
+2. 维护一份 canonical agent guide：后续考虑将源文件命名为 `agent-guide.md`、`agent-workflow.md` 或 `siyuan-agent-guide.md`，打包时再生成平台需要的 `SKILL.md`、rules、context file 等格式。
+3. 针对不同平台设计打包脚本，运行后生成对应平台压缩包。
+4. 初期优先支持：
+   - Claude Code 插件包
+   - Codex 插件包
+   - 通用 MCP + Skill 分离包
+5. 安装指南面向 AI 重写为安装 playbook，目标是让 AI 能一次安装正确。
+
+### 目录设想
+
+后续可以考虑将打包相关内容整理为：
+
+```text
+packaging/
+  core/
+    agent-guide.md
+    install-for-ai.md
+  platforms/
+    claude-code/
+    codex/
+    generic-mcp-skill/
+  scripts/
+    pack_claude.py
+    pack_codex.py
+    pack_generic.py
+    pack_all.py
+```
+
+实际迁移时不必一次性完成，可以先在现有 `plugins/`、`mcp_configs/`、`pack_skill.py`、`pack_release.py` 基础上演进。
+
+### 产物设想
+
+初期发布产物：
+
+```text
+dist/
+  siyuan-agent-bridge-claude-code-plugin-<version>.zip
+  siyuan-agent-bridge-codex-plugin-<version>.zip
+  siyuan-agent-bridge-generic-mcp-skill-<version>.zip
+```
+
+其中：
+
+- Claude Code / Codex 插件包是推荐入口，尽量包含 MCP server、Skill、启动脚本、安装说明和诊断材料。
+- 通用 MCP + Skill 分离包用于兼容只支持 MCP 或不支持插件系统的平台。
+- 后续可扩展 Qwen Code、CodeBuddy、Gemini CLI、Lingma、Trae、Comate 等平台适配，但核心 MCP 和 Agent Guide 不应重复维护。
+
+### 安装指南重写要点
+
+`INSTALL_FOR_AI.md` 应从普通说明文档改为面向 AI Agent 的安装 playbook：
+
+1. 判断当前 AI 平台和可用能力：插件、MCP、Skill / rules / context。
+2. 询问用户安装目录。
+3. 解压到目标目录并确认目录结构。
+4. 创建 `config.local.json`，写入 SiYuan Token，但不要在对话中复述或泄露 Token。
+5. 运行 `python -m source_code doctor` 验证连接。
+6. 根据平台写入对应 MCP 配置。
+7. 提醒用户重启 AI 客户端。
+8. 在新会话中通过 `siyuan_start` 验证可用性。
+
+### 原则
+
+统一的是产品包和安装体验，不是各平台的插件标准。不同平台的 manifest、目录结构、rules / skill 名称可以不同，但它们都应从同一套核心 MCP 和同一份 Agent Guide 派生。
