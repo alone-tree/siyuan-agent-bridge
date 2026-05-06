@@ -3,7 +3,7 @@ name: siyuan-agent-bridge
 description: Use when the user wants to read, search, or write their private SiYuan notes (思源笔记). Triggers on mentions of 思源, 知识库, or when the agent needs personal context from the user's notes.
 ---
 
-# 思源代理桥
+# 思源桥
 
 通过 MCP 工具访问用户的思源笔记。不要扫描本地文件系统寻找笔记内容。
 
@@ -16,9 +16,9 @@ description: Use when the user wants to read, search, or write their private SiY
 5. 若启动包不包含工作空间索引，提示用户："我可以先快速扫一遍你的笔记本结构，创建一个导航索引，之后每次新会话都能更快定位。"
 6. 用 `siyuan_list`（带 `notebook_id`）查看单个笔记本的文档树，含字数和更新时间。
 7. 用 `siyuan_read_document` 按需深读。始终按展示块窗口返回，不截断字符。始终返回大纲（标题→block 位置映射）。长文档用 `block_start=N` 翻页继续阅读，用 `block_limit` 和 `token_budget` 控制窗口大小。需要精确跨文档块引用或编辑定位时，开启 `include_block_ids=true`（引用阅读模式）。
-8. 遵循启动包中 AI 使用指南的持久偏好。系统笔记本 `思源代理桥` 中还有一篇 `/关于思源代理桥`（给人看的说明），普通任务无需读取。
+8. 遵循启动包中 AI 使用指南的持久偏好。系统笔记本 `思源桥` 中还有一篇 `/关于思源桥`（给人看的说明），普通任务无需读取。
 
-若 MCP 工具不可用，告知用户思源代理桥 MCP 未注册或不可达。不要回退到扫描文件。
+若 MCP 工具不可用，告知用户思源桥 MCP 未注册或不可达。不要回退到扫描文件。
 
 ## 隐私规则
 
@@ -37,7 +37,7 @@ description: Use when the user wants to read, search, or write their private SiY
 - `siyuan_list` —— 隐私规则文档不会出现在文档列表中。
 - `siyuan_create_document`、`siyuan_edit_document` —— 写入工具。始终 `confirmed=true`。写入前自动创建思源工作空间快照。默认不写入，除非用户明确要求。
 - `siyuan_refresh_index` —— 会话中途刷新索引并清理 `ai_workspace/`（保留 README.md）。
-- 系统笔记本 `思源代理桥` / `SiYuan Agent Bridge` 及其文档会被自动创建和维护。
+- 系统笔记本 `思源桥` / `SiYuan Bridge` 及其文档会被自动创建和维护。
 
 ## Safety Rules
 

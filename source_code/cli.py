@@ -271,7 +271,7 @@ def render_start_packet(root: Path, profile_name: str, version: str) -> str:
     index_md = read_optional_text(base / "index.md")
     overview = build_notebook_overview(root)
     parts: list[str] = [
-        "# 思源代理桥启动包",
+        "# 思源桥启动包",
         "",
         f"思源连接：正常，版本 {version}",
         f"已连接工作空间：{profile_name}",

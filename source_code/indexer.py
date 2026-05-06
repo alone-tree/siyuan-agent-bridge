@@ -307,7 +307,7 @@ def render_tree(notebooks: Iterable[dict[str, Any]], docs: Iterable[dict[str, An
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
     lines = [
-        "# 思源代理桥文档树",
+        "# 思源桥文档树",
         "",
         f"> {now} | {len(notebook_list)} 个笔记本 | {total_docs} 篇文档 | {total_words:,} 字 | {total_blocks} 块",
         "",
@@ -364,7 +364,7 @@ def render_notebook_overview(notebooks: Iterable[dict[str, Any]], docs: Iterable
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
 
     lines = [
-        "# 思源代理桥文档树",
+        "# 思源桥文档树",
         "",
         f"> {now} | {len(notebook_list)} 个笔记本 | {len(doc_list)} 篇文档 | {total_words:,} 字 | {total_blocks} 块",
         "",

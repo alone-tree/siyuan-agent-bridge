@@ -27,12 +27,12 @@ class FakeClient:
         return list(self._notebooks)
 
     def query_sql(self, stmt):
-        if "思源代理桥" in stmt or "SiYuan Agent Bridge" in stmt:
+        if any(name in stmt for name in ("思源代理桥", "SiYuan Agent Bridge", "思源桥", "SiYuan Bridge")):
             result = []
             if "/AI Guide" in self._system_docs:
                 result.append({"id": "system-ai-guide", "path": "/AI Guide", "markdown": self._system_docs["/AI Guide"]})
-            if "/About SiYuan Agent Bridge" in self._system_docs:
-                result.append({"id": "system-about", "path": "/About SiYuan Agent Bridge", "markdown": self._system_docs["/About SiYuan Agent Bridge"]})
+            if "/About SiYuan Bridge" in self._system_docs:
+                result.append({"id": "system-about", "path": "/About SiYuan Bridge", "markdown": self._system_docs["/About SiYuan Bridge"]})
             if "/Workspace Index" in self._system_docs:
                 result.append({"id": "system-ws-index", "path": "/Workspace Index", "markdown": self._system_docs["/Workspace Index"]})
             if "/Privacy Rules" in self._system_docs:

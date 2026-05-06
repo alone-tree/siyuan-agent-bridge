@@ -633,7 +633,7 @@ class McpServer:
         lang_config = build_language_config(state.language)
         overview = build_notebook_overview(self.root)
         parts: list[str] = [
-            "# 思源代理桥启动包",
+            "# 思源桥启动包",
             "",
             f"思源连接：正常，版本 {version}",
             f"已连接工作空间：**{profile.name}**",
@@ -680,7 +680,7 @@ class McpServer:
         # Mention About document but don't include full text
         parts.extend([
             "---",
-            f"**给人看的说明**：系统笔记本中还有一篇 `/关于思源代理桥`，是对工具核心思想的简要介绍。普通任务无需读取。需要时可用 `siyuan_read_document` 指定文档 ID 阅读。",
+            f"**给人看的说明**：系统笔记本中还有一篇 `/关于思源桥`，是对工具核心思想的简要介绍。普通任务无需读取。需要时可用 `siyuan_read_document` 指定文档 ID 阅读。",
             "",
         ])
         return "\n".join(parts)
@@ -1178,7 +1178,7 @@ class McpServer:
             client.update_block(ai_guide_id, new_md)
 
         try:
-            client.push_msg("思源代理桥：AI 使用指南已更新")
+            client.push_msg("思源桥：AI 使用指南已更新")
         except Exception:
             pass
 
@@ -1259,7 +1259,7 @@ class McpServer:
 
         # Notify
         try:
-            client.push_msg(f"思源代理桥：已创建「{title}」")
+            client.push_msg(f"思源桥：已创建「{title}」")
         except Exception:
             pass
 
@@ -1332,7 +1332,7 @@ class McpServer:
                 result = client.append_block(doc_id, new_text)
 
             try:
-                client.push_msg(f"思源代理桥：已追加内容到「{doc_title}」")
+                client.push_msg(f"思源桥：已追加内容到「{doc_title}」")
             except Exception:
                 pass
 
@@ -1450,7 +1450,7 @@ class McpServer:
                 result = client.insert_block_after(block_id, suffix)
 
             try:
-                client.push_msg(f"思源代理桥：已在「{doc_title}」指定位置插入新块")
+                client.push_msg(f"思源桥：已在「{doc_title}」指定位置插入新块")
             except Exception:
                 pass
 
@@ -1479,7 +1479,7 @@ class McpServer:
                 client.delete_block(block_id)
 
             try:
-                client.push_msg(f"思源代理桥：已删除「{doc_title}」中的块")
+                client.push_msg(f"思源桥：已删除「{doc_title}」中的块")
             except Exception:
                 pass
 
@@ -1508,7 +1508,7 @@ class McpServer:
             client.set_block_attrs(block_id, custom_attrs)
 
         try:
-            client.push_msg(f"思源代理桥：已编辑「{doc_title}」")
+            client.push_msg(f"思源桥：已编辑「{doc_title}」")
         except Exception:
             pass
 
@@ -1727,7 +1727,7 @@ def tool_specs() -> list[dict[str, Any]]:
     return [
         {
             "name": "siyuan_start",
-            "description": "Refresh the safe index, ensure the system notebook 思源代理桥 and its fixed documents, and return the mandatory startup packet: notebook overview table, Workspace Index (if it exists — an AI-generated semantic navigation map), and AI Guide (user preferences and rules). Always call this first — it ensures the index is up to date.",
+            "description": "Refresh the safe index, ensure the system notebook 思源桥 and its fixed documents, and return the mandatory startup packet: notebook overview table, Workspace Index (if it exists — an AI-generated semantic navigation map), and AI Guide (user preferences and rules). Always call this first — it ensures the index is up to date.",
             "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         },
         {
@@ -1791,7 +1791,7 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_apply_guide_update",
-            "description": "Append or replace the AI Guide document in the 思源代理桥 system notebook only after explicit user approval. Requires confirmed=true. Creates a SiYuan workspace snapshot before writing.",
+            "description": "Append or replace the AI Guide document in the 思源桥 system notebook only after explicit user approval. Requires confirmed=true. Creates a SiYuan workspace snapshot before writing.",
             "inputSchema": {
                 "type": "object",
                 "properties": {

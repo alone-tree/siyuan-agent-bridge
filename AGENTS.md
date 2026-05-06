@@ -24,21 +24,21 @@ knowledge_base/      生成的索引（Git 忽略，仅本地存在）
   notebooks.json     → 笔记本索引
   privacy_rules.json → 隐私规则缓存（从思源 Markdown 表格解析）
 思源系统笔记本        跟随工作空间，refresh 时自动确保
-  思源代理桥/
+  思源桥/（兼容旧名 思源代理桥/）
     AI Guide            → AI 使用规则和用户偏好（确保存在，不覆盖）
     Workspace Index     → AI 语义导航索引（siyuan-index-builder 维护）
-    About SiYuan Agent Bridge → 给人看的工具说明（版本标识触发覆盖）
+    About SiYuan Bridge → 给人看的工具说明（版本标识触发覆盖）
     Privacy Rules       → 人类维护的隐藏规则（MCP 内部解析，AI 不可读）
 ai_workspace/        AI 工作区（Git 忽略）
 dist/                构建产物（Skill zip + MCP 配置）
 pack_skill.py        一键打包 Skill 压缩包到 dist/
 tests/               测试
-docs/                说明文档（PRO.md 设计文档、devlog.md 工程日志、API 文档等）
+docs/                说明文档（PD.md 产品设计文档、devlog.md 工程日志、API 文档等）
 ```
 
 ## Documentation
 
-设计决策更新 `docs/PRO.md`；工程实施细节、问题排查记录、阶段性结论更新 `docs/devlog.md`。不要遗漏。两个文档共同构成项目知识积累的核心机制。
+设计决策更新 `docs/PD.md`；工程实施细节、问题排查记录、阶段性结论更新 `docs/devlog.md`。不要遗漏。两个文档共同构成项目知识积累的核心机制。
 
 ## Architecture
 
@@ -46,7 +46,7 @@ docs/                说明文档（PRO.md 设计文档、devlog.md 工程日志
 - **默认只读，确认后可写**：AI 不应直接调用底层思源写 API。只有在用户明确要求写入时，才使用 `siyuan_create_document` 或 `siyuan_edit_document`。写入前自动创建思源工作空间快照。
 - **隐私预过滤**：隐私规则由用户在思源系统笔记本的 `隐私规则` / `Privacy Rules` 文档中用 Markdown 表格维护。MCP server 内部解析后过滤所有索引导出和搜索结果。AI 不可读取、搜索或编辑隐私规则文档。
 - **关闭笔记本透明打开**：索引、搜索和写入前自动临时打开关闭的笔记本，完成后恢复。
-- **系统笔记本**：`思源代理桥` 笔记本随工作空间切换，存放 AI Guide、Workspace Index、About 和 Privacy Rules 四份文档。由 `ensure_system_notebook()` 在 refresh 时自动管理。
+- **系统笔记本**：`思源桥` / `SiYuan Bridge` 笔记本（兼容旧名 `思源代理桥` / `SiYuan Agent Bridge`）随工作空间切换，存放 AI Guide、Workspace Index、About 和 Privacy Rules 四份文档。由 `ensure_system_notebook()` 在 refresh 时自动管理。
 
 ## Common Commands
 
