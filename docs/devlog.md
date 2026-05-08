@@ -1944,3 +1944,90 @@ dist/
 ### 原则
 
 统一的是产品包和安装体验，不是各平台的插件标准。不同平台的 manifest、目录结构、rules / skill 名称可以不同，但它们都应从同一套核心 MCP 和同一份 Agent Guide 派生。
+
+---
+
+## 参考 Sisyphus 后的产品方向补充（2026-05-08）
+
+### 参考对象
+
+参考项目：`yangtaihong59/siyuan-plugins-mcp-sisyphus`
+
+该项目选择“思源原生插件 + MCP Server + CLI”的形态：安装在思源内，通过插件设置管理连接方式和权限，并向外部 AI agent 暴露 MCP 工具。它更偏“让 AI 全面操作思源”的工具路线，覆盖 notebook、document、block、AV、search、file、tag、system、flashcard、mascot、fs 等聚合能力。
+
+### 可借鉴点
+
+1. **做成思源插件的安装体验**
+
+   当前项目是外部 Python 程序，虽然符合“AI agent 为中心”的架构，但普通用户安装成本较高：需要下载 release、配置 token、注册 MCP、确认 Python 环境。Sisyphus 的思源插件形态有明显优势：用户可以从思源集市安装，配置入口在思源内部，Token、工作空间、笔记本权限等信息天然靠近数据源。
+
+   后续可以考虑增加“思源插件壳”：
+
+   - 插件负责提供设置 UI、Token / profile 管理、权限管理、MCP 配置生成、诊断按钮。
+   - 核心 MCP 工具和 Agent Guide 仍保持独立，可继续面向 Claude Code、Codex、OpenClaw、Qwen Code 等 AI 平台打包。
+   - 不必立刻放弃外部 Python 形态；可以先把思源插件作为安装与配置前端，再评估是否逐步迁移 MCP server 到插件内部。
+
+2. **help 命令与渐进式披露**
+
+   Sisyphus 通过 help action / resources 让复杂工具说明按需展开，避免一次性把所有细节塞进 tool description 或 Skill。这个思路适合本项目。
+
+   后续可以考虑增加：
+
+   - `siyuan_help(topic="startup")`
+   - `siyuan_help(topic="privacy")`
+   - `siyuan_help(topic="read_document")`
+   - `siyuan_help(topic="write_safety")`
+   - `siyuan_help(topic="workspace_index")`
+
+   Skill / Agent Guide 中只保留关键工作流和安全原则，细节通过 help 工具按需加载。这样既降低上下文占用，也能让不同平台的 Skill 文件更短、更稳定。
+
+3. **读写删除权限分离管理**
+
+   当前项目主要通过 Privacy Rules 做隐藏过滤，并在写入前创建快照；写入工具本身较克制，不暴露删除、移动、重命名等高风险能力。Sisyphus 的笔记本级 `rwd` / `rw` / `r` / `none` 权限模型值得参考。
+
+   后续可以考虑在 Privacy Rules 或系统笔记本中引入更清晰的权限层：
+
+   - `hidden` / `none`：AI 完全不可见。
+   - `read`：可搜索、可读取，不可写入。
+   - `write`：可在用户确认后编辑或新建。
+   - `delete`：默认不开放；即使未来支持，也应单独授权并强确认。
+
+   这能把“隐私隐藏”和“操作权限”拆开，避免把所有安全需求都塞进 hide 规则里。
+
+### 保持自己的独特性
+
+不能把项目做成“另一个全功能思源 API 遥控器”。本项目的差异化应继续明确为：
+
+1. **做产品，而不只是做工具**
+
+   目标不是暴露更多 API，而是让 AI agent 稳定、安全、低心智负担地使用用户的个人知识库。工具数量应保持克制，接口设计继续贴近 AI 编程工具熟悉的 list / find / read / edit / create 心智模型。
+
+2. **主打知识库管理，而非思源全功能操作**
+
+   项目核心是把思源变成 AI 可理解、可导航、可长期维护的结构化知识库。Workspace Index、AI Guide、Privacy Rules、启动包、分段阅读、引用阅读等机制应继续作为产品中心。
+
+3. **借鉴 LLM Wiki / Agent Wiki 思路**
+
+   后续可以围绕不同知识库工作流设计专门 skills，例如：
+
+   - workspace index builder：构建全局导航。
+   - research synthesizer：围绕主题聚合多篇笔记。
+   - reading map builder：从读书笔记生成知识地图。
+   - project memory maintainer：维护项目长期背景、决策和待办。
+   - citation / block reference helper：生成精确块引用。
+
+   这些 skill 不只是“怎么调用 API”，而是内部工作流，是产品价值的一部分。
+
+4. **MCP + Skill + 内部工作流的整体组合**
+
+   MCP 是能力层，Skill / Agent Guide 是行为层，系统笔记本中的 AI Guide / Workspace Index / Privacy Rules 是用户可控的策略层。三者共同构成产品，不应被拆成互不相关的安装项。
+
+5. **AI 友好与人类友好双重设计**
+
+   AI 友好：少工具、强约束、渐进式披露、启动包、按需读取、写前快照、明确错误信息。
+
+   人类友好：安装简单、权限可理解、配置可视化、可在思源中管理偏好和隐私、能通过快照回滚、能看到 AI 维护的 Workspace Index。
+
+### 阶段性判断
+
+短期仍以现有 Python MCP + Skill 打包策略推进，优先解决多平台安装包和 AI 安装指南。中期探索“思源插件壳”作为配置和安装入口。长期如果插件形态足够稳定，再评估是否把 MCP server 本身迁移到思源插件内部或提供双运行时。
