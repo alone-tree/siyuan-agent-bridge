@@ -1,6 +1,6 @@
 {
   "name": "siyuan-index-builder",
-  "description": "Build and maintain a structured path-first navigation index (Workspace Index) in the 思源代理桥 system notebook. Lets AI agents locate relevant documents without scanning every notebook map.",
+  "description": "Build and maintain a structured path-first navigation index (Workspace Index) in the 思源桥 / SiYuan Bridge system notebook. Lets AI agents locate relevant documents without scanning every notebook map.",
   "version": "0.1.0",
   "author": {
     "name": "Private Local User"

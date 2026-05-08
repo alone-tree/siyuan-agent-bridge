@@ -9,8 +9,14 @@ SUPPORTED_LANGUAGES = ("zh-CN", "en")
 DEFAULT_LANGUAGE = "zh-CN"
 
 SYSTEM_NOTEBOOK_NAMES: dict[str, str] = {
-    "zh-CN": "思源代理桥",
-    "en": "SiYuan Agent Bridge",
+    "zh-CN": "思源桥",
+    "en": "SiYuan Bridge",
+}
+
+# Legacy notebook names — matched for backward compatibility but never created.
+LEGACY_NOTEBOOK_NAMES: dict[str, str] = {
+    "思源代理桥": "zh-CN",
+    "SiYuan Agent Bridge": "en",
 }
 
 SYSTEM_DOC_KEYS = [
@@ -19,6 +25,16 @@ SYSTEM_DOC_KEYS = [
     "about",
     "privacy_rules",
 ]
+
+# Legacy document names matched for backward compatibility but never created.
+# Particularly "关于Siyuan Agent Bridge" was observed in the wild (hybrid zh-CN prefix + en notebook name).
+LEGACY_DOC_NAMES: dict[str, list[str]] = {
+    "about": [
+        "关于思源代理桥",
+        "About SiYuan Agent Bridge",
+        "关于Siyuan Agent Bridge",
+    ],
+}
 
 SYSTEM_DOC_NAMES: dict[str, dict[str, str]] = {
     "ai_guide": {
@@ -30,8 +46,8 @@ SYSTEM_DOC_NAMES: dict[str, dict[str, str]] = {
         "en": "Workspace Index",
     },
     "about": {
-        "zh-CN": "关于思源代理桥",
-        "en": "About SiYuan Agent Bridge",
+        "zh-CN": "关于思源桥",
+        "en": "About SiYuan Bridge",
     },
     "privacy_rules": {
         "zh-CN": "隐私规则",
@@ -109,16 +125,16 @@ PRIVACY_RULES_TEMPLATES: dict[str, str] = {
 
 ABOUT_TEMPLATES: dict[str, str] = {
     "zh-CN": (
-        "<!-- template_version: 1 -->\n\n"
-        "# 关于思源代理桥\n\n"
-        "本文档由思源代理桥自动维护，可能在刷新时更新。请不要在这里记录个人内容。\n\n"
-        "思源代理桥是连接思源笔记和 AI 助手的本地桥接工具。"
+        "<!-- template_version: 2 -->\n\n"
+        "# 关于思源桥\n\n"
+        "本文档由思源桥自动维护，可能在刷新时更新。请不要在这里记录个人内容。\n\n"
+        "思源桥是连接思源笔记和 AI 助手的本地桥接工具。"
         "它让 AI 在隐私规则保护下阅读、搜索和维护你的思源知识库。\n\n"
         "## 系统笔记本里的四份文档\n\n"
         "- **AI 使用指南**：给 AI 看的长期规则，你可以在这里写下偏好、重点笔记本、写作风格和限制。\n"
         "- **工作空间索引**：AI 生成的语义导航索引，帮助新会话快速了解这个工作空间里有什么。\n"
         "- **隐私规则**：由人类在思源中维护的 Markdown 表格，控制哪些笔记对 AI 隐藏。AI 无法读取此文档。\n"
-        "- **关于思源代理桥**：就是本文档，给人看的工具说明。\n\n"
+        "- **关于思源桥**：就是本文档，给人看的工具说明。\n\n"
         "## 日常怎么用\n\n"
         "你平时正常在思源里写笔记。需要时告诉 AI「帮我查一下笔记里关于 XX 的内容」。"
         "如果某些笔记不想被 AI 看到，在隐私规则文档的表格里添加规则即可。"
@@ -126,16 +142,16 @@ ABOUT_TEMPLATES: dict[str, str] = {
         "更多信息请阅读项目 README、项目网站，或联系开发者。\n"
     ),
     "en": (
-        "<!-- template_version: 1 -->\n\n"
-        "# About SiYuan Agent Bridge\n\n"
-        "This document is maintained by SiYuan Agent Bridge and may be updated during refresh. Do not store personal notes here.\n\n"
-        "SiYuan Agent Bridge is a local bridge between SiYuan notes and AI agents, "
+        "<!-- template_version: 2 -->\n\n"
+        "# About SiYuan Bridge\n\n"
+        "This document is maintained by SiYuan Bridge and may be updated during refresh. Do not store personal notes here.\n\n"
+        "SiYuan Bridge is a local bridge between SiYuan notes and AI agents, "
         "letting AI read, search, and maintain your knowledge base under privacy rules.\n\n"
         "## Four Documents in This Notebook\n\n"
         "- **AI Guide**: Long-term instructions for AI — your preferences, important notebooks, writing style, and constraints.\n"
         "- **Workspace Index**: AI-generated semantic navigation map for new sessions.\n"
         "- **Privacy Rules**: Human-maintained Markdown tables controlling which notes are hidden from AI. AI cannot read this document.\n"
-        "- **About SiYuan Agent Bridge**: This document — a human-readable introduction to the tool.\n\n"
+        "- **About SiYuan Bridge**: This document — a human-readable introduction to the tool.\n\n"
         "## How to Use\n\n"
         "Write notes in SiYuan as usual. When needed, ask AI to search your notes. "
         "To hide content from AI, add rules in the Privacy Rules document tables. "
@@ -144,7 +160,7 @@ ABOUT_TEMPLATES: dict[str, str] = {
     ),
 }
 
-ABOUT_TEMPLATE_VERSION_MARKER = "<!-- template_version: 1 -->"
+ABOUT_TEMPLATE_VERSION_MARKER = "<!-- template_version: 2 -->"
 
 
 @dataclass(frozen=True)
@@ -195,17 +211,24 @@ def get_doc_path(key: str, language: str) -> str:
 
 
 def all_notebook_names() -> list[str]:
-    return list(SYSTEM_NOTEBOOK_NAMES.values())
+    """Return all known notebook names (current + legacy)."""
+    names = list(SYSTEM_NOTEBOOK_NAMES.values())
+    names.extend(LEGACY_NOTEBOOK_NAMES.keys())
+    return names
 
 
 def all_doc_names_for_key(key: str) -> list[str]:
-    names = SYSTEM_DOC_NAMES.get(key, {})
-    return list(names.values())
+    """Return all known doc names for a key (current + legacy)."""
+    names = list(SYSTEM_DOC_NAMES.get(key, {}).values())
+    names.extend(LEGACY_DOC_NAMES.get(key, []))
+    return names
 
 
 def match_doc_key(hpath: str) -> str | None:
     """Match a document hpath (e.g. '/AI Guide') to its stable key.
     Returns None if not a system document.
+
+    Checks current names first, then legacy names for backward compatibility.
     """
     if not hpath:
         return None
@@ -214,18 +237,29 @@ def match_doc_key(hpath: str) -> str | None:
         for name in SYSTEM_DOC_NAMES[key].values():
             if name.casefold() == normalized:
                 return key
+    # Legacy names — ensure old/hybrid doc names are still recognized
+    for key, legacy_names in LEGACY_DOC_NAMES.items():
+        for legacy_name in legacy_names:
+            if legacy_name.casefold() == normalized:
+                return key
     return None
 
 
 def match_notebook_name(name: str) -> str | None:
     """Check if a notebook name matches any known system notebook name.
     Returns the language code if matched, None otherwise.
+
+    Checks current names first, then legacy names for backward compatibility.
     """
     if not name:
         return None
     folded = name.casefold()
     for lang, nb_name in SYSTEM_NOTEBOOK_NAMES.items():
         if nb_name.casefold() == folded:
+            return lang
+    # Legacy names — recognize old notebook names without creating new ones
+    for legacy_name, lang in LEGACY_NOTEBOOK_NAMES.items():
+        if legacy_name.casefold() == folded:
             return lang
     return None
 
