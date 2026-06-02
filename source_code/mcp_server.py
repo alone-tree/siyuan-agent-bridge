@@ -477,6 +477,41 @@ def display_document_path(doc: dict[str, Any]) -> str:
     return hpath
 
 
+def normalize_display_path(path: str) -> str:
+    text = str(path or "").strip()
+    if not text:
+        return ""
+    return "/" + text.strip("/")
+
+
+def direct_child_key(parent_path: str, document_path: str) -> str | None:
+    parent = normalize_display_path(parent_path)
+    doc_path = normalize_display_path(document_path)
+    if not parent:
+        return None
+    if doc_path == parent or not doc_path.startswith(parent + "/"):
+        return None
+    remainder = doc_path[len(parent):].strip("/")
+    if not remainder:
+        return None
+    return remainder.split("/", 1)[0]
+
+
+def descendant_count(doc: dict[str, Any], docs: list[dict[str, Any]]) -> int:
+    path = display_document_path(doc).rstrip("/")
+    return sum(
+        1 for item in docs
+        if display_document_path(item).startswith(path + "/")
+    )
+
+
+def format_int(value: Any) -> str:
+    try:
+        return f"{int(value):,}"
+    except (TypeError, ValueError):
+        return "0"
+
+
 def estimate_token_count(text: str) -> int:
     """Heuristic token estimator. CJK ~1.0 tok/char, Latin ~1.3 tok/word, digits ~0.8 tok/item, punctuation ~0.4 tok/char."""
     if not text:
@@ -756,6 +791,28 @@ def blocks_between_anchors(
     return blocks[start:end]
 
 
+def markdown_has_multiple_blocks(markdown: str) -> bool:
+    in_fence = False
+    saw_content = False
+    saw_blank_after_content = False
+    for line in markdown.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+        if in_fence:
+            if stripped:
+                saw_content = True
+            continue
+        if not stripped:
+            if saw_content:
+                saw_blank_after_content = True
+            continue
+        if saw_blank_after_content:
+            return True
+        saw_content = True
+    return False
+
+
 def main() -> int:
     server = McpServer(Path.cwd())
     for line in sys.stdin:
@@ -819,6 +876,7 @@ class McpServer:
         if name not in tools:
             return make_error(request_id, -32602, f"Unknown tool: {name}")
         try:
+            detect_active_profile(load_config(self.root))
             text = tools[name](args)
             return make_result(request_id, {"content": [{"type": "text", "text": text}]})
         except SiYuanConnectionError as exc:
@@ -827,7 +885,7 @@ class McpServer:
                 reason = "无法连接到思源笔记"
             return make_result(
                 request_id,
-                {"content": [{"type": "text", "text": f"思源连接失败：{reason}\n\n请提示用户手动打开思源笔记后重试。"}], "isError": True},
+                {"content": [{"type": "text", "text": f"思源未启动或 API 不可达：{reason}\n\n请先手动启动思源笔记，确认当前工作空间已打开且 API Token 配置正确，然后重试。"}], "isError": True},
             )
         except (SiYuanApiError, ValueError, FileNotFoundError) as exc:
             return make_result(
@@ -942,10 +1000,13 @@ class McpServer:
         )
 
     def siyuan_list(self, args: dict[str, Any]) -> str:
+        path = normalize_display_path(str(args.get("path") or "").strip())
         notebook_id = str(args.get("notebook_id") or "").strip()
         notebook_name = str(args.get("notebook_name") or "").strip()
+        limit = clamp_int(args.get("limit"), 100, 1, 500)
+        offset = max(int(args.get("offset") or 0), 0)
 
-        if not notebook_id and not notebook_name:
+        if not path and not notebook_id and not notebook_name:
             # List all notebooks
             notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
             lines = ["# 可见笔记本", ""]
@@ -954,21 +1015,91 @@ class McpServer:
             lines.append("")
             return "\n".join(lines)
 
-        # List documents for one notebook
+        docs = load_docs(self.root)
+        notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
+
+        # Compatibility: old notebook_id/notebook_name args now list the notebook root.
         if not notebook_id and notebook_name:
             notebook_id = self.resolve_notebook_id(notebook_name)
-        docs = [d for d in load_docs(self.root) if str(d.get("notebook_id", "")) == notebook_id]
-        if not docs:
-            raise FileNotFoundError(f"No visible documents found for notebook {notebook_id}")
-        docs.sort(key=lambda d: (str(d.get("hpath", "")).casefold(), str(d.get("id", ""))))
-        nb_name = self._notebook_name(notebook_id)
-        total_words = sum(d.get("word_count", 0) for d in docs)
-        total_blocks = sum(d.get("block_count", 0) for d in docs)
+        if notebook_id and not path:
+            path = normalize_display_path(self._notebook_name(notebook_id))
+
+        if not path:
+            raise ValueError("path 参数为空。")
+
+        parent_doc = next(
+            (doc for doc in docs if display_document_path(doc).casefold() == path.casefold()),
+            None,
+        )
+        notebook = next(
+            (nb for nb in notebooks if normalize_display_path(str(nb.get("name", ""))).casefold() == path.casefold()),
+            None,
+        )
+        if parent_doc is None and notebook is None:
+            has_descendants = any(
+                display_document_path(doc).casefold().startswith(path.casefold() + "/")
+                for doc in docs
+            )
+            if not has_descendants:
+                raise FileNotFoundError(f"未找到可见路径：{path}")
+
+        children_by_name: dict[str, dict[str, Any]] = {}
+        for doc in docs:
+            child_name = direct_child_key(path, display_document_path(doc))
+            if not child_name:
+                continue
+            child_path = normalize_display_path(f"{path}/{child_name}")
+            existing = children_by_name.get(child_name)
+            exact_doc = display_document_path(doc).casefold() == child_path.casefold()
+            if existing is None or exact_doc:
+                if exact_doc:
+                    children_by_name[child_name] = doc
+                else:
+                    children_by_name[child_name] = {
+                        "id": "",
+                        "notebook_id": str(doc.get("notebook_id", "")),
+                        "notebook_name": str(doc.get("notebook_name", "")),
+                        "hpath": "/" + child_path.strip("/").split("/", 1)[1],
+                        "title": child_name,
+                        "word_count": 0,
+                        "block_count": 0,
+                        "updated": "",
+                    }
+
+        children = list(children_by_name.values())
+        children.sort(key=lambda doc: display_document_path(doc).casefold())
+        total = len(children)
+        page = children[offset:offset + limit]
+
         lines = [
-            f"# {nb_name} (`{notebook_id}`) | {len(docs)} 篇 | {total_words:,} 字 | {total_blocks} 块",
+            f"# {path}",
             "",
+            "| document | document_id | 字数 | 块数 | 更新 | 子文档 |",
+            "|---|---|---:|---:|---|---:|",
         ]
-        lines.extend(render_doc_tree(docs))
+        if not page:
+            lines.append("| (无可见子文档) |  |  |  |  |  |")
+        for doc in page:
+            doc_path = display_document_path(doc)
+            lines.append(
+                "| "
+                + " | ".join([
+                    doc_path,
+                    f"`{doc.get('id', '')}`",
+                    format_int(doc.get("word_count", 0)),
+                    format_int(doc.get("block_count", 0)),
+                    format_date(str(doc.get("updated", ""))),
+                    format_int(descendant_count(doc, docs)),
+                ])
+                + " |"
+            )
+        if offset + limit < total:
+            remaining = total - offset - limit
+            lines.extend([
+                "",
+                f"还有 {remaining} 项未显示。",
+                f"继续：siyuan_list(path=\"{path}\", offset={offset + limit}, limit={limit})",
+            ])
         return "\n".join(lines)
 
     def _notebook_name(self, notebook_id: str) -> str:
@@ -1238,12 +1369,11 @@ class McpServer:
             attachment_count = extract_attachments(markdown, client, doc_id, self.root)
             markdown = rewrite_local_asset_links(markdown, doc_id, self.root)
             doc_path = display_document_path(doc)
-            markdown_wc = compute_word_count(markdown)
             date = format_date(str(doc.get("updated", "")))
             header_lines = [
                 f"# 文档：{doc_path}",
                 f"文档 ID：`{doc_id}`",
-                f"字数：{markdown_wc:,} | 块数：{doc.get('block_count', 0)} | 字符：{len(markdown):,} | 更新：{date}",
+                f"更新：{date}",
                 "阅读模式：普通阅读（降级到导出 Markdown）",
             ]
             if attachment_count:
@@ -1284,19 +1414,18 @@ class McpServer:
         # Build header
         doc_path = display_document_path(doc)
         date = format_date(str(doc.get("updated", "")))
-        total_chars = sum(len(b.markdown) for b in display_blocks)
-
         mode_label = "引用阅读（显示块序号、ID 和类型）" if include_block_ids else "普通阅读"
         header_lines = [
             f"# 文档：{doc_path}",
             f"文档 ID：`{doc_id}`",
+            f"更新：{date}",
+            f"阅读模式：{mode_label}",
             f"展示块：{first_idx}-{last_idx} / {total_blocks}",
             f"估算令牌数：{window_tokens:,} / {token_budget:,}",
         ]
         if start_idx + block_limit < total_blocks:
             next_start = last_idx + 1
             header_lines.append(f"下一窗口：block_start={next_start}, block_limit={block_limit}")
-        header_lines.append(f"阅读模式：{mode_label}")
         if attachment_count:
             header_lines.append(f"附件：{attachment_count} 个已提取到 {attachment_root_dir(self.root, doc_id).resolve()}")
         header = "\n".join(header_lines)
@@ -1585,12 +1714,14 @@ class McpServer:
         if start_pos is None:
             raise ValueError(
                 f"目标块校验失败：当前文档没有 start_index={start_index}。"
-                "文档可能在上次读取后发生变化，请重新引用阅读。"
+                "文档可能在上次读取后发生变化。请重新调用 siyuan_read_document(include_block_ids=true)，"
+                "用新的块序号和块 ID 再编辑。"
             )
         if blocks[start_pos].id != start_id:
             raise ValueError(
                 f"目标块校验失败：start_index={start_index} 对应的当前块 ID 是 `{blocks[start_pos].id}`，"
-                f"但请求中的 start_id 是 `{start_id}`。请重新引用阅读后再编辑。"
+                f"但请求中的 start_id 是 `{start_id}`。请重新调用 siyuan_read_document(include_block_ids=true)，"
+                "不要沿用旧块 ID。"
             )
 
         if args.get("end_index") is None and not str(args.get("end_id") or "").strip():
@@ -1606,12 +1737,14 @@ class McpServer:
         if end_pos is None:
             raise ValueError(
                 f"目标块校验失败：当前文档没有 end_index={end_index}。"
-                "文档可能在上次读取后发生变化，请重新引用阅读。"
+                "文档可能在上次读取后发生变化。请重新调用 siyuan_read_document(include_block_ids=true)，"
+                "用新的范围端点再编辑。"
             )
         if blocks[end_pos].id != end_id:
             raise ValueError(
                 f"目标块校验失败：end_index={end_index} 对应的当前块 ID 是 `{blocks[end_pos].id}`，"
-                f"但请求中的 end_id 是 `{end_id}`。请重新引用阅读后再编辑。"
+                f"但请求中的 end_id 是 `{end_id}`。请重新调用 siyuan_read_document(include_block_ids=true)，"
+                "不要沿用旧块 ID。"
             )
         if end_pos < start_pos:
             raise ValueError("范围操作要求 start_index <= end_index。")
@@ -1623,9 +1756,20 @@ class McpServer:
             raise ValueError("需要 confirmed=true。编辑思源文档必须经过用户明确确认。")
 
         action = str(args.get("action") or "").strip()
-        allowed_actions = {"replace", "insert_after", "insert_before", "append", "delete", "table_edit"}
+        allowed_actions = {
+            "single_block_replace",
+            "multi_block_replace",
+            "insert_after",
+            "insert_before",
+            "append",
+            "delete",
+            "table_edit",
+        }
         if action not in allowed_actions:
-            raise ValueError("action 只支持 replace、insert_after、insert_before、append、delete、table_edit。")
+            raise ValueError(
+                "action 只支持 single_block_replace、multi_block_replace、"
+                "insert_after、insert_before、append、delete、table_edit。"
+            )
 
         doc = self.resolve_visible_document(args)
         doc_id = str(doc.get("id", ""))
@@ -1642,12 +1786,12 @@ class McpServer:
             target_blocks = self._edit_range_from_args(args, display_blocks)
         markdown = str(args.get("markdown") or "")
 
-        if action in {"replace", "insert_after", "insert_before", "append"} and not markdown.strip():
+        if action in {"single_block_replace", "multi_block_replace", "insert_after", "insert_before", "append"} and not markdown.strip():
             raise ValueError(f"action={action} 需要 markdown。")
         if action == "table_edit" and not isinstance(args.get("table_edit"), dict):
             raise ValueError("action=table_edit 需要 table_edit 对象。")
 
-        if action == "replace":
+        if action in {"single_block_replace", "multi_block_replace"}:
             refused = [
                 f"[{block.index}] id={block.id} type={display_block_semantic_type(block)}"
                 for block in target_blocks
@@ -1655,18 +1799,36 @@ class McpServer:
             ]
             if refused:
                 raise ValueError(
-                    "replace 暂不支持复杂块类型，请拆分处理；如需移除这些块请使用 delete。\n"
+                    f"{action} 暂不支持复杂块类型。\n"
+                    "处理建议：如需移除目标块，用 delete；如需补充说明，用 insert_before 或 insert_after；"
+                    "如需重构复杂块附近内容，请只替换普通文本/标题/代码/表格块。\n"
                     + "\n".join(refused)
+                )
+
+        if action == "single_block_replace":
+            if len(target_blocks) != 1:
+                raise ValueError(
+                    "single_block_replace 只能替换单个块，并保留该块 ID 和块属性。"
+                    "当前目标是多个块；请改用 multi_block_replace。注意 multi_block_replace 会重建块，"
+                    "旧块 ID 和指向旧块的引用会失效。"
+                )
+            if markdown_has_multiple_blocks(markdown):
+                raise ValueError(
+                    "single_block_replace 的 markdown 必须只生成一个展示块，因为它会复用原块 ID 和块属性。"
+                    "当前 markdown 会被思源拆成多个块；请改用 multi_block_replace。"
+                    "注意 multi_block_replace 会重建块，旧块 ID 和指向旧块的引用会失效。"
                 )
 
         new_table = ""
         if action == "table_edit":
             target = target_blocks[0]
             if len(target_blocks) != 1:
-                raise ValueError("table_edit 只能作用于单个表格块。")
+                raise ValueError("table_edit 只能作用于单个普通 Markdown 表格块。范围表格编辑请拆成多次调用。")
             if display_block_semantic_type(target) != "table":
                 raise ValueError(
                     f"table_edit 只能作用于 type=table 的普通 Markdown 表格；当前目标为 type={display_block_semantic_type(target)}。"
+                    "如果要在该块附近添加表格或说明，请使用 insert_before / insert_after；"
+                    "如果要整体替换为普通内容，请使用 multi_block_replace。"
                 )
             new_table = apply_table_edit(display_block_source(target), args["table_edit"])
 
@@ -1688,34 +1850,26 @@ class McpServer:
         )
         last_before_append = display_blocks[-1] if display_blocks else None
 
-        snapshot_status = self._create_snapshot_or_raise(client, "siyuan_edit", doc_title)
+        self._create_snapshot_or_raise(client, "siyuan_edit", doc_title)
 
         with ensure_notebooks_open(client, [notebook_id]):
             if action == "append":
                 client.append_block(doc_id, markdown)
-                changed = "在文档末尾追加了新内容"
             elif action == "insert_after":
                 client.insert_block_after(target_blocks[-1].id, markdown)
-                changed = f"在块 `{target_blocks[-1].id}` 之后插入了新内容"
             elif action == "insert_before":
                 client.insert_block_before(target_blocks[0].id, markdown)
-                changed = f"在块 `{target_blocks[0].id}` 之前插入了新内容"
             elif action == "delete":
                 for block in reversed(target_blocks):
                     client.delete_block(block.id)
-                changed = f"删除了 {len(target_blocks)} 个块"
             elif action == "table_edit":
                 self._update_block_preserving_attrs(client, target_blocks[0].id, new_table)
-                changed = f"编辑了表格块 `{target_blocks[0].id}`"
-            else:
-                if len(target_blocks) == 1:
-                    self._update_block_preserving_attrs(client, target_blocks[0].id, markdown)
-                    changed = f"替换了块 `{target_blocks[0].id}`"
-                else:
-                    client.insert_block_before(target_blocks[0].id, markdown)
-                    for block in reversed(target_blocks):
-                        client.delete_block(block.id)
-                    changed = f"替换了 {len(target_blocks)} 个块"
+            elif action == "single_block_replace":
+                self._update_block_preserving_attrs(client, target_blocks[0].id, markdown)
+            elif action == "multi_block_replace":
+                client.insert_block_before(target_blocks[0].id, markdown)
+                for block in reversed(target_blocks):
+                    client.delete_block(block.id)
 
             new_display_blocks = build_display_blocks(client, doc_id, include_block_ids=True)
 
@@ -1727,15 +1881,12 @@ class McpServer:
         parts = [
             "# 文档已编辑",
             "",
-            f"**文档：**{doc_title}（`{doc_id}`）",
-            f"**action：**{action}",
-            f"**结果：**{changed}",
-            f"**端点：**{client.base_url}",
-            f"**快照：**{snapshot_status}",
+            f"文档：{doc_title}（`{doc_id}`）",
+            f"action：{action}",
         ]
 
-        if action == "replace":
-            if len(target_blocks) == 1:
+        if action in {"single_block_replace", "multi_block_replace"}:
+            if action == "single_block_replace":
                 replaced = [
                     block for block in new_display_blocks
                     if block.id == target_blocks[0].id
@@ -1747,7 +1898,7 @@ class McpServer:
                     next_anchor.id if next_anchor else None,
                 )
             parts.extend([
-                f"**已替换 {len(target_blocks)} 个块：**{block_range_label(target_blocks)}",
+                f"已替换 {len(target_blocks)} 个块：{block_range_label(target_blocks)}",
                 "",
                 "## 原内容",
                 "",
@@ -1771,7 +1922,7 @@ class McpServer:
                     target_blocks[0].id,
                 )
             parts.extend([
-                f"**锚点：**{block_range_label(target_blocks)}",
+                f"锚点：{block_range_label(target_blocks)}",
                 "",
                 "## 锚点内容",
                 "",
@@ -1801,7 +1952,7 @@ class McpServer:
                 [block for block in new_display_blocks if next_anchor and block.id == next_anchor.id]
             )
             parts.extend([
-                f"**已删除 {len(target_blocks)} 个块：**{block_range_label(target_blocks)}",
+                f"已删除 {len(target_blocks)} 个块：{block_range_label(target_blocks)}",
                 "",
                 "## 已删除内容",
                 "",
@@ -1821,7 +1972,7 @@ class McpServer:
                 if block.id == target_blocks[0].id
             ]
             parts.extend([
-                f"**目标：**{block_range_label(target_blocks)}",
+                f"目标：{block_range_label(target_blocks)}",
                 "",
                 "## 原表格",
                 "",
@@ -2282,12 +2433,15 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_list",
-            "description": "List visible notebooks (no arguments) or return the document tree for one notebook (provide notebook_id or notebook_name). When listing documents, word counts and update times are included.",
+            "description": "List visible notebooks or one level of visible documents. No arguments lists notebooks. Provide path=/Notebook or /Notebook/Folder to list only direct child documents at that path. Each row returns a full readable document path for siyuan_read_document/siyuan_edit, plus document_id fallback, word count, block count, update date, and descendant document count. Results are paginated with offset/limit. notebook_id/notebook_name are compatibility shortcuts for path=/Notebook.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "notebook_id": {"type": "string", "description": "Notebook ID. Omit to list all notebooks."},
-                    "notebook_name": {"type": "string", "description": "Notebook name. Omit to list all notebooks."},
+                    "path": {"type": "string", "description": "Readable path to list one level under, e.g. /Notebook or /Notebook/Folder. Omit to list all notebooks."},
+                    "limit": {"type": "integer", "default": 100, "description": "Maximum direct children to return, 1-500."},
+                    "offset": {"type": "integer", "default": 0, "description": "Pagination offset within the direct children of path."},
+                    "notebook_id": {"type": "string", "description": "Compatibility shortcut. Lists the root level of this notebook."},
+                    "notebook_name": {"type": "string", "description": "Compatibility shortcut. Lists the root level of this notebook."},
                 },
                 "additionalProperties": False,
             },
@@ -2311,15 +2465,16 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_read_document",
-            "description": "Read a visible SiYuan document as Markdown. Always returns the document outline (heading to block mapping). Reads in block window mode using SiYuan's native block order, returning complete consecutive blocks without mid-character truncation. Use block_start/block_limit for pagination, token_budget as a safety valve. Set include_block_ids=true for reference reading with global block index, block ID, and semantic block type for precise edit targeting.",
+            "description": "Read a visible SiYuan document as Markdown. Prefer document path including notebook name, e.g. /Notebook/Folder/Doc; use document_id only as fallback. Always returns the document outline and one complete block window. Set include_block_ids=true before any siyuan_edit call to get exact [index] id type targets. Normal reading keeps Markdown clean and hides block IDs.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "document_id": {"type": "string", "description": "Document id, exact hpath, title, or unique partial match."},
+                    "document": {"type": "string", "description": "Document path including notebook name, e.g. /Notebook/Folder/Doc. Preferred for reading and editing workflows."},
+                    "document_id": {"type": "string", "description": "Document id fallback when path is ambiguous or unavailable."},
                     "block_start": {"type": "integer", "default": 1, "description": "Starting display block index (1-based). Default 1 reads from the first block."},
                     "block_limit": {"type": "integer", "default": DEFAULT_BLOCK_LIMIT, "description": "Maximum display blocks to return in this window, 1–1000."},
                     "token_budget": {"type": "integer", "default": DEFAULT_TOKEN_BUDGET, "description": "Estimated token ceiling for this window. Blocks stop before exceeding budget (at least one block always returned)."},
-                    "include_block_ids": {"type": "boolean", "default": False, "description": "Enable reference reading — show global block index, block ID, and semantic block type for precise cross-document references and edit targeting."},
+                    "include_block_ids": {"type": "boolean", "default": False, "description": "Enable reference reading for editing: each block is shown as [index] id=... type=... followed by content. Use these exact values for siyuan_edit start_index/start_id."},
                 },
                 "additionalProperties": False,
             },
@@ -2366,18 +2521,18 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_edit",
-            "description": "Edit a visible SiYuan document by document path plus reference-read block index and block ID. Prefer this over siyuan_edit_document for normal editing. Requires confirmed=true and creates a SiYuan workspace snapshot before writing. Use siyuan_read_document(include_block_ids=true) first to get start_index/start_id. Actions: replace, insert_after, insert_before, append, delete, table_edit.",
+            "description": "Edit a visible SiYuan document by document path plus reference-read block index and block ID. Prefer this over siyuan_edit_document for normal editing. Requires confirmed=true and creates a SiYuan workspace snapshot before writing. Use siyuan_read_document(include_block_ids=true) first to get start_index/start_id. Actions: single_block_replace = one existing block -> one block, uses updateBlock, preserves the target block ID and block attrs, so existing block references stay valid. multi_block_replace = one or more existing blocks -> one or more new blocks, inserts new markdown then deletes old blocks, so old block IDs/attrs are not preserved and references to old blocks become invalid. Use multi_block_replace whenever block count may change. insert_after/insert_before do not modify the anchor block. append adds to document end. delete removes blocks. table_edit edits one normal Markdown table block.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "document": {"type": "string", "description": "Document path including notebook name, e.g. /Notebook/Folder/Doc. If ambiguous, use document_id instead."},
                     "document_id": {"type": "string", "description": "Optional document id fallback when document path is ambiguous."},
-                    "action": {"type": "string", "enum": ["replace", "insert_after", "insert_before", "append", "delete", "table_edit"]},
+                    "action": {"type": "string", "enum": ["single_block_replace", "multi_block_replace", "insert_after", "insert_before", "append", "delete", "table_edit"], "description": "Choose single_block_replace only when replacing exactly one block with exactly one block and preserving its block ID matters. Choose multi_block_replace when replacing a range or when the new markdown may create multiple blocks; old block IDs and references will be invalidated."},
                     "start_index": {"type": "integer", "description": "Global display block index from reference reading. Required except append."},
                     "start_id": {"type": "string", "description": "Block ID from reference reading. Required except append."},
-                    "end_index": {"type": "integer", "description": "Inclusive global display block index for range replace/delete."},
-                    "end_id": {"type": "string", "description": "Inclusive end block ID for range replace/delete."},
-                    "markdown": {"type": "string", "description": "Markdown to insert or replace with. Required for replace/insert_after/insert_before/append."},
+                    "end_index": {"type": "integer", "description": "Inclusive global display block index for multi_block_replace/delete range operations."},
+                    "end_id": {"type": "string", "description": "Inclusive end block ID for multi_block_replace/delete range operations."},
+                    "markdown": {"type": "string", "description": "Markdown to insert or replace with. For single_block_replace this must render as exactly one display block. For multi_block_replace it may render as one or more new blocks."},
                     "table_edit": {
                         "type": "object",
                         "description": "Required for action=table_edit on a normal Markdown table block.",

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from source_code import mcp_server
+from source_code.client import SiYuanConnectionError
 from source_code.config import Profile
 from source_code.ignore import PrivacyRules, write_privacy_rules_cache
 
@@ -229,6 +230,51 @@ class McpServerTests(unittest.TestCase):
             "".join(json.dumps(doc, ensure_ascii=False) + "\n" for doc in docs),
             encoding="utf-8",
         )
+
+    def test_list_without_args_lists_notebooks(self):
+        server = mcp_server.McpServer(self.root)
+        result = server.siyuan_list({})
+        self.assertIn("# 可见笔记本", result)
+        self.assertIn("`nb1` Main", result)
+
+    def test_tool_call_detects_siyuan_before_local_list(self):
+        server = mcp_server.McpServer(self.root)
+        original = mcp_server.detect_active_profile
+
+        def fake_detect(_config):
+            raise SiYuanConnectionError("connection refused")
+
+        mcp_server.detect_active_profile = fake_detect
+        try:
+            response = server.call_tool(1, "siyuan_list", {})
+        finally:
+            mcp_server.detect_active_profile = original
+
+        self.assertTrue(response["result"]["isError"])
+        text = response["result"]["content"][0]["text"]
+        self.assertIn("思源未启动或 API 不可达", text)
+        self.assertIn("请先手动启动思源笔记", text)
+
+    def test_list_path_returns_direct_children_with_full_paths(self):
+        server = mcp_server.McpServer(self.root)
+        result = server.siyuan_list({"path": "/Main/Projects"})
+        self.assertIn("| document | document_id | 字数 | 块数 | 更新 | 子文档 |", result)
+        self.assertIn("| /Main/Projects/Doc One | `doc1` | 123 | 4 | 2026-05-01 | 1 |", result)
+        self.assertIn("| /Main/Projects/Hidden | `doc2` | 50 | 2 | 2026-05-01 | 0 |", result)
+        self.assertNotIn("/Main/Projects/Doc One/Child", result)
+
+    def test_list_path_can_descend_one_level(self):
+        server = mcp_server.McpServer(self.root)
+        result = server.siyuan_list({"path": "/Main/Projects/Doc One"})
+        self.assertIn("| /Main/Projects/Doc One/Child | `doc3` | 30 | 1 | 2026-05-01 | 0 |", result)
+
+    def test_list_paginates_direct_children(self):
+        server = mcp_server.McpServer(self.root)
+        result = server.siyuan_list({"path": "/Main/Projects", "limit": 1})
+        self.assertIn("| /Main/Projects/Doc One | `doc1`", result)
+        self.assertNotIn("| /Main/Projects/Hidden | `doc2`", result)
+        self.assertIn("还有 1 项未显示。", result)
+        self.assertIn('siyuan_list(path="/Main/Projects", offset=1, limit=1)', result)
 
     def test_find_documents_uses_live_full_text_blocks(self):
         client = FakeSearchClient([
@@ -707,7 +753,7 @@ class McpServerWriteTests(unittest.TestCase):
         finally:
             mcp_server.detect_active_profile = original
 
-    def test_siyuan_edit_replace_uses_path_index_and_block_id(self):
+    def test_siyuan_edit_single_block_replace_uses_path_index_and_block_id(self):
         blocks = {
             "doc1": [
                 {"id": "block1", "type": "p", "markdown": "Original text."},
@@ -717,7 +763,7 @@ class McpServerWriteTests(unittest.TestCase):
         try:
             result = server.siyuan_edit({
                 "document": "/Main/Projects/Doc One",
-                "action": "replace",
+                "action": "single_block_replace",
                 "start_index": 1,
                 "start_id": "block1",
                 "markdown": "Replaced text.",
@@ -725,7 +771,7 @@ class McpServerWriteTests(unittest.TestCase):
             })
             self.assertIn("siyuan_edit", client._snapshots[0]["memo"])
             self.assertEqual(client._updated_blocks, [("block1", "Replaced text.")])
-            self.assertIn("replace", result)
+            self.assertIn("single_block_replace", result)
         finally:
             mcp_server.detect_active_profile = original
 
@@ -740,7 +786,7 @@ class McpServerWriteTests(unittest.TestCase):
             with self.assertRaises(ValueError) as ctx:
                 server.siyuan_edit({
                     "document": "/Main/Projects/Doc One",
-                    "action": "replace",
+                    "action": "single_block_replace",
                     "start_index": 1,
                     "start_id": "wrong-block",
                     "markdown": "Replaced text.",
@@ -752,7 +798,7 @@ class McpServerWriteTests(unittest.TestCase):
         finally:
             mcp_server.detect_active_profile = original
 
-    def test_siyuan_edit_range_replace_inserts_then_deletes_old_range(self):
+    def test_siyuan_edit_multi_block_replace_range_inserts_then_deletes_old_range(self):
         blocks = {
             "doc1": [
                 {"id": "block1", "type": "p", "markdown": "First."},
@@ -763,7 +809,7 @@ class McpServerWriteTests(unittest.TestCase):
         try:
             server.siyuan_edit({
                 "document": "/Main/Projects/Doc One",
-                "action": "replace",
+                "action": "multi_block_replace",
                 "start_index": 1,
                 "start_id": "block1",
                 "end_index": 2,
@@ -773,6 +819,58 @@ class McpServerWriteTests(unittest.TestCase):
             })
             self.assertEqual(client._inserted_before, [("block1", "New range.")])
             self.assertEqual(client._deleted_blocks, ["block2", "block1"])
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_multi_block_replace_can_replace_single_block_with_multi_block_markdown(self):
+        blocks = {
+            "doc1": [
+                {"id": "block1", "type": "p", "markdown": "Anchor."},
+                {"id": "block2", "type": "p", "markdown": "After."},
+            ]
+        }
+        markdown = "### New heading\n\nNew paragraph.\n\n```python\nprint('ok')\n```"
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            result = server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "multi_block_replace",
+                "start_index": 1,
+                "start_id": "block1",
+                "markdown": markdown,
+                "confirmed": True,
+            })
+            self.assertEqual(client._updated_blocks, [])
+            self.assertEqual(client._inserted_before, [("block1", markdown)])
+            self.assertEqual(client._deleted_blocks, ["block1"])
+            self.assertIn("## 新内容", result)
+            self.assertIn("New heading", result)
+            self.assertIn("New paragraph.", result)
+            self.assertIn("type=code language=python", result)
+            self.assertNotIn("After.\n\n如需回滚", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_single_block_replace_rejects_multi_block_markdown(self):
+        blocks = {
+            "doc1": [
+                {"id": "block1", "type": "p", "markdown": "Anchor."},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_edit({
+                    "document": "/Main/Projects/Doc One",
+                    "action": "single_block_replace",
+                    "start_index": 1,
+                    "start_id": "block1",
+                    "markdown": "First.\n\nSecond.",
+                    "confirmed": True,
+                })
+            self.assertIn("multi_block_replace", str(ctx.exception))
+            self.assertFalse(client._snapshots)
+            self.assertFalse(client._updated_blocks)
         finally:
             mcp_server.detect_active_profile = original
 
@@ -933,7 +1031,7 @@ class McpServerWriteTests(unittest.TestCase):
         finally:
             mcp_server.detect_active_profile = original
 
-    def test_siyuan_edit_replace_rejects_attachment(self):
+    def test_siyuan_edit_single_block_replace_rejects_attachment(self):
         blocks = {
             "doc1": [
                 {"id": "img1", "type": "p", "markdown": "![img](assets/img.png)"},
@@ -944,7 +1042,7 @@ class McpServerWriteTests(unittest.TestCase):
             with self.assertRaises(ValueError) as ctx:
                 server.siyuan_edit({
                     "document": "/Main/Projects/Doc One",
-                    "action": "replace",
+                    "action": "single_block_replace",
                     "start_index": 1,
                     "start_id": "img1",
                     "markdown": "Try replace attachment.",
@@ -1067,7 +1165,7 @@ class McpServerWriteTests(unittest.TestCase):
         finally:
             mcp_server.detect_active_profile = original
 
-    def test_siyuan_edit_replace_returns_original_and_readback_content(self):
+    def test_siyuan_edit_single_block_replace_returns_original_and_readback_content(self):
         blocks = {
             "doc1": [
                 {"id": "block1", "type": "p", "markdown": "Original text."},
@@ -1077,7 +1175,7 @@ class McpServerWriteTests(unittest.TestCase):
         try:
             result = server.siyuan_edit({
                 "document": "/Main/Projects/Doc One",
-                "action": "replace",
+                "action": "single_block_replace",
                 "start_index": 1,
                 "start_id": "block1",
                 "markdown": "Replaced text.",
@@ -1670,11 +1768,22 @@ class McpServerReadBlockWindowTests(unittest.TestCase):
         result = self._read({"document_id": "doc1"}, blocks_for_doc=blocks)
         self.assertIn("普通阅读", result)
         self.assertIn("展示块：", result)
+        self.assertIn("更新：2026-05-01", result)
         self.assertIn("估算令牌数：", result)
         self.assertIn("## Section", result)
         self.assertIn("Body text here.", result)
         # Should NOT contain old chunk header
         self.assertNotIn("Chunk ", result)
+
+    def test_read_accepts_document_path(self):
+        blocks = {
+            "doc1": [
+                {"id": "p1", "parent_id": "doc1", "type": "p", "markdown": "Body text here.", "sort": 1},
+            ]
+        }
+        result = self._read({"document": "/Main/Test Doc"}, blocks_for_doc=blocks)
+        self.assertIn("# 文档：/Main/Test Doc", result)
+        self.assertIn("Body text here.", result)
 
     def test_read_rewrites_asset_links_to_absolute_paths(self):
         blocks = {
@@ -1748,7 +1857,6 @@ class McpServerReadBlockWindowTests(unittest.TestCase):
         # Very small budget should return at least block 1
         result = self._read({"document_id": "doc1", "token_budget": 10}, blocks_for_doc=blocks)
         self.assertIn("Short.", result)
-        # Budget 10 should be very tight
         self.assertIn("估算令牌数：", result)
         # At least one block returned
         self.assertIn("Short.", result)

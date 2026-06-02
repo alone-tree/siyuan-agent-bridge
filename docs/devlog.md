@@ -2499,3 +2499,75 @@ print("hello")
 - 新增 replace / insert_after / delete / table_edit 的详细返回断言。
 - `python -m pytest tests/ -q` 通过：140 passed。
 
+#### Hermes 实测发现：单块 replace 多块 markdown 会截断
+
+Hermes 真实测试中发现：`replace` 单块时如果传入多块 markdown，思源 `updateBlock` 只保留第一个块，后续段落、代码块等会丢失。范围 `replace` 没有这个问题，因为它本来就是先插入新 markdown 再删除旧范围。
+
+最终将 `replace` 拆成两个明确 action：
+
+- `single_block_replace`：单块替换成单块。使用 `updateBlock`，保留原块 ID 和样式属性。
+- `multi_block_replace`：单块或多块替换成一个或多个新块。使用“插入新 markdown，再删除旧范围”，不承诺保留旧块 ID 和块属性。
+
+这样 AI 可以从 action 名直接理解语义差异：是否保留块属性、是否允许块结构变化。
+
+新增回归测试覆盖：
+
+- `single_block_replace` 拒绝多块 markdown，并提示改用 `multi_block_replace`。
+- `multi_block_replace` 可以把单块替换成 heading / paragraph / code 等多个新块。
+
+`python -m pytest tests/ -q` 通过：142 passed。
+
+### siyuan_read_document 路径参数与头部精简
+
+`siyuan_read_document` 已显式支持 `document` 路径参数，优先使用包含笔记本名称的路径，例如 `/Notebook/Folder/Doc`；`document_id` 保留为歧义或无路径时的 fallback。这样 read / edit 的文档定位心智保持一致。
+
+返回头部精简为：文档路径、文档 ID、更新时间、阅读模式、展示块范围、估算令牌数、下一窗口（如有）和附件位置（如有）。去掉字数、字符数等不影响下一步操作的信息。
+
+tool description 也改为强调：编辑前应先 `siyuan_read_document(include_block_ids=true)`，用返回的 `[index] id=... type=...` 作为 `siyuan_edit` 的定位参数。
+
+`python -m pytest tests/ -q` 通过：143 passed。
+
+### siyuan_list 改为一层路径列表
+
+`siyuan_list` 从“笔记本文档树”调整为更接近编程工具 `ls` 的一层列表：
+
+- 不传参数：仍列出所有可见笔记本。
+- `path="/Notebook"`：列出该笔记本根目录下一层文档/目录。
+- `path="/Notebook/Folder"`：列出该路径下一层文档/目录。
+- 每行返回完整可读 `document` 路径，可直接传给 `siyuan_read_document` / `siyuan_edit`。
+- 表格列为：`document`、`document_id`、字数、块数、更新、子文档。
+- `子文档` 放在最后，表示该节点下所有后代文档数量。
+- 默认 `limit=100`，支持 `offset` 翻页；超过 limit 时返回继续调用提示。
+- 旧参数 `notebook_id` / `notebook_name` 保留为兼容入口，会转为对应笔记本根路径。
+
+虚拟目录（本身不是思源文档、但下面有文档）也会显示；其 `document_id` 为空，字数/块数为空或 0，但 `子文档` 会提示下面还有内容。
+
+当前第一版仍主要基于 `docs.jsonl` 的路径索引排序；后续若需要完全贴合思源 UI 顺序，可再接入 filetree API 获取当前层直接子文档顺序。
+
+`python -m pytest tests/ -q` 通过：147 passed。
+
+### 思源连接探测：不自动启动，只统一提示
+
+不实现自动启动思源或模拟双击。所有 MCP 工具调用前统一探测思源 API 是否可达；如果不可达，直接返回错误提示：
+
+```text
+思源未启动或 API 不可达
+请先手动启动思源笔记，确认当前工作空间已打开且 API Token 配置正确，然后重试。
+```
+
+这样即使 `siyuan_list` 这类可读本地缓存的工具，也不会在思源未启动时给 AI 造成“工具可用”的错觉。
+
+`python -m pytest tests/ -q` 通过：148 passed。
+
+#### 提示词优化：块 ID 与属性风险前置到工具描述
+
+根据真实模型调用反馈，成功返回不再增加额外解释，只返回实际变更块内容。块 ID 和块属性的风险改由 tool description 和错误提示承担：
+
+- `single_block_replace` 描述明确：保留目标块 ID 和块属性，因此旧块引用继续有效。
+- `multi_block_replace` 描述明确：重建块结构，旧块 ID 和块属性不保留，指向旧块的引用会失效。
+- `single_block_replace` 误传多块 markdown 时，错误提示直接要求改用 `multi_block_replace`，并提醒旧块引用会失效。
+- index / id 错配时，错误提示要求重新 `siyuan_read_document(include_block_ids=true)`，不要沿用旧块 ID。
+- 复杂块和表格类型错误提示给出下一步可用 action，减少模型自行猜测。
+
+`python -m pytest tests/ -q` 通过：142 passed。
+
