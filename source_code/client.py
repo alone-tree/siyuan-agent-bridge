@@ -24,7 +24,7 @@ class SiYuanApiError(RuntimeError):
 class SiYuanClient:
     base_url: str
     token: str | None = None
-    timeout: float = 10.0
+    timeout: float = 2.0
     transport: Transport | None = None
 
     def __post_init__(self) -> None:
@@ -284,14 +284,14 @@ class SiYuanClient:
             headers["Authorization"] = f"Token {self.token}"
 
         last_error: Exception | None = None
-        for attempt in range(3):
+        for attempt in range(2):
             try:
                 return self._post_once(path, body, headers)
             except SiYuanConnectionError as exc:
                 last_error = exc
-                if attempt < 2:
+                if attempt < 1:
                     import time
-                    time.sleep(0.3 * (attempt + 1))
+                    time.sleep(0.3)
             else:
                 break
         raise last_error  # type: ignore[misc]
