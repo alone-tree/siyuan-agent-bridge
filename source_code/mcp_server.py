@@ -708,6 +708,54 @@ def build_window_preview(display_blocks: list[DisplayBlock]) -> str:
     return "\n".join(lines)
 
 
+def format_display_block(block: DisplayBlock) -> str:
+    return block.markdown.strip()
+
+
+def format_display_blocks(blocks: list[DisplayBlock]) -> str:
+    if not blocks:
+        return "(无)"
+    return "\n\n".join(format_display_block(block) for block in blocks)
+
+
+def block_range_label(blocks: list[DisplayBlock]) -> str:
+    if not blocks:
+        return "(无)"
+    first = blocks[0]
+    last = blocks[-1]
+    first_label = f"[{first.index}] id={first.id} type={display_block_semantic_type(first)}"
+    if len(blocks) == 1:
+        return first_label
+    return f"{first_label} -> [{last.index}] id={last.id} type={display_block_semantic_type(last)}"
+
+
+def block_index_by_id(blocks: list[DisplayBlock], block_id: str) -> int | None:
+    for index, block in enumerate(blocks):
+        if block.id == block_id:
+            return index
+    return None
+
+
+def blocks_between_anchors(
+    blocks: list[DisplayBlock],
+    previous_id: str | None,
+    next_id: str | None,
+) -> list[DisplayBlock]:
+    start = 0
+    if previous_id:
+        previous_index = block_index_by_id(blocks, previous_id)
+        if previous_index is not None:
+            start = previous_index + 1
+    end = len(blocks)
+    if next_id:
+        next_index = block_index_by_id(blocks, next_id)
+        if next_index is not None:
+            end = next_index
+    if end < start:
+        return []
+    return blocks[start:end]
+
+
 def main() -> int:
     server = McpServer(Path.cwd())
     for line in sys.stdin:
@@ -1622,6 +1670,24 @@ class McpServer:
                 )
             new_table = apply_table_edit(display_block_source(target), args["table_edit"])
 
+        if target_blocks:
+            target_start_pos = block_index_by_id(display_blocks, target_blocks[0].id)
+            target_end_pos = block_index_by_id(display_blocks, target_blocks[-1].id)
+        else:
+            target_start_pos = None
+            target_end_pos = None
+        previous_anchor = (
+            display_blocks[target_start_pos - 1]
+            if target_start_pos is not None and target_start_pos > 0
+            else None
+        )
+        next_anchor = (
+            display_blocks[target_end_pos + 1]
+            if target_end_pos is not None and target_end_pos + 1 < len(display_blocks)
+            else None
+        )
+        last_before_append = display_blocks[-1] if display_blocks else None
+
         snapshot_status = self._create_snapshot_or_raise(client, "siyuan_edit", doc_title)
 
         with ensure_notebooks_open(client, [notebook_id]):
@@ -1651,24 +1717,126 @@ class McpServer:
                         client.delete_block(block.id)
                     changed = f"替换了 {len(target_blocks)} 个块"
 
+            new_display_blocks = build_display_blocks(client, doc_id, include_block_ids=True)
+
         try:
             client.push_msg(f"思源桥：已编辑「{doc_title}」")
         except Exception:
             pass
 
-        preview = markdown[:200] if action != "table_edit" else new_table[:200]
-        return "\n".join([
+        parts = [
             "# 文档已编辑",
             "",
             f"**文档：**{doc_title}（`{doc_id}`）",
-            f"**操作：**{action}",
+            f"**action：**{action}",
             f"**结果：**{changed}",
             f"**端点：**{client.base_url}",
             f"**快照：**{snapshot_status}",
-            f"**预览：**{preview}",
+        ]
+
+        if action == "replace":
+            if len(target_blocks) == 1:
+                replaced = [
+                    block for block in new_display_blocks
+                    if block.id == target_blocks[0].id
+                ]
+            else:
+                replaced = blocks_between_anchors(
+                    new_display_blocks,
+                    previous_anchor.id if previous_anchor else None,
+                    next_anchor.id if next_anchor else None,
+                )
+            parts.extend([
+                f"**已替换 {len(target_blocks)} 个块：**{block_range_label(target_blocks)}",
+                "",
+                "## 原内容",
+                "",
+                format_display_blocks(target_blocks),
+                "",
+                "## 新内容",
+                "",
+                format_display_blocks(replaced),
+            ])
+        elif action in {"insert_after", "insert_before"}:
+            if action == "insert_after":
+                inserted = blocks_between_anchors(
+                    new_display_blocks,
+                    target_blocks[-1].id,
+                    next_anchor.id if next_anchor else None,
+                )
+            else:
+                inserted = blocks_between_anchors(
+                    new_display_blocks,
+                    previous_anchor.id if previous_anchor else None,
+                    target_blocks[0].id,
+                )
+            parts.extend([
+                f"**锚点：**{block_range_label(target_blocks)}",
+                "",
+                "## 锚点内容",
+                "",
+                format_display_blocks(target_blocks),
+                "",
+                "## 插入内容",
+                "",
+                format_display_blocks(inserted),
+            ])
+        elif action == "append":
+            appended = blocks_between_anchors(
+                new_display_blocks,
+                last_before_append.id if last_before_append else None,
+                None,
+            )
+            parts.extend([
+                "",
+                "## 追加内容",
+                "",
+                format_display_blocks(appended),
+            ])
+        elif action == "delete":
+            current_previous = (
+                [block for block in new_display_blocks if previous_anchor and block.id == previous_anchor.id]
+            )
+            current_next = (
+                [block for block in new_display_blocks if next_anchor and block.id == next_anchor.id]
+            )
+            parts.extend([
+                f"**已删除 {len(target_blocks)} 个块：**{block_range_label(target_blocks)}",
+                "",
+                "## 已删除内容",
+                "",
+                format_display_blocks(target_blocks),
+                "",
+                "## 当前上下文",
+                "",
+                "（删除位置的前一个块）",
+                format_display_blocks(current_previous),
+                "",
+                "（删除位置现在的块，即原来被删除范围的后一个块）",
+                format_display_blocks(current_next),
+            ])
+        elif action == "table_edit":
+            updated_table = [
+                block for block in new_display_blocks
+                if block.id == target_blocks[0].id
+            ]
+            parts.extend([
+                f"**目标：**{block_range_label(target_blocks)}",
+                "",
+                "## 原表格",
+                "",
+                format_display_block(target_blocks[0]),
+                "",
+                "## 新表格",
+                "",
+                format_display_blocks(updated_table),
+            ])
+
+        parts.extend([
             "",
             "如需回滚，可通过思源快照手动恢复。",
         ])
+        return "\n".join(parts)
 
     def siyuan_edit_document(self, args: dict[str, Any]) -> str:
         confirmed = bool(args.get("confirmed"))

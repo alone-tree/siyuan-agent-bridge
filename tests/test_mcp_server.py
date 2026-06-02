@@ -78,18 +78,34 @@ class FakeSearchClient:
 
     def update_block(self, block_id, markdown):
         self._updated_blocks.append((block_id, markdown))
+        for block_list in self._blocks.values():
+            if not isinstance(block_list, list):
+                continue
+            for block in block_list:
+                if str(block.get("id", "")) == block_id:
+                    block["markdown"] = markdown
+                    block["type"] = self._block_type(markdown)
+                    return
 
     def append_block(self, parent_id, markdown):
         self._appended_blocks.append((parent_id, markdown))
+        blocks = self._blocks.setdefault(parent_id, [])
+        if isinstance(blocks, list):
+            blocks.extend(self._new_blocks(parent_id, markdown))
 
     def insert_block_after(self, previous_id, markdown):
         self._inserted_after.append((previous_id, markdown))
+        self._insert_near(previous_id, markdown, after=True)
 
     def insert_block_before(self, next_id, markdown):
         self._inserted_before.append((next_id, markdown))
+        self._insert_near(next_id, markdown, after=False)
 
     def delete_block(self, block_id):
         self._deleted_blocks.append(block_id)
+        for block_list in self._blocks.values():
+            if isinstance(block_list, list):
+                block_list[:] = [block for block in block_list if str(block.get("id", "")) != block_id]
 
     def set_block_attrs(self, block_id, attrs):
         pass
@@ -122,6 +138,42 @@ class FakeSearchClient:
                 children.extend(block for block in block_list if str(block.get("parent_id", "")) == block_id)
         children.sort(key=lambda block: int(block.get("sort", 0)))
         return children
+
+    def _block_type(self, markdown):
+        text = str(markdown or "").strip()
+        if text.startswith("|") and "\n|" in text:
+            return "t"
+        if text.startswith("#"):
+            return "h"
+        if text.startswith("```"):
+            return "c"
+        return "p"
+
+    def _new_blocks(self, parent_id, markdown):
+        parts = [part.strip() for part in str(markdown).split("\n\n") if part.strip()]
+        blocks = self._blocks.get(parent_id)
+        existing = blocks if isinstance(blocks, list) else []
+        next_sort = max((int(block.get("sort", 0)) for block in existing), default=0) + 1
+        created = []
+        for offset, part in enumerate(parts):
+            created.append({
+                "id": f"new{len(self._appended_blocks) + len(self._inserted_after) + len(self._inserted_before)}-{offset}",
+                "type": self._block_type(part),
+                "markdown": part,
+                "parent_id": parent_id,
+                "sort": next_sort + offset,
+            })
+        return created
+
+    def _insert_near(self, anchor_id, markdown, *, after):
+        for doc_id, block_list in self._blocks.items():
+            if not isinstance(block_list, list):
+                continue
+            for index, block in enumerate(block_list):
+                if str(block.get("id", "")) == anchor_id:
+                    insert_at = index + 1 if after else index
+                    block_list[insert_at:insert_at] = self._new_blocks(str(doc_id), markdown)
+                    return
 
 
 class McpServerTests(unittest.TestCase):
@@ -1012,6 +1064,110 @@ class McpServerWriteTests(unittest.TestCase):
                 })
             self.assertIn("table", str(ctx.exception).casefold())
             self.assertFalse(client._snapshots)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_replace_returns_original_and_readback_content(self):
+        blocks = {
+            "doc1": [
+                {"id": "block1", "type": "p", "markdown": "Original text."},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            result = server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "replace",
+                "start_index": 1,
+                "start_id": "block1",
+                "markdown": "Replaced text.",
+                "confirmed": True,
+            })
+            self.assertIn("## 原内容", result)
+            self.assertIn("Original text.", result)
+            self.assertIn("## 新内容", result)
+            self.assertIn("Replaced text.", result)
+            self.assertIn("[1] id=block1 type=paragraph", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_insert_after_returns_inserted_blocks_read_back(self):
+        blocks = {
+            "doc1": [
+                {"id": "block1", "type": "p", "markdown": "Anchor text."},
+                {"id": "block2", "type": "p", "markdown": "Next text."},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            result = server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "insert_after",
+                "start_index": 1,
+                "start_id": "block1",
+                "markdown": "Inserted paragraph.\n\n```python\nprint('x')\n```",
+                "confirmed": True,
+            })
+            self.assertIn("## 锚点内容", result)
+            self.assertIn("Anchor text.", result)
+            self.assertIn("## 插入内容", result)
+            self.assertIn("Inserted paragraph.", result)
+            self.assertIn("type=code language=python", result)
+            self.assertNotIn("Next text.", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_delete_returns_deleted_content_and_context(self):
+        blocks = {
+            "doc1": [
+                {"id": "before", "type": "p", "markdown": "Before delete."},
+                {"id": "target", "type": "p", "markdown": "Delete me."},
+                {"id": "after", "type": "p", "markdown": "After delete."},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            result = server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "delete",
+                "start_index": 2,
+                "start_id": "target",
+                "confirmed": True,
+            })
+            self.assertIn("## 已删除内容", result)
+            self.assertIn("Delete me.", result)
+            self.assertIn("## 当前上下文", result)
+            self.assertIn("Before delete.", result)
+            self.assertIn("After delete.", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_table_edit_returns_old_and_new_table(self):
+        table = "| A | B |\n| --- | --- |\n| 1 | 2 |"
+        blocks = {
+            "doc1": [
+                {"id": "table1", "type": "t", "markdown": table},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            result = server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "table_edit",
+                "start_index": 1,
+                "start_id": "table1",
+                "table_edit": {
+                    "operation": "set_cell",
+                    "row": 1,
+                    "column": "B",
+                    "value": "updated",
+                },
+                "confirmed": True,
+            })
+            self.assertIn("## 原表格", result)
+            self.assertIn("| 1 | 2 |", result)
+            self.assertIn("## 新表格", result)
+            self.assertIn("| 1 | updated |", result)
         finally:
             mcp_server.detect_active_profile = original
 

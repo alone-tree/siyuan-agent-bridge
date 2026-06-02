@@ -2481,3 +2481,21 @@ print("hello")
 - 读取新块会增加一次 API 调用，但这是机器调用，性能影响可接受（通常 < 100ms）。
 - 返回信息的详细程度由工具内部决定，AI 无需传额外参数。
 
+#### 实现状态
+
+已实现 `siyuan_edit` 按 action 返回详细编辑结果：
+
+- `replace` 返回原内容和写入后从思源读回的新内容。
+- `insert_after` / `insert_before` 返回锚点内容和写入后读回的插入块。
+- `append` 返回写入后读回的追加块。
+- `delete` 返回删除前内容，以及删除位置前后当前上下文。
+- `table_edit` 返回原表格和写入后读回的新表格。
+
+实现方式：写入前记录目标范围前后锚点，写入完成后重新构建 display block map，再用锚点定位实际变更块。这样返回内容反映思源内核拆块后的结果，而不是 AI 传入的原始 markdown。
+
+测试补充：
+
+- Fake client 支持模拟 update / insert / append / delete 后的块列表变化。
+- 新增 replace / insert_after / delete / table_edit 的详细返回断言。
+- `python -m pytest tests/ -q` 通过：140 passed。
+

@@ -2,6 +2,7 @@
 .env
 .env.*
 config.local.json
+.mcp.json
 
 # Python runtime/cache
 __pycache__/
