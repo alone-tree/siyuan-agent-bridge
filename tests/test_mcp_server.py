@@ -253,6 +253,7 @@ class McpServerTests(unittest.TestCase):
         self.assertTrue(response["result"]["isError"])
         text = response["result"]["content"][0]["text"]
         self.assertIn("思源未启动或 API 不可达", text)
+        self.assertIn("请提示用户手动打开思源笔记后重试", text)
         self.assertIn("请先手动启动思源笔记", text)
 
     def test_list_path_returns_direct_children_with_full_paths(self):

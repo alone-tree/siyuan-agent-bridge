@@ -885,7 +885,7 @@ class McpServer:
                 reason = "无法连接到思源笔记"
             return make_result(
                 request_id,
-                {"content": [{"type": "text", "text": f"思源未启动或 API 不可达：{reason}\n\n请先手动启动思源笔记，确认当前工作空间已打开且 API Token 配置正确，然后重试。"}], "isError": True},
+                {"content": [{"type": "text", "text": f"思源未启动或 API 不可达：{reason}\n\n请提示用户手动打开思源笔记后重试。\n请先手动启动思源笔记，确认当前工作空间已打开且 API Token 配置正确，然后重试。"}], "isError": True},
             )
         except (SiYuanApiError, ValueError, FileNotFoundError) as exc:
             return make_result(
