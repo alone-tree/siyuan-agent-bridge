@@ -540,3 +540,9 @@ AI 想编辑文档时，最自然需要的是：
 目标块校验失败：start_index=87 对应的当前块 ID 是 xxx，但请求中的 start_id 是 yyy。
 文档可能在上次读取后发生变化。请重新调用 siyuan_read_document，并启用引用阅读后再编辑。
 ```
+
+### 第一版实现状态
+
+`siyuan_edit` 第一版已实现 `replace`、`insert_after`、`insert_before`、`append`、`delete`、`table_edit`。其中 `table_edit` 当前只支持普通 Markdown 表格；数据库/属性视图仍保持只读。
+
+`siyuan_edit_document` 继续保留为 legacy exact text anchor 工具，避免破坏已有使用者。

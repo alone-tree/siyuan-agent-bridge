@@ -23,6 +23,11 @@ class FakeSearchClient:
         self._docs: dict[str, str] = {}  # doc_id -> markdown
         self._blocks: dict[str, dict[str, Any]] = {}  # block_id -> block info
         self._push_msgs: list[str] = []
+        self._updated_blocks: list[tuple[str, str]] = []
+        self._appended_blocks: list[tuple[str, str]] = []
+        self._inserted_after: list[tuple[str, str]] = []
+        self._inserted_before: list[tuple[str, str]] = []
+        self._deleted_blocks: list[str] = []
 
     def version(self):
         return "3.0.0"
@@ -72,10 +77,25 @@ class FakeSearchClient:
         return {"id": doc_id}
 
     def update_block(self, block_id, markdown):
-        pass
+        self._updated_blocks.append((block_id, markdown))
 
     def append_block(self, parent_id, markdown):
+        self._appended_blocks.append((parent_id, markdown))
+
+    def insert_block_after(self, previous_id, markdown):
+        self._inserted_after.append((previous_id, markdown))
+
+    def insert_block_before(self, next_id, markdown):
+        self._inserted_before.append((next_id, markdown))
+
+    def delete_block(self, block_id):
+        self._deleted_blocks.append(block_id)
+
+    def set_block_attrs(self, block_id, attrs):
         pass
+
+    def get_attribute_view(self, av_id):
+        return {}
 
     def push_msg(self, msg, timeout=7000):
         self._push_msgs.append(msg)
@@ -632,6 +652,124 @@ class McpServerWriteTests(unittest.TestCase):
                     "confirmed": True,
                 })
             self.assertIn("不能同时为空", str(ctx.exception))
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_replace_uses_path_index_and_block_id(self):
+        blocks = {
+            "doc1": [
+                {"id": "block1", "type": "p", "markdown": "Original text."},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            result = server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "replace",
+                "start_index": 1,
+                "start_id": "block1",
+                "markdown": "Replaced text.",
+                "confirmed": True,
+            })
+            self.assertIn("siyuan_edit", client._snapshots[0]["memo"])
+            self.assertEqual(client._updated_blocks, [("block1", "Replaced text.")])
+            self.assertIn("replace", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_rejects_index_id_mismatch(self):
+        blocks = {
+            "doc1": [
+                {"id": "block1", "type": "p", "markdown": "Original text."},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_edit({
+                    "document": "/Main/Projects/Doc One",
+                    "action": "replace",
+                    "start_index": 1,
+                    "start_id": "wrong-block",
+                    "markdown": "Replaced text.",
+                    "confirmed": True,
+                })
+            self.assertIn("目标块校验失败", str(ctx.exception))
+            self.assertFalse(client._snapshots)
+            self.assertFalse(client._updated_blocks)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_range_replace_inserts_then_deletes_old_range(self):
+        blocks = {
+            "doc1": [
+                {"id": "block1", "type": "p", "markdown": "First."},
+                {"id": "block2", "type": "p", "markdown": "Second."},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "replace",
+                "start_index": 1,
+                "start_id": "block1",
+                "end_index": 2,
+                "end_id": "block2",
+                "markdown": "New range.",
+                "confirmed": True,
+            })
+            self.assertEqual(client._inserted_before, [("block1", "New range.")])
+            self.assertEqual(client._deleted_blocks, ["block2", "block1"])
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_table_edit_set_cell(self):
+        table = "| 指标 | 当前值 |\n|---|---|\n| 股价 | 旧值 |"
+        blocks = {
+            "doc1": [
+                {"id": "table1", "type": "t", "markdown": table},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "table_edit",
+                "start_index": 1,
+                "start_id": "table1",
+                "table_edit": {
+                    "operation": "set_cell",
+                    "row": 1,
+                    "column": "当前值",
+                    "value": "232.30",
+                    "expected_old_value": "旧值",
+                },
+                "confirmed": True,
+            })
+            self.assertEqual(
+                client._updated_blocks,
+                [("table1", "| 指标 | 当前值 |\n| --- | --- |\n| 股价 | 232.30 |")],
+            )
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_delete_allows_superblock(self):
+        blocks = {
+            "doc1": [
+                {"id": "super1", "type": "s", "markdown": ""},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "delete",
+                "start_index": 1,
+                "start_id": "super1",
+                "confirmed": True,
+            })
+            self.assertEqual(client._deleted_blocks, ["super1"])
         finally:
             mcp_server.detect_active_profile = original
 

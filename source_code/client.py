@@ -256,6 +256,21 @@ class SiYuanClient:
             return {}
         return data
 
+    def insert_block_before(self, next_id: str, markdown: str) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "dataType": "markdown",
+            "data": markdown,
+            "nextID": next_id,
+        }
+        data = self._post("/api/block/insertBlock", payload)
+        if data is None:
+            return {}
+        if isinstance(data, list):
+            return {"blocks": data}
+        if not isinstance(data, dict):
+            return {}
+        return data
+
     def push_msg(self, msg: str, timeout: int = 7000) -> None:
         self._post("/api/notification/pushMsg", {"msg": msg, "timeout": timeout})
 

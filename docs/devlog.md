@@ -2296,3 +2296,32 @@ Hermes + DeepSeek 的真实操作暴露出：`siyuan_edit_document(old_text -> n
 - 基于同一套 display block map 实现 `siyuan_edit` 的块序号和块 ID 校验。
 - 保留 `siyuan_edit_document` 作为 legacy / exact text edit 工具，避免破坏已有使用者。
 - 错误信息必须明确告诉 AI 哪个校验失败、是否需要重新引用阅读、复杂块应该如何拆分处理。
+
+### siyuan_edit 第一版实现
+
+已新增 `siyuan_edit` MCP 工具，作为 `siyuan_edit_document` 的新一代编辑入口。旧工具继续保留，用于兼容 exact text anchor 工作流。
+
+第一版覆盖：
+
+- `replace`：单块替换走 `update_block`；范围替换走“在起点前插入新 Markdown，再删除旧范围”，避免把多块 Markdown 强行塞进单块。
+- `insert_after`：在目标块后插入 Markdown。
+- `insert_before`：新增 client 层 `insert_block_before(nextID)`，在目标块前插入 Markdown。
+- `append`：追加到文档末尾。
+- `delete`：删除单块或连续范围；允许删除超级块，交给思源内核连同子块处理。
+- `table_edit`：支持普通 Markdown 表格的 `set_cell`、`insert_row_before`、`insert_row_after`、`delete_row`；数据库/属性视图仍只读。
+
+安全机制：
+
+- 文档定位支持 `document`，优先使用包含笔记本名称的路径，例如 `/Notebook/Folder/Doc`。
+- 非 append 操作必须提供 `start_index` + `start_id`；范围操作必须同时提供 `end_index` + `end_id`。
+- 校验失败时在创建快照和写入前直接拒绝。
+- `replace` 遇到 attachment、database、superblock、html、iframe、video、audio、widget 等复杂块时拒绝，提示拆分处理或使用 `delete`。
+- 继续使用写前思源快照和样式属性恢复逻辑。
+
+测试：
+
+- 新增 `siyuan_edit` 的路径 + 块序号 + 块 ID 替换测试。
+- 新增 ID/序号错配拒绝测试，确认不会创建快照或写入。
+- 新增范围替换插入后删除旧块测试。
+- 新增 `table_edit.set_cell` 测试。
+- 新增删除超级块测试。

@@ -69,6 +69,16 @@ LEGACY_SUBTREE_MARKDOWN_BLOCK_TYPES = frozenset({"i", "t"})
 COMMENT_ONLY_BLOCK_TYPES = frozenset({"s"})
 CHILD_TRAVERSAL_BLOCK_TYPES = frozenset({"h", "l", "s"})
 DATABASE_BLOCK_TYPES = frozenset({"av"})
+REPLACE_REFUSED_SEMANTIC_TYPES = frozenset({
+    "attachment",
+    "database",
+    "superblock",
+    "html",
+    "iframe",
+    "video",
+    "audio",
+    "widget",
+})
 
 
 import re as _re
@@ -307,6 +317,7 @@ class DisplayBlock:
     is_heading: bool = False
     heading_level: int | None = None
     heading_text: str = ""
+    source_markdown: str = ""
 
 
 def semantic_block_type(raw_type: str, subtype: str, markdown: str) -> str:
@@ -353,6 +364,107 @@ def block_metadata_line(index: int, block_id: str, raw_type: str, subtype: str, 
     elif semantic_type == "database":
         parts.append("readonly=true")
     return " ".join(parts)
+
+
+def display_block_source(block: DisplayBlock) -> str:
+    return block.source_markdown if block.source_markdown else block.markdown
+
+
+def display_block_semantic_type(block: DisplayBlock) -> str:
+    return semantic_block_type(block.type, block.subtype, display_block_source(block))
+
+
+def split_markdown_table_row(line: str) -> list[str]:
+    stripped = line.strip()
+    if stripped.startswith("|"):
+        stripped = stripped[1:]
+    if stripped.endswith("|"):
+        stripped = stripped[:-1]
+    return [cell.strip() for cell in stripped.split("|")]
+
+
+def render_markdown_table(headers: list[str], rows: list[list[str]]) -> str:
+    width = len(headers)
+    normalized_rows = [(row + [""] * width)[:width] for row in rows]
+    lines = [
+        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join("---" for _ in headers) + " |",
+    ]
+    for row in normalized_rows:
+        lines.append("| " + " | ".join(row) + " |")
+    return "\n".join(lines)
+
+
+def parse_markdown_table(markdown: str) -> tuple[list[str], list[list[str]]]:
+    lines = [line.strip() for line in markdown.strip().splitlines() if line.strip()]
+    if len(lines) < 2 or "|" not in lines[0] or "|" not in lines[1]:
+        raise ValueError("目标块不是可解析的 Markdown 表格。请重新引用阅读，确认目标块 type=table。")
+    headers = split_markdown_table_row(lines[0])
+    separator = split_markdown_table_row(lines[1])
+    if not headers or len(separator) != len(headers):
+        raise ValueError("表格表头或分隔行格式不完整，暂不支持 table_edit。")
+    rows = [split_markdown_table_row(line) for line in lines[2:]]
+    return headers, [(row + [""] * len(headers))[:len(headers)] for row in rows]
+
+
+def table_column_index(headers: list[str], edit: dict[str, Any]) -> int:
+    if edit.get("column_index") is not None:
+        index = int(edit["column_index"]) - 1
+        if index < 0 or index >= len(headers):
+            raise ValueError(f"column_index 超出范围：当前表格共有 {len(headers)} 列。")
+        return index
+    column = str(edit.get("column") or "").strip()
+    if not column:
+        raise ValueError("table_edit.set_cell 需要 column 或 column_index。")
+    matches = [i for i, header in enumerate(headers) if header == column]
+    if not matches:
+        raise ValueError(f"表格中未找到列：{column}。请重新引用阅读确认列名，或使用 column_index。")
+    if len(matches) > 1:
+        raise ValueError(f"列名存在重复：{column}。请改用 column_index。")
+    return matches[0]
+
+
+def apply_table_edit(markdown: str, edit: dict[str, Any]) -> str:
+    headers, rows = parse_markdown_table(markdown)
+    operation = str(edit.get("operation") or "").strip()
+    if operation not in {"set_cell", "insert_row_before", "insert_row_after", "delete_row"}:
+        raise ValueError("table_edit.operation 只支持 set_cell、insert_row_before、insert_row_after、delete_row。")
+
+    row_arg = edit.get("row")
+    if row_arg is None:
+        raise ValueError("table_edit 需要 row。row 是 1-based 数据行编号，不包含表头。")
+    row_index = int(row_arg) - 1
+
+    if operation == "set_cell":
+        if row_index < 0 or row_index >= len(rows):
+            raise ValueError(f"row 超出范围：当前表格共有 {len(rows)} 行数据。")
+        col_index = table_column_index(headers, edit)
+        expected = edit.get("expected_old_value")
+        if expected is not None and rows[row_index][col_index] != str(expected):
+            raise ValueError(
+                f"单元格旧值校验失败：当前值为 `{rows[row_index][col_index]}`，"
+                f"但 expected_old_value 为 `{expected}`。请重新引用阅读后再编辑。"
+            )
+        rows[row_index][col_index] = str(edit.get("value") or "")
+    elif operation in {"insert_row_before", "insert_row_after"}:
+        if row_index < 0 or row_index > len(rows):
+            raise ValueError(f"row 超出范围：当前表格共有 {len(rows)} 行数据。")
+        values = edit.get("values")
+        if isinstance(values, dict):
+            new_row = [str(values.get(header, "")) for header in headers]
+        elif isinstance(values, list):
+            new_row = [str(value) for value in values]
+        else:
+            raise ValueError("插入行需要 values，格式为对象（列名到值）或数组。")
+        new_row = (new_row + [""] * len(headers))[:len(headers)]
+        insert_at = row_index if operation == "insert_row_before" else row_index + 1
+        rows.insert(insert_at, new_row)
+    else:
+        if row_index < 0 or row_index >= len(rows):
+            raise ValueError(f"row 超出范围：当前表格共有 {len(rows)} 行数据。")
+        rows.pop(row_index)
+
+    return render_markdown_table(headers, rows)
 
 
 def display_document_path(doc: dict[str, Any]) -> str:
@@ -442,6 +554,7 @@ def build_display_blocks(client: Any, root_id: str, *, include_block_ids: bool =
                 is_heading=False,
                 heading_level=None,
                 heading_text="",
+                source_markdown=block_md,
             ))
             return
 
@@ -499,6 +612,7 @@ def build_display_blocks(client: Any, root_id: str, *, include_block_ids: bool =
             is_heading=is_heading,
             heading_level=heading_level,
             heading_text=heading_text,
+            source_markdown=block_md,
         ))
 
         # List items and tables: their markdown already contains subtree content — skip children
@@ -651,6 +765,7 @@ class McpServer:
             "siyuan_propose_guide_update": self.siyuan_propose_guide_update,
             "siyuan_apply_guide_update": self.siyuan_apply_guide_update,
             "siyuan_create_document": self.siyuan_create_document,
+            "siyuan_edit": self.siyuan_edit,
             "siyuan_edit_document": self.siyuan_edit_document,
         }
         if name not in tools:
@@ -1167,10 +1282,26 @@ class McpServer:
         return "\n".join(parts)
 
     def resolve_visible_document(self, args: dict[str, Any]) -> dict[str, Any]:
-        locator = str(args.get("document_id") or args.get("locator") or "").strip()
+        locator = str(args.get("document") or args.get("document_id") or args.get("locator") or "").strip()
         if not locator:
-            raise ValueError("document_id 参数是必填的")
+            raise ValueError("document/document_id 参数是必填的")
         docs = filter_documents(load_docs(self.root), load_privacy_rules(self.root))
+        if locator.startswith("/"):
+            exact_display_path = [
+                doc
+                for doc in docs
+                if display_document_path(doc).strip("/").casefold() == locator.strip("/").casefold()
+            ]
+            if exact_display_path:
+                if len(exact_display_path) > 1:
+                    choices = "\n".join(f"- `{doc.get('id')}` {display_document_path(doc)}" for doc in exact_display_path)
+                    raise ValueError(f"文档路径存在歧义，请补充 document_id：\n{choices}")
+                doc = exact_display_path[0]
+                if is_privacy_rules_document(str(doc.get("hpath", ""))):
+                    raise ValueError(
+                        "Privacy Rules 文档不可通过 AI 访问。隐私规则由人类在思源中维护。"
+                    )
+                return doc
         status, matches = resolve_document(docs, locator)
         if status == "ambiguous":
             choices = "\n".join(f"- `{doc.get('id')}` {doc.get('hpath')}" for doc in matches)
@@ -1366,6 +1497,178 @@ class McpServer:
             "如需回滚，可通过思源快照手动恢复。",
         ])
         return "\n".join(parts)
+
+    @staticmethod
+    def _create_snapshot_or_raise(client: Any, tool: str, target: str) -> str:
+        ts = datetime.now().strftime("%Y%m%d%H%M%S")
+        memo = f"siyuan-agent-bridge:auto-snapshot tool={tool} target={target} created={ts}"
+        try:
+            client.create_snapshot(memo)
+            return "created"
+        except SiYuanApiError as exc:
+            msg = str(exc)
+            if "数据仓库密钥" in msg or "data repo key" in msg.casefold() or "key" in msg.casefold():
+                raise ValueError(
+                    "快照创建失败：数据仓库密钥未初始化。"
+                    "请打开思源 -> 设置 -> 关于 -> 数据仓库密钥，初始化密钥后重试。"
+                ) from exc
+            raise ValueError(f"快照创建失败，拒绝写入。错误：{msg}") from exc
+
+    @staticmethod
+    def _update_block_preserving_attrs(client: Any, block_id: str, markdown: str) -> None:
+        ial_rows = client.query_sql(f"SELECT ial FROM blocks WHERE id = '{block_id}'")
+        custom_attrs: dict[str, str] = {}
+        if ial_rows:
+            custom_attrs = _parse_ial_attrs(str(ial_rows[0].get("ial", "")))
+        client.update_block(block_id, markdown)
+        if custom_attrs:
+            client.set_block_attrs(block_id, custom_attrs)
+
+    @staticmethod
+    def _edit_range_from_args(args: dict[str, Any], blocks: list[DisplayBlock]) -> list[DisplayBlock]:
+        if args.get("start_index") is None or not str(args.get("start_id") or "").strip():
+            raise ValueError("需要 start_index 和 start_id。请先用 siyuan_read_document(include_block_ids=true) 进行引用阅读。")
+        try:
+            start_index = int(args["start_index"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError("start_index 必须是整数。") from exc
+        start_id = str(args.get("start_id") or "").strip()
+        start_pos = next((i for i, block in enumerate(blocks) if block.index == start_index), None)
+        if start_pos is None:
+            raise ValueError(
+                f"目标块校验失败：当前文档没有 start_index={start_index}。"
+                "文档可能在上次读取后发生变化，请重新引用阅读。"
+            )
+        if blocks[start_pos].id != start_id:
+            raise ValueError(
+                f"目标块校验失败：start_index={start_index} 对应的当前块 ID 是 `{blocks[start_pos].id}`，"
+                f"但请求中的 start_id 是 `{start_id}`。请重新引用阅读后再编辑。"
+            )
+
+        if args.get("end_index") is None and not str(args.get("end_id") or "").strip():
+            return [blocks[start_pos]]
+        if args.get("end_index") is None or not str(args.get("end_id") or "").strip():
+            raise ValueError("范围操作需要同时提供 end_index 和 end_id。")
+        try:
+            end_index = int(args["end_index"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError("end_index 必须是整数。") from exc
+        end_id = str(args.get("end_id") or "").strip()
+        end_pos = next((i for i, block in enumerate(blocks) if block.index == end_index), None)
+        if end_pos is None:
+            raise ValueError(
+                f"目标块校验失败：当前文档没有 end_index={end_index}。"
+                "文档可能在上次读取后发生变化，请重新引用阅读。"
+            )
+        if blocks[end_pos].id != end_id:
+            raise ValueError(
+                f"目标块校验失败：end_index={end_index} 对应的当前块 ID 是 `{blocks[end_pos].id}`，"
+                f"但请求中的 end_id 是 `{end_id}`。请重新引用阅读后再编辑。"
+            )
+        if end_pos < start_pos:
+            raise ValueError("范围操作要求 start_index <= end_index。")
+        return blocks[start_pos:end_pos + 1]
+
+    def siyuan_edit(self, args: dict[str, Any]) -> str:
+        confirmed = bool(args.get("confirmed"))
+        if not confirmed:
+            raise ValueError("需要 confirmed=true。编辑思源文档必须经过用户明确确认。")
+
+        action = str(args.get("action") or "").strip()
+        allowed_actions = {"replace", "insert_after", "insert_before", "append", "delete", "table_edit"}
+        if action not in allowed_actions:
+            raise ValueError("action 只支持 replace、insert_after、insert_before、append、delete、table_edit。")
+
+        doc = self.resolve_visible_document(args)
+        doc_id = str(doc.get("id", ""))
+        doc_title = display_document_path(doc)
+        notebook_id = str(doc.get("notebook_id", ""))
+
+        _profile, client = detect_active_profile(load_config(self.root))
+
+        with ensure_notebooks_open(client, [notebook_id]):
+            display_blocks = build_display_blocks(client, doc_id, include_block_ids=True)
+
+        target_blocks: list[DisplayBlock] = []
+        if action != "append":
+            target_blocks = self._edit_range_from_args(args, display_blocks)
+        markdown = str(args.get("markdown") or "")
+
+        if action in {"replace", "insert_after", "insert_before", "append"} and not markdown.strip():
+            raise ValueError(f"action={action} 需要 markdown。")
+        if action == "table_edit" and not isinstance(args.get("table_edit"), dict):
+            raise ValueError("action=table_edit 需要 table_edit 对象。")
+
+        if action == "replace":
+            refused = [
+                f"[{block.index}] id={block.id} type={display_block_semantic_type(block)}"
+                for block in target_blocks
+                if display_block_semantic_type(block) in REPLACE_REFUSED_SEMANTIC_TYPES
+            ]
+            if refused:
+                raise ValueError(
+                    "replace 暂不支持复杂块类型，请拆分处理；如需移除这些块请使用 delete。\n"
+                    + "\n".join(refused)
+                )
+
+        new_table = ""
+        if action == "table_edit":
+            target = target_blocks[0]
+            if len(target_blocks) != 1:
+                raise ValueError("table_edit 只能作用于单个表格块。")
+            if display_block_semantic_type(target) != "table":
+                raise ValueError(
+                    f"table_edit 只能作用于 type=table 的普通 Markdown 表格；当前目标为 type={display_block_semantic_type(target)}。"
+                )
+            new_table = apply_table_edit(display_block_source(target), args["table_edit"])
+
+        snapshot_status = self._create_snapshot_or_raise(client, "siyuan_edit", doc_title)
+
+        with ensure_notebooks_open(client, [notebook_id]):
+            if action == "append":
+                client.append_block(doc_id, markdown)
+                changed = "在文档末尾追加了新内容"
+            elif action == "insert_after":
+                client.insert_block_after(target_blocks[-1].id, markdown)
+                changed = f"在块 `{target_blocks[-1].id}` 之后插入了新内容"
+            elif action == "insert_before":
+                client.insert_block_before(target_blocks[0].id, markdown)
+                changed = f"在块 `{target_blocks[0].id}` 之前插入了新内容"
+            elif action == "delete":
+                for block in reversed(target_blocks):
+                    client.delete_block(block.id)
+                changed = f"删除了 {len(target_blocks)} 个块"
+            elif action == "table_edit":
+                self._update_block_preserving_attrs(client, target_blocks[0].id, new_table)
+                changed = f"编辑了表格块 `{target_blocks[0].id}`"
+            else:
+                if len(target_blocks) == 1:
+                    self._update_block_preserving_attrs(client, target_blocks[0].id, markdown)
+                    changed = f"替换了块 `{target_blocks[0].id}`"
+                else:
+                    client.insert_block_before(target_blocks[0].id, markdown)
+                    for block in reversed(target_blocks):
+                        client.delete_block(block.id)
+                    changed = f"替换了 {len(target_blocks)} 个块"
+
+        try:
+            client.push_msg(f"思源桥：已编辑「{doc_title}」")
+        except Exception:
+            pass
+
+        preview = markdown[:200] if action != "table_edit" else new_table[:200]
+        return "\n".join([
+            "# 文档已编辑",
+            "",
+            f"**文档：**{doc_title}（`{doc_id}`）",
+            f"**操作：**{action}",
+            f"**结果：**{changed}",
+            f"**端点：**{client.base_url}",
+            f"**快照：**{snapshot_status}",
+            f"**预览：**{preview}",
+            "",
+            "如需回滚，可通过思源快照手动恢复。",
+        ])
 
     def siyuan_edit_document(self, args: dict[str, Any]) -> str:
         confirmed = bool(args.get("confirmed"))
@@ -1890,6 +2193,40 @@ def tool_specs() -> list[dict[str, Any]]:
                     "confirmed": {"type": "boolean", "description": "Must be true. Writing to SiYuan requires explicit user approval."},
                 },
                 "required": ["notebook_id", "title", "markdown", "confirmed"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "siyuan_edit",
+            "description": "Edit a visible SiYuan document by document path plus reference-read block index and block ID. Prefer this over siyuan_edit_document for normal editing. Requires confirmed=true and creates a SiYuan workspace snapshot before writing. Use siyuan_read_document(include_block_ids=true) first to get start_index/start_id. Actions: replace, insert_after, insert_before, append, delete, table_edit.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "document": {"type": "string", "description": "Document path including notebook name, e.g. /Notebook/Folder/Doc. If ambiguous, use document_id instead."},
+                    "document_id": {"type": "string", "description": "Optional document id fallback when document path is ambiguous."},
+                    "action": {"type": "string", "enum": ["replace", "insert_after", "insert_before", "append", "delete", "table_edit"]},
+                    "start_index": {"type": "integer", "description": "Global display block index from reference reading. Required except append."},
+                    "start_id": {"type": "string", "description": "Block ID from reference reading. Required except append."},
+                    "end_index": {"type": "integer", "description": "Inclusive global display block index for range replace/delete."},
+                    "end_id": {"type": "string", "description": "Inclusive end block ID for range replace/delete."},
+                    "markdown": {"type": "string", "description": "Markdown to insert or replace with. Required for replace/insert_after/insert_before/append."},
+                    "table_edit": {
+                        "type": "object",
+                        "description": "Required for action=table_edit on a normal Markdown table block.",
+                        "properties": {
+                            "operation": {"type": "string", "enum": ["set_cell", "insert_row_before", "insert_row_after", "delete_row"]},
+                            "row": {"type": "integer", "description": "1-based data row number, excluding header."},
+                            "column": {"type": "string", "description": "Column name for set_cell."},
+                            "column_index": {"type": "integer", "description": "1-based column number for set_cell when column name is ambiguous."},
+                            "value": {"type": "string", "description": "New cell value for set_cell."},
+                            "values": {"description": "Row values for insert_row_before/insert_row_after. Object keyed by column name, or array in column order."},
+                            "expected_old_value": {"type": "string", "description": "Optional old cell value guard for set_cell."},
+                        },
+                        "additionalProperties": False,
+                    },
+                    "confirmed": {"type": "boolean", "description": "Must be true. Editing SiYuan documents requires explicit user approval."},
+                },
+                "required": ["action", "confirmed"],
                 "additionalProperties": False,
             },
         },
