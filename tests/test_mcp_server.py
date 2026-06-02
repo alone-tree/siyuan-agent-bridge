@@ -878,17 +878,20 @@ class DisplayBlockBuildTests(unittest.TestCase):
         self.assertEqual(blocks[1].id, "p1")
         self.assertFalse(blocks[1].is_heading)
 
-    def test_skips_list_container(self):
+    def test_renders_list_container_as_one_display_block(self):
         client = self._make_client({
             "doc1": [
                 {"id": "list", "type": "l", "subtype": "u", "markdown": "- item 1\n- item 2"},
+            ],
+            "list": [
                 {"id": "item", "type": "i", "subtype": "u", "markdown": "- item 1"},
             ]
         })
         blocks = mcp_server.build_display_blocks(client, "doc1")
         ids = [b.id for b in blocks]
-        self.assertNotIn("list", ids)
-        self.assertIn("item", ids)
+        self.assertIn("list", ids)
+        self.assertNotIn("item", ids)
+        self.assertEqual(blocks[0].markdown, "- item 1\n- item 2")
 
     def test_include_block_ids_injects_comments(self):
         client = self._make_client({
@@ -897,7 +900,7 @@ class DisplayBlockBuildTests(unittest.TestCase):
             ]
         })
         blocks = mcp_server.build_display_blocks(client, "doc1", include_block_ids=True)
-        self.assertIn("<!-- siyuan:block id=p1 type=p -->", blocks[0].markdown)
+        self.assertIn("[1] id=p1 type=paragraph", blocks[0].markdown)
         self.assertIn("Text here.", blocks[0].markdown)
 
     def test_no_comments_when_ids_off(self):
@@ -1086,7 +1089,7 @@ class McpServerReadBlockWindowTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-    def _make_client(self, blocks_for_doc=None):
+    def _make_client(self, blocks_for_doc=None, doc_md=None):
         class ChildFakeClient(FakeSearchClient):
             def get_child_blocks(self, block_id):
                 blocks = self._blocks.get(block_id)
@@ -1103,11 +1106,11 @@ class McpServerReadBlockWindowTests(unittest.TestCase):
         client = ChildFakeClient([])
         if blocks_for_doc:
             client._blocks = blocks_for_doc
-        client._docs["doc1"] = "## Section\n\nBody text here.\n"
+        client._docs["doc1"] = doc_md or "## Section\n\nBody text here.\n"
         return client
 
-    def _read(self, args: dict[str, Any], blocks_for_doc=None):
-        client = self._make_client(blocks_for_doc)
+    def _read(self, args: dict[str, Any], blocks_for_doc=None, doc_md=None):
+        client = self._make_client(blocks_for_doc, doc_md=doc_md)
         server = mcp_server.McpServer(self.root)
         original = mcp_server.detect_active_profile
 
@@ -1136,6 +1139,23 @@ class McpServerReadBlockWindowTests(unittest.TestCase):
         self.assertIn("Body text here.", result)
         # Should NOT contain old chunk header
         self.assertNotIn("Chunk ", result)
+
+    def test_read_rewrites_asset_links_to_absolute_paths(self):
+        blocks = {
+            "doc1": [
+                {"id": "p1", "parent_id": "doc1", "type": "p", "markdown": "![chart](assets/chart.png)", "sort": 1},
+            ]
+        }
+        result = self._read(
+            {"document_id": "doc1"},
+            blocks_for_doc=blocks,
+            doc_md="![chart](assets/chart.png)",
+        )
+        expected_path = (self.root / "ai_workspace" / "attachments" / "doc1" / "assets" / "chart.png").resolve().as_posix()
+        expected_dir = (self.root / "ai_workspace" / "attachments" / "doc1").resolve()
+        self.assertIn(f"![chart]({expected_path})", result)
+        self.assertIn(str(expected_dir), result)
+        self.assertNotIn("](assets/chart.png)", result)
 
     def test_block_window_header_shows_range(self):
         blocks = {
@@ -1217,7 +1237,7 @@ class McpServerReadBlockWindowTests(unittest.TestCase):
         }
         result = self._read({"document_id": "doc1", "include_block_ids": True}, blocks_for_doc=blocks)
         self.assertIn("引用阅读", result)
-        self.assertIn("<!-- siyuan:block id=p1 type=p -->", result)
+        self.assertIn("[1] id=p1 type=paragraph", result)
 
     def test_window_preview_integration(self):
         blocks = {}
@@ -1359,9 +1379,9 @@ class McpServerReadBlockIdTests(unittest.TestCase):
         mcp_server.detect_active_profile = fake_detect
         try:
             result = server.siyuan_read_document({"document_id": "doc1", "include_block_ids": True})
-            self.assertIn("<!-- siyuan:block id=block-h1 type=h subtype=h2 -->", result)
+            self.assertIn("[1] id=block-h1 type=heading", result)
             self.assertIn("## Section One", result)
-            self.assertIn("<!-- siyuan:block id=block-p1 type=p -->", result)
+            self.assertIn("[2] id=block-p1 type=paragraph", result)
             self.assertIn("Body paragraph here.", result)
             self.assertIn("引用阅读", result)
         finally:
@@ -1386,7 +1406,7 @@ class McpServerReadBlockIdTests(unittest.TestCase):
         mcp_server.detect_active_profile = fake_detect
         try:
             result = server.siyuan_read_document({"document_id": "doc1", "include_block_ids": True})
-            self.assertIn("<!-- siyuan:block", result)
+            self.assertIn("[1] id=block-h1 type=heading", result)
             self.assertIn("大纲", result)
             self.assertIn("Section One", result)
         finally:

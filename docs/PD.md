@@ -322,3 +322,221 @@ plugins/siyuan-agent-bridge/
 ├── scripts/run_mcp.py  # MCP stdio 启动脚本
 └── skills/             # Skill 定义（siyuan-agent-bridge + siyuan-index-builder）
 ```
+
+---
+
+## 2026-06-02：siyuan_edit 工具设计讨论
+
+### 背景
+
+Hermes + DeepSeek 的真实使用暴露出一个问题：`siyuan_edit_document(old_text -> new_text)` 对 AI 不够友好。AI 看到的是近似 Markdown 文本，但思源底层是块结构；一旦 UI、导出 Markdown、空格、表格格式或块内容发生轻微变化，`old_text` 就容易匹配失败。
+
+核心判断：不要强行把思源块当作标准 Markdown 文件的行来处理。工具应该顺应思源块设计，同时让 AI 的操作方式尽量接近常见的文档编辑。
+
+### 第一性原理
+
+AI 想编辑文档时，最自然需要的是：
+
+- 先读到可理解的文档内容。
+- 在需要修改时，能看到可引用的位置标识。
+- 用路径找到文档，用块序号和块 ID 锁定目标。
+- 对大段内容做范围替换，对局部内容做插入、删除或表格编辑。
+- 不依赖精确原文匹配，但要有足够校验，避免改错地方。
+
+### 文档定位
+
+优先使用文档路径，而不是文档 ID。路径对 AI 更友好，也更接近人类理解文档的方式。
+
+路径必须包含笔记本名称，从笔记本名称开始，例如：
+
+```text
+/存储芯片行业研究报告/芯片/澜起科技（688008）深度研究报告
+```
+
+只有当同一路径存在重名或路径无法唯一定位时，才要求补充文档 ID。
+
+### read 模式
+
+`siyuan_read_document` 默认使用普通阅读，不显示块 ID、序号和类型。只有当 AI 需要编辑、引用、定位或调试块结构时，才启用引用阅读。
+
+引用阅读需要展示每个可编辑 display block 的：
+
+- 全局块序号。
+- 块 ID。
+- 语义块类型。
+
+示例：
+
+```markdown
+[16] id=20260602163315-710wwtv type=heading
+### 列表
+
+[17] id=20260602163321-194aatq type=list
+1. 第一项
+2. 二
+   1. 二的缩进1
+   2. 二的缩进2
+3. 三
+```
+
+不展示冗余底层信息，例如 `raw_type=h level=3` 或 `raw_type=l list=ordered`。标题层级、列表有序无序已经可以从 Markdown 自身看出。
+
+### 块类型
+
+引用阅读中的类型使用英文语义名称，不使用思源底层简称，也不混用中英文。
+
+推荐类型：
+
+- `heading`
+- `paragraph`
+- `list`
+- `table`
+- `code`
+- `attachment`
+- `database`
+- `superblock`
+- `blockquote`
+- `math`
+- `html`
+- `iframe`
+- `video`
+- `audio`
+- `widget`
+- `thematic_break`
+
+附件统一显示为 `type=attachment`，不再细分 image、pdf、doc 等类型。具体文件类型可从链接后缀判断。
+
+数据库块保留块 ID，不默认暴露 `database_id / av-id`，避免 AI 把两个 ID 混淆。必要时可以在专门的数据库工具里暴露属性视图 ID。
+
+### 超级块
+
+超级块作为一个 display block，占一个全局序号。其内部子块继续显示自己的序号和 ID。超级块结束标记不单独占序号。
+
+示例：
+
+```text
+[22] id=... type=superblock
+{{{ superblock start
+
+[23] id=... type=paragraph
+内容 1
+
+[24] id=... type=paragraph
+内容 2
+
+}}} superblock end [22]
+```
+
+`delete` 允许删除超级块，并连同内部子块一起删除。`replace` 暂时不支持直接替换复杂超级块；如果需要重构超级块内部内容，应拆分为更小范围处理。
+
+### 列表
+
+列表先采用最简单、最鲁棒的方案：把整个列表容器视为一个 display block，暂时不展开列表内部的 list item 块 ID。
+
+原因：
+
+- 列表内部存在嵌套块关系，完全展开会显著增加阅读噪音。
+- 大多数列表编辑可以通过替换整个列表块完成。
+- 若未来需要局部编辑列表项，可再设计块内文本替换或列表专用 action。
+
+### siyuan_edit 设计
+
+新工具命名为 `siyuan_edit`，而不是 `siyuan_edit_block`。它面向文档编辑语义，而不是暴露底层块 API。
+
+推荐 actions：
+
+- `replace`
+- `insert_after`
+- `insert_before`
+- `append`
+- `delete`
+- `table_edit`
+
+`replace_range` 和 `replace_section` 不单独作为 action。替换章节只是 range replace 的一个特例：用 `start_index/start_id` 和 `end_index/end_id` 定位范围即可。`end` 为闭区间。
+
+### 参数结构
+
+统一使用一个工具 + action 分发。不同 action 使用不同必需参数，但外层结构保持一致。
+
+示例：
+
+```json
+{
+  "document": "/存储芯片行业研究报告/芯片/澜起科技（688008）深度研究报告",
+  "action": "replace",
+  "start_index": 87,
+  "start_id": "20260602150643-bgjckyt",
+  "end_index": 96,
+  "end_id": "20260602150643-xxxxxxx",
+  "markdown": "...",
+  "confirmed": true
+}
+```
+
+按 action 的必需参数：
+
+- `replace`：`document`、`start_index`、`start_id`、`markdown`、`confirmed`；范围替换时还需要 `end_index`、`end_id`。
+- `insert_after` / `insert_before`：`document`、`start_index`、`start_id`、`markdown`、`confirmed`。
+- `append`：`document`、`markdown`、`confirmed`。
+- `delete`：`document`、`start_index`、`start_id`、`confirmed`；范围删除时还需要 `end_index`、`end_id`。
+- `table_edit`：`document`、`start_index`、`start_id`、`table_edit`、`confirmed`。
+
+安全校验：
+
+1. `document` 必须唯一定位文档。
+2. `start_id` 必须存在。
+3. `start_index` 必须与引用阅读中的全局块序号一致。
+4. 范围操作需要同时校验 `end_id` 和 `end_index`。
+5. `replace` / `delete` 的范围必须连续。
+6. `replace` 遇到复杂块类型时拒绝，并提示拆分处理。
+7. `delete` 可以删除附件、图片、数据库占位块、超级块等特殊块。
+
+### table_edit
+
+表格编辑单独作为 action，命名为 `table_edit`，而不是 `table`。`table` 作为 action 名过于模糊，不利于 AI 理解。
+
+目标：避免每次修改表格都重写整张 Markdown 表。
+
+支持操作：
+
+- `set_cell`：修改单元格。
+- `insert_row_before`：在指定行前插入一行。
+- `insert_row_after`：在指定行后插入一行。
+- `delete_row`：删除指定行。
+
+示例：
+
+```json
+{
+  "document": "/存储芯片行业研究报告/芯片/澜起科技（688008）深度研究报告",
+  "action": "table_edit",
+  "start_index": 88,
+  "start_id": "table-block-id",
+  "table_edit": {
+    "operation": "set_cell",
+    "row": 3,
+    "column": "当前值",
+    "value": "232.30",
+    "expected_old_value": "~260~280"
+  },
+  "confirmed": true
+}
+```
+
+`row` 使用 1-based 数据行编号，不包含表头。列优先使用列名；列名不唯一或不清晰时使用 `column_index`。
+
+### 错误信息
+
+错误信息要清晰告诉 AI：
+
+- 哪个校验失败。
+- 当前文档是否可能已被修改。
+- 需要重新调用哪种 read。
+- 如果是复杂块拒绝替换，应该如何拆分处理。
+
+例如：
+
+```text
+目标块校验失败：start_index=87 对应的当前块 ID 是 xxx，但请求中的 start_id 是 yyy。
+文档可能在上次读取后发生变化。请重新调用 siyuan_read_document，并启用引用阅读后再编辑。
+```

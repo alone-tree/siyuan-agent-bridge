@@ -2125,3 +2125,174 @@ LLM Wiki 的核心理念与思源桥底层哲学高度一致，适合作为**配
 `隐私规则/Hide Notebooks` 表格有空行时（第 5 行：Notebook ID 和名称都为空），`PrivacyRulesParseError` 会阻断整个 `siyuan_start`。应改为：
 - 空行视为 warning，跳过该行，程序继续运行。
 - warning 在启动包中提示用户自行检查，AI 不应尝试修复。
+
+---
+
+## 2026-06-02
+
+### read 文档附件路径改为绝对路径
+
+真实工作流测试中发现，`siyuan_read_document` 会把文档附件提取到 `ai_workspace/attachments/<doc_id>/`，但返回正文中的 Markdown 链接仍可能是 `assets/...` 相对路径。若 AI 运行环境不在项目根目录，模型可能无法定位图片、PDF 等附件。
+
+本次调整：
+
+- header 中的附件目录改为本机绝对路径。
+- read 返回正文中的 `assets/...` 链接改写为已提取附件的绝对路径。
+- 保留原有附件提取目录结构。
+- 增加测试覆盖，确保普通阅读和引用阅读都能返回可定位的附件路径。
+
+### 引用阅读显示格式调整
+
+用户测试 `((20260504143521-zumihlo "高级块类型创建测试"))` 后，确认引用阅读需要更贴近 AI 编辑定位，而不是暴露思源底层 raw type。
+
+最终方向：
+
+- `siyuan_read_document` 默认仍是普通阅读。
+- 只有需要修改、引用或调试块结构时，才启用引用阅读。
+- 引用阅读展示全局块序号、块 ID、语义类型。
+- 文档路径必须包含笔记本名称，从笔记本名称开始。
+- 去掉 `raw_type=h level=3`、`raw_type=l list=ordered` 等冗余信息。
+- 类型使用英文语义名，例如 `heading`、`paragraph`、`list`、`table`、`attachment`、`database`、`superblock`。
+
+示例：
+
+```markdown
+[16] id=20260602163315-710wwtv type=heading
+### 列表
+
+[17] id=20260602163321-194aatq type=list
+1. 第一项
+2. 二
+   1. 二的缩进1
+   2. 二的缩进2
+3. 三
+```
+
+### 特殊块处理
+
+本次讨论后的展示策略：
+
+- 附件统一显示为 `type=attachment`，不细分图片、PDF、文档。文件类型由链接后缀体现。
+- 数据库块显示为 `type=database readonly=true`，不默认暴露 `database_id / av-id`，避免 AI 把块 ID 和属性视图 ID 混淆。
+- 数据库提示文案改为“如需补充数据，请在本块下方追加新表格或说明”，不再说“文档末尾追加”。
+- 超级块作为单独 display block，占一个全局序号；结束标记不单独占序号。
+- 列表先采用最鲁棒方案：整个列表容器作为一个 display block，不展开内部 list item ID。
+
+超级块目标格式：
+
+```text
+[22] id=... type=superblock
+{{{ superblock start
+
+[23] id=... type=paragraph
+内容 1
+
+[24] id=... type=paragraph
+内容 2
+
+}}} superblock end [22]
+```
+
+### siyuan_edit 设计方向
+
+Hermes + DeepSeek 的真实操作暴露出：`siyuan_edit_document(old_text -> new_text)` 对 AI 不够友好。AI 看到的是近似 Markdown 文本，但思源底层是块结构；当 UI、导出 Markdown、空格、表格格式或块内容轻微变化时，`old_text` 容易匹配失败。
+
+新工具计划命名为 `siyuan_edit`，面向文档编辑语义，而不是暴露底层块 API。
+
+核心原则：
+
+- 优先用文档路径定位，路径必须包含笔记本名称。
+- 只有路径无法唯一定位时，才要求补充文档 ID。
+- 不再要求精确 `old_text` 匹配。
+- 使用文档路径 + 全局块序号 + 块 ID 三重校验，避免改错目标。
+- `end` 使用闭区间。
+- 插入多块 Markdown 时，由工具内部拆成思源块。
+
+推荐 actions：
+
+- `replace`
+- `insert_after`
+- `insert_before`
+- `append`
+- `delete`
+- `table_edit`
+
+`replace_range` 和 `replace_section` 不单独作为 action。整章节替换只是 range replace 的特例。
+
+### siyuan_edit 参数草案
+
+统一使用一个 MCP 工具 + action 分发，不为每个动作拆独立工具。
+
+示例：
+
+```json
+{
+  "document": "/存储芯片行业研究报告/芯片/澜起科技（688008）深度研究报告",
+  "action": "replace",
+  "start_index": 87,
+  "start_id": "20260602150643-bgjckyt",
+  "end_index": 96,
+  "end_id": "20260602150643-xxxxxxx",
+  "markdown": "...",
+  "confirmed": true
+}
+```
+
+按 action 的必需参数：
+
+- `replace`：`document`、`start_index`、`start_id`、`markdown`、`confirmed`；范围替换时还需要 `end_index`、`end_id`。
+- `insert_after` / `insert_before`：`document`、`start_index`、`start_id`、`markdown`、`confirmed`。
+- `append`：`document`、`markdown`、`confirmed`。
+- `delete`：`document`、`start_index`、`start_id`、`confirmed`；范围删除时还需要 `end_index`、`end_id`。
+- `table_edit`：`document`、`start_index`、`start_id`、`table_edit`、`confirmed`。
+
+安全校验：
+
+1. `document` 唯一定位文档。
+2. `start_id` 存在。
+3. `start_index` 与引用阅读中的全局块序号一致。
+4. 范围操作同时校验 `end_id` 与 `end_index`。
+5. `replace` / `delete` 的范围必须连续。
+6. `replace` 遇到复杂块类型时拒绝，并提示拆分处理。
+7. `delete` 允许删除附件、图片、数据库占位块和超级块。
+
+### table_edit 设计
+
+表格编辑单独作为 action，命名为 `table_edit`，而不是 `table`。`table` 作为 action 名过于模糊，不利于 AI 理解。
+
+目标是避免每次修改表格都重写整张 Markdown 表。
+
+支持操作：
+
+- `set_cell`：修改单元格。
+- `insert_row_before`：在指定行前插入一行。
+- `insert_row_after`：在指定行后插入一行。
+- `delete_row`：删除指定行。
+
+示例：
+
+```json
+{
+  "document": "/存储芯片行业研究报告/芯片/澜起科技（688008）深度研究报告",
+  "action": "table_edit",
+  "start_index": 88,
+  "start_id": "table-block-id",
+  "table_edit": {
+    "operation": "set_cell",
+    "row": 3,
+    "column": "当前值",
+    "value": "232.30",
+    "expected_old_value": "~260~280"
+  },
+  "confirmed": true
+}
+```
+
+`row` 使用 1-based 数据行编号，不包含表头。列优先使用列名；列名不唯一或不清晰时使用 `column_index`。
+
+### 后续实现要点
+
+- 先完成 `siyuan_read_document` 的引用阅读展示改造。
+- 基于同一套 display block map 实现 `siyuan_edit` 的块序号和块 ID 校验。
+- 保留 `siyuan_edit_document` 作为 legacy / exact text edit 工具，避免破坏已有使用者。
+- 错误信息必须明确告诉 AI 哪个校验失败、是否需要重新引用阅读、复杂块应该如何拆分处理。

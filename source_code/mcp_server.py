@@ -62,8 +62,10 @@ def normalize_new_document_markdown(title: str, markdown: str) -> str:
     return markdown
 
 
-SKIP_BLOCK_TYPES = frozenset({"l", "d"})
-SUBTREE_MARKDOWN_BLOCK_TYPES = frozenset({"i", "t"})
+SKIP_BLOCK_TYPES = frozenset({"d"})
+LEGACY_SKIP_BLOCK_TYPES = frozenset({"l", "d"})
+SUBTREE_MARKDOWN_BLOCK_TYPES = frozenset({"i", "l", "t"})
+LEGACY_SUBTREE_MARKDOWN_BLOCK_TYPES = frozenset({"i", "t"})
 COMMENT_ONLY_BLOCK_TYPES = frozenset({"s"})
 CHILD_TRAVERSAL_BLOCK_TYPES = frozenset({"h", "l", "s"})
 DATABASE_BLOCK_TYPES = frozenset({"av"})
@@ -151,10 +153,7 @@ def _render_av_as_table(av_data: dict[str, Any], block_id: str, include_block_id
         lines.append("|" + "|".join(row) + "|")
     table_md = "\n".join(lines)
     av_id = av_data.get("id", "")
-    annotation = (
-        f"<!-- siyuan:database av-id={av_id} type=table readonly=true -->\n"
-        f"> 此表格为数据库（属性视图），只读。如需编辑数据，请在文档末尾追加新表格。\n\n"
-    )
+    annotation = "> 此表格为数据库（属性视图），只读。如需补充数据，请在本块下方追加新表格或说明。\n\n"
     if include_block_ids:
         annotation = f"<!-- siyuan:block id={block_id} type=av -->\n" + annotation
     return annotation + table_md
@@ -181,7 +180,7 @@ def render_block_with_id(block: dict[str, Any]) -> str:
     block_type = block_field(block, "type")
     block_id = block_field(block, "id")
 
-    if not block_id or block_type in SKIP_BLOCK_TYPES:
+    if not block_id or block_type in LEGACY_SKIP_BLOCK_TYPES:
         return ""
 
     subtype = block_field(block, "subtype", "subType")
@@ -237,7 +236,7 @@ def build_markdown_from_blocks(blocks: list[dict[str, Any]], root_id: str | None
             parts.append(rendered)
 
         block_type = block_field(block, "type")
-        if block_type in SUBTREE_MARKDOWN_BLOCK_TYPES:
+        if block_type in LEGACY_SUBTREE_MARKDOWN_BLOCK_TYPES:
             mark_descendants_visited(block_id)
             return
 
@@ -269,7 +268,7 @@ def build_markdown_from_child_blocks(client: Any, root_id: str) -> str:
             parts.append(rendered)
 
         block_type = block_field(block, "type")
-        if block_type in SUBTREE_MARKDOWN_BLOCK_TYPES:
+        if block_type in LEGACY_SUBTREE_MARKDOWN_BLOCK_TYPES:
             return
         if block_type not in CHILD_TRAVERSAL_BLOCK_TYPES:
             return
@@ -308,6 +307,62 @@ class DisplayBlock:
     is_heading: bool = False
     heading_level: int | None = None
     heading_text: str = ""
+
+
+def semantic_block_type(raw_type: str, subtype: str, markdown: str) -> str:
+    if raw_type == "p" and re.search(r"!?\[[^\]]+\]\(assets/[^)]+\)", markdown):
+        return "attachment"
+    return {
+        "h": "heading",
+        "p": "paragraph",
+        "l": "list",
+        "i": "list_item",
+        "t": "table",
+        "c": "code",
+        "s": "superblock",
+        "av": "database",
+        "b": "blockquote",
+        "m": "math",
+        "html": "html",
+        "iframe": "iframe",
+        "video": "video",
+        "audio": "audio",
+        "widget": "widget",
+        "tb": "thematic_break",
+    }.get(raw_type, raw_type or "unknown")
+
+
+def list_kind(subtype: str) -> str:
+    return {"o": "ordered", "u": "unordered", "t": "task"}.get(subtype, subtype)
+
+
+def code_language(markdown: str) -> str:
+    first = markdown.strip().splitlines()[0] if markdown.strip() else ""
+    if first.startswith("```"):
+        return first[3:].strip()
+    return ""
+
+
+def block_metadata_line(index: int, block_id: str, raw_type: str, subtype: str, markdown: str) -> str:
+    semantic_type = semantic_block_type(raw_type, subtype, markdown)
+    parts = [f"[{index}]", f"id={block_id}", f"type={semantic_type}"]
+    if semantic_type == "code":
+        lang = code_language(markdown)
+        if lang:
+            parts.append(f"language={lang}")
+    elif semantic_type == "database":
+        parts.append("readonly=true")
+    return " ".join(parts)
+
+
+def display_document_path(doc: dict[str, Any]) -> str:
+    hpath = str(doc.get("hpath") or doc.get("title") or doc.get("id"))
+    notebook_name = str(doc.get("notebook_name") or "").strip()
+    if not hpath.startswith("/"):
+        hpath = "/" + hpath
+    if notebook_name and not hpath.startswith(f"/{notebook_name}/") and hpath != f"/{notebook_name}":
+        return f"/{notebook_name}{hpath}"
+    return hpath
 
 
 def estimate_token_count(text: str) -> int:
@@ -356,9 +411,8 @@ def build_display_blocks(client: Any, root_id: str, *, include_block_ids: bool =
         visited.add(block_id)
 
         block_type = block_field(block, "type")
-        # Skip document roots and list containers (they are structural)
+        # Skip document roots; list containers are rendered as one display block.
         if block_type in SKIP_BLOCK_TYPES:
-            # Still traverse children of list containers
             if block_type in CHILD_TRAVERSAL_BLOCK_TYPES:
                 for child in client.get_child_blocks(block_id):
                     visit(child)
@@ -370,11 +424,13 @@ def build_display_blocks(client: Any, root_id: str, *, include_block_ids: bool =
             av_id = _extract_av_id(block_md)
             if av_id:
                 av_data = client.get_attribute_view(av_id)
-                display_md = _render_av_as_table(av_data, block_id, include_block_ids) if av_data else ""
+                display_md = _render_av_as_table(av_data, block_id, False) if av_data else ""
             else:
                 display_md = ""
             if not display_md:
-                display_md = f"<!-- siyuan:block id={block_id} type={block_type} -->\n> 数据库数据获取失败"
+                display_md = "> 数据库数据获取失败"
+            if include_block_ids:
+                display_md = f"{block_metadata_line(len(blocks) + 1, block_id, block_type, '', block_md)}\n{display_md}"
             estimated_tokens = estimate_token_count(display_md)
             blocks.append(DisplayBlock(
                 index=len(blocks) + 1,
@@ -392,6 +448,17 @@ def build_display_blocks(client: Any, root_id: str, *, include_block_ids: bool =
         subtype = block_field(block, "subtype", "subType")
         block_md = block_field(block, "markdown")
 
+        if block_type == "l" and not block_md.strip():
+            for child in client.get_child_blocks(block_id):
+                visit(child)
+            return
+
+        if not block_md.strip() and block_type not in COMMENT_ONLY_BLOCK_TYPES:
+            if block_type in CHILD_TRAVERSAL_BLOCK_TYPES:
+                for child in client.get_child_blocks(block_id):
+                    visit(child)
+            return
+
         is_heading = block_type == "h"
         heading_level = None
         heading_text = ""
@@ -405,16 +472,14 @@ def build_display_blocks(client: Any, root_id: str, *, include_block_ids: bool =
         display_md = block_md
         if block_type in COMMENT_ONLY_BLOCK_TYPES:
             if include_block_ids:
-                subtype_str = f" subtype={subtype}" if subtype else ""
-                display_md = f"<!-- siyuan:block id={block_id} type={block_type}{subtype_str} -->"
+                display_md = block_metadata_line(len(blocks) + 1, block_id, block_type, subtype, block_md) + "\n{{{ superblock start"
             else:
                 for child in client.get_child_blocks(block_id):
                     visit(child)
                 return
         elif include_block_ids and block_md.strip():
-            subtype_str = f" subtype={subtype}" if subtype else ""
-            comment = f"<!-- siyuan:block id={block_id} type={block_type}{subtype_str} -->"
-            display_md = f"{comment}\n{block_md}"
+            metadata = block_metadata_line(len(blocks) + 1, block_id, block_type, subtype, block_md)
+            display_md = f"{metadata}\n{block_md}"
 
         # Skip blocks with no visible content in normal mode
         if not include_block_ids and not block_md.strip():
@@ -441,8 +506,15 @@ def build_display_blocks(client: Any, root_id: str, *, include_block_ids: bool =
             return
         # Continue traversing children for headings, super blocks, list containers
         if block_type in CHILD_TRAVERSAL_BLOCK_TYPES:
+            start_index = len(blocks)
+            current_display_index = blocks[-1].index if blocks else 0
             for child in client.get_child_blocks(block_id):
                 visit(child)
+            if include_block_ids and block_type in COMMENT_ONLY_BLOCK_TYPES and blocks:
+                end_marker = "}}} superblock end [" + str(current_display_index) + "]"
+                target_idx = len(blocks) - 1 if len(blocks) > start_index else start_index - 1
+                if 0 <= target_idx < len(blocks):
+                    blocks[target_idx].markdown = f"{blocks[target_idx].markdown}\n\n{end_marker}"
 
     for child in client.get_child_blocks(root_id):
         visit(child)
@@ -1001,7 +1073,8 @@ class McpServer:
             with ensure_notebooks_open(client, [notebook_id]):
                 markdown = client.export_markdown(doc_id)
             attachment_count = extract_attachments(markdown, client, doc_id, self.root)
-            doc_path = str(doc.get("hpath") or doc.get("title") or doc.get("id"))
+            markdown = rewrite_local_asset_links(markdown, doc_id, self.root)
+            doc_path = display_document_path(doc)
             markdown_wc = compute_word_count(markdown)
             date = format_date(str(doc.get("updated", "")))
             header_lines = [
@@ -1011,7 +1084,7 @@ class McpServer:
                 "阅读模式：普通阅读（降级到导出 Markdown）",
             ]
             if attachment_count:
-                header_lines.append(f"附件：{attachment_count} 个已提取到 ai_workspace/attachments/{doc_id}/")
+                header_lines.append(f"附件：{attachment_count} 个已提取到 {attachment_root_dir(self.root, doc_id).resolve()}")
             return "\n".join(["\n".join(header_lines), "", "---", "", markdown])
 
         # Compute stats
@@ -1046,11 +1119,11 @@ class McpServer:
         last_idx = window_blocks[-1].index if window_blocks else start_idx
 
         # Build header
-        doc_path = str(doc.get("hpath") or doc.get("title") or doc.get("id"))
+        doc_path = display_document_path(doc)
         date = format_date(str(doc.get("updated", "")))
         total_chars = sum(len(b.markdown) for b in display_blocks)
 
-        mode_label = "引用阅读（已插入块 ID 注释）" if include_block_ids else "普通阅读"
+        mode_label = "引用阅读（显示块序号、ID 和类型）" if include_block_ids else "普通阅读"
         header_lines = [
             f"# 文档：{doc_path}",
             f"文档 ID：`{doc_id}`",
@@ -1062,7 +1135,7 @@ class McpServer:
             header_lines.append(f"下一窗口：block_start={next_start}, block_limit={block_limit}")
         header_lines.append(f"阅读模式：{mode_label}")
         if attachment_count:
-            header_lines.append(f"附件：{attachment_count} 个已提取到 ai_workspace/attachments/{doc_id}/")
+            header_lines.append(f"附件：{attachment_count} 个已提取到 {attachment_root_dir(self.root, doc_id).resolve()}")
         header = "\n".join(header_lines)
 
         # Build outline (always full document outline with block positions)
@@ -1077,6 +1150,7 @@ class McpServer:
             if db.markdown.strip():
                 body_lines.append(db.markdown)
         body = "\n\n".join(body_lines)
+        body = rewrite_local_asset_links(body, doc_id, self.root)
 
         parts = [header, "", outline]
         if window_preview:
@@ -1766,7 +1840,7 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_read_document",
-            "description": "Read a visible SiYuan document as Markdown. Always returns the document outline (heading to block mapping). Reads in block window mode using SiYuan's native block order, returning complete consecutive blocks without mid-character truncation. Use block_start/block_limit for pagination, token_budget as a safety valve. Set include_block_ids=true for reference reading (precise block references and edit targeting).",
+            "description": "Read a visible SiYuan document as Markdown. Always returns the document outline (heading to block mapping). Reads in block window mode using SiYuan's native block order, returning complete consecutive blocks without mid-character truncation. Use block_start/block_limit for pagination, token_budget as a safety valve. Set include_block_ids=true for reference reading with global block index, block ID, and semantic block type for precise edit targeting.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1774,7 +1848,7 @@ def tool_specs() -> list[dict[str, Any]]:
                     "block_start": {"type": "integer", "default": 1, "description": "Starting display block index (1-based). Default 1 reads from the first block."},
                     "block_limit": {"type": "integer", "default": DEFAULT_BLOCK_LIMIT, "description": "Maximum display blocks to return in this window, 1–1000."},
                     "token_budget": {"type": "integer", "default": DEFAULT_TOKEN_BUDGET, "description": "Estimated token ceiling for this window. Blocks stop before exceeding budget (at least one block always returned)."},
-                    "include_block_ids": {"type": "boolean", "default": False, "description": "Enable reference reading — injects block ID HTML comments for precise cross-document block references and edit targeting."},
+                    "include_block_ids": {"type": "boolean", "default": False, "description": "Enable reference reading — show global block index, block ID, and semantic block type for precise cross-document references and edit targeting."},
                 },
                 "additionalProperties": False,
             },
@@ -1854,6 +1928,21 @@ def find_markdown_images(markdown: str) -> list[str]:
     return re.findall(r"!\[[^\]]*\]\(([^)]+)\)", markdown)
 
 
+def attachment_root_dir(workspace_root: Path, doc_id: str) -> Path:
+    return workspace_root / "ai_workspace" / "attachments" / doc_id
+
+
+def rewrite_local_asset_links(markdown: str, doc_id: str, workspace_root: Path) -> str:
+    """Rewrite SiYuan-relative asset links to extracted absolute local paths."""
+    assets_dir = attachment_root_dir(workspace_root, doc_id) / "assets"
+
+    def replace(match: re.Match[str]) -> str:
+        filename = match.group(1)
+        return f"]({(assets_dir / filename).resolve().as_posix()})"
+
+    return re.sub(r"\]\(assets/([^)]+)\)", replace, markdown)
+
+
 def extract_attachments(markdown: str, client: SiYuanClient, doc_id: str, workspace_root: Path) -> int:
     """Extract all assets (images, PDF, etc.) referenced in markdown to ai_workspace/attachments/<doc_id>/.
     Preserves the original assets/ directory structure. Returns count of successfully extracted files."""
@@ -1861,7 +1950,7 @@ def extract_attachments(markdown: str, client: SiYuanClient, doc_id: str, worksp
     if not assets:
         return 0
 
-    dest_dir = workspace_root / "ai_workspace" / "attachments" / doc_id / "assets"
+    dest_dir = attachment_root_dir(workspace_root, doc_id) / "assets"
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     count = 0
