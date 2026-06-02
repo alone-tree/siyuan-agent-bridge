@@ -773,6 +773,248 @@ class McpServerWriteTests(unittest.TestCase):
         finally:
             mcp_server.detect_active_profile = original
 
+    def test_siyuan_edit_insert_after_single_block(self):
+        blocks = {
+            "doc1": [
+                {"id": "block1", "type": "p", "markdown": "Anchor text."},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            result = server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "insert_after",
+                "start_index": 1,
+                "start_id": "block1",
+                "markdown": "Inserted after anchor.",
+                "confirmed": True,
+            })
+            self.assertIn("siyuan_edit", client._snapshots[0]["memo"])
+            self.assertEqual(client._inserted_after, [("block1", "Inserted after anchor.")])
+            self.assertIn("insert_after", result)
+            self.assertIn("block1", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_insert_before_single_block(self):
+        blocks = {
+            "doc1": [
+                {"id": "block1", "type": "p", "markdown": "Anchor text."},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            result = server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "insert_before",
+                "start_index": 1,
+                "start_id": "block1",
+                "markdown": "Inserted before anchor.",
+                "confirmed": True,
+            })
+            self.assertIn("siyuan_edit", client._snapshots[0]["memo"])
+            self.assertEqual(client._inserted_before, [("block1", "Inserted before anchor.")])
+            self.assertIn("insert_before", result)
+            self.assertIn("block1", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_append_document_end(self):
+        server, client, original = self._server_and_client()
+        try:
+            result = server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "append",
+                "markdown": "Appended content.",
+                "confirmed": True,
+            })
+            self.assertIn("siyuan_edit", client._snapshots[0]["memo"])
+            self.assertEqual(client._appended_blocks, [("doc1", "Appended content.")])
+            self.assertIn("append", result)
+            self.assertIn("Appended content.", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_delete_single_block(self):
+        blocks = {
+            "doc1": [
+                {"id": "block1", "type": "p", "markdown": "Text to delete."},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            result = server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "delete",
+                "start_index": 1,
+                "start_id": "block1",
+                "confirmed": True,
+            })
+            self.assertIn("siyuan_edit", client._snapshots[0]["memo"])
+            self.assertEqual(client._deleted_blocks, ["block1"])
+            self.assertIn("delete", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_delete_range(self):
+        blocks = {
+            "doc1": [
+                {"id": "block1", "type": "p", "markdown": "First."},
+                {"id": "block2", "type": "p", "markdown": "Second."},
+                {"id": "block3", "type": "p", "markdown": "Third."},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            result = server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "delete",
+                "start_index": 1,
+                "start_id": "block1",
+                "end_index": 3,
+                "end_id": "block3",
+                "confirmed": True,
+            })
+            self.assertEqual(client._deleted_blocks, ["block3", "block2", "block1"])
+            self.assertIn("delete", result)
+            self.assertIn("3 个块", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_replace_rejects_attachment(self):
+        blocks = {
+            "doc1": [
+                {"id": "img1", "type": "p", "markdown": "![img](assets/img.png)"},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_edit({
+                    "document": "/Main/Projects/Doc One",
+                    "action": "replace",
+                    "start_index": 1,
+                    "start_id": "img1",
+                    "markdown": "Try replace attachment.",
+                    "confirmed": True,
+                })
+            self.assertIn("type=attachment", str(ctx.exception))
+            self.assertFalse(client._snapshots)
+            self.assertFalse(client._updated_blocks)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_table_insert_row_before(self):
+        table = "| A | B |\n| --- | --- |\n| 1 | 2 |"
+        blocks = {
+            "doc1": [
+                {"id": "table1", "type": "t", "markdown": table},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "table_edit",
+                "start_index": 1,
+                "start_id": "table1",
+                "table_edit": {
+                    "operation": "insert_row_before",
+                    "row": 1,
+                    "values": {"A": "new", "B": "row"},
+                },
+                "confirmed": True,
+            })
+            new_table = client._updated_blocks[0][1]
+            self.assertIn("new", new_table)
+            self.assertIn("row", new_table)
+            self.assertLess(new_table.index("new"), new_table.index("1"))
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_table_insert_row_after(self):
+        table = "| A | B |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |"
+        blocks = {
+            "doc1": [
+                {"id": "table1", "type": "t", "markdown": table},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "table_edit",
+                "start_index": 1,
+                "start_id": "table1",
+                "table_edit": {
+                    "operation": "insert_row_after",
+                    "row": 2,
+                    "values": ["x", "y"],
+                },
+                "confirmed": True,
+            })
+            new_table = client._updated_blocks[0][1]
+            self.assertIn("x", new_table)
+            self.assertIn("y", new_table)
+            pos_3 = new_table.index("| 3 ")
+            pos_x = new_table.index("x")
+            self.assertLess(pos_3, pos_x)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_table_delete_row(self):
+        table = "| A | B |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |"
+        blocks = {
+            "doc1": [
+                {"id": "table1", "type": "t", "markdown": table},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "table_edit",
+                "start_index": 1,
+                "start_id": "table1",
+                "table_edit": {
+                    "operation": "delete_row",
+                    "row": 1,
+                },
+                "confirmed": True,
+            })
+            new_table = client._updated_blocks[0][1]
+            self.assertNotIn("| 1 | 2 |", new_table)
+            self.assertIn("| 3 | 4 |", new_table)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_table_edit_rejects_non_table(self):
+        blocks = {
+            "doc1": [
+                {"id": "p1", "type": "p", "markdown": "Not a table."},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_edit({
+                    "document": "/Main/Projects/Doc One",
+                    "action": "table_edit",
+                    "start_index": 1,
+                    "start_id": "p1",
+                    "table_edit": {
+                        "operation": "set_cell",
+                        "row": 1,
+                        "column": "A",
+                        "value": "x",
+                    },
+                    "confirmed": True,
+                })
+            self.assertIn("table", str(ctx.exception).casefold())
+            self.assertFalse(client._snapshots)
+        finally:
+            mcp_server.detect_active_profile = original
+
     def test_normalize_markdown_strips_duplicate_h1(self):
         result = mcp_server.normalize_new_document_markdown(
             "My Title",
