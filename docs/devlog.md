@@ -2325,3 +2325,159 @@ Hermes + DeepSeek 的真实操作暴露出：`siyuan_edit_document(old_text -> n
 - 新增范围替换插入后删除旧块测试。
 - 新增 `table_edit.set_cell` 测试。
 - 新增删除超级块测试。
+
+### siyuan_edit 测试补充
+
+2026-06-02 补充了 10 个单元测试，覆盖第一版遗漏的 action 和边界：
+
+- `insert_after` 单块插入 — 验证锚点块信息出现在返回中。
+- `insert_before` 单块插入 — 同上。
+- `append` 文档末尾追加 — 验证无需 start_index。
+- `delete` 单块删除。
+- `delete` 范围删除（3 块）— 验证逆序删除顺序。
+- `replace` 拒绝 attachment 块 — 验证写入前拒绝，不创建快照。
+- `table_edit.insert_row_before` — 验证新行插入位置。
+- `table_edit.insert_row_after` — 同上。
+- `table_edit.delete_row` — 验证目标行被移除。
+- `table_edit` 拒绝非表格块 — 验证类型校验。
+
+### siyuan_edit 返回信息增强设计
+
+#### 需求
+
+当前 `siyuan_edit` 返回信息偏简略：只展示 action 名称和结果描述（如"替换了块 xxx"）以及新内容前 200 字符预览。AI 无法确认：改的是不是它想改的块？改之后文档变成什么样了？需要再调一次 `siyuan_read_document` 才能验证。
+
+#### 设计原则
+
+- 按 action 区分返回格式，action 内部不区分单块/多块场景。
+- 每个块展示完整内容，不做截断（一个块通常不会很大）。
+- 新内容需要在写入完成后从思源读回实际块，而非展示发送的 markdown 原文——思源引擎会将 markdown 拆分为块，展示"思源看到的块"对 AI 更有意义。
+- `target_blocks` 在写入前已经持有了原内容，不需要额外读取。
+
+#### 各 action 返回格式
+
+##### replace
+
+```
+# 文档已编辑
+
+**文档：**/Notebook/Doc（`doc_id`）
+**action：**replace
+**已替换 N 个块：**[20] id=xxx type=paragraph → [24] id=yyy type=heading
+
+## 原内容
+
+[20] id=xxx type=paragraph
+下面是超级块
+
+[24] id=yyy type=heading
+### 被替换的标题
+
+（单块时首尾为同一个块，不重复展示）
+
+## 新内容
+
+[20] id=new1 type=code language=python
+```python
+print("hello")
+```
+
+[21] id=new2 type=paragraph
+新的最后一段
+```
+
+新内容中的块序号是写入后重新从思源读回的全局 display block index，方便 AI 继续操作。
+
+##### insert_after / insert_before
+
+```
+**action：**insert_after
+**锚点：**[33] id=xxx type=paragraph
+**锚点内容：**
+这是一个表格
+
+## 插入内容
+
+[34] id=new1 type=paragraph
+→ 表格下方的补充说明段落。
+```
+
+##### append
+
+```
+**action：**append
+
+## 追加内容
+
+[31] id=new1 type=heading
+## append 测试
+
+[32] id=new2 type=list
+- 列表项 A
+- 列表项 B
+```
+
+首尾各展示一个块，单块时不重复。
+
+##### delete
+
+```
+**action：**delete
+**已删除 N 个块：**[22] id=xxx type=superblock → [28] id=yyy type=paragraph
+
+## 已删除内容
+
+[22] id=xxx type=superblock
+{{{ superblock start
+
+[28] id=yyy type=paragraph
+普通文本4
+
+## 当前上下文
+
+（删除位置的前一个块）
+[21] id=prev type=paragraph
+超级块A和B水平合并为超级块
+
+（删除位置现在的块，即原来被删除范围的后一个块）
+[22] id=next type=paragraph
+这是一个图片
+```
+
+上下文帮助 AI 确认删除后的文档结构是否正确，而不需要再调用 read。
+
+##### table_edit
+
+```
+**action：**table_edit
+**目标：**[34] id=xxx type=table
+
+## 原表格
+
+| A | B | C |
+| --- | --- | --- |
+| 1 | 3 | 5 |
+| 2 | 4 | 6 |
+
+## 新表格
+
+| A | B | C |
+| --- | --- | --- |
+| 999 | 3 | 5 |
+| 2 | 4 | 6 |
+```
+
+#### 实现要点
+
+1. 写入完成后调用 `get_child_blocks` 重建 `display_blocks`，获取新块的全局序号。
+2. 对于 replace / insert / append，读取新插入的块（按位置范围）。
+3. 对于 delete，读取删除位置前后各一个块的当前内容作为上下文。
+4. `target_blocks` 在写入前已持有原内容，直接从内存读取即可。
+5. 不需要区分单块/多块——首尾结构自然处理了两种情况（单块时首尾相同，只展示一次）。
+
+#### 注意事项
+
+- `insert_after` / `insert_before` 插入的 markdown 在思源中可能被拆分为多个块，返回时应展示思源拆分后的实际块结构。
+- 读取新块会增加一次 API 调用，但这是机器调用，性能影响可接受（通常 < 100ms）。
+- 返回信息的详细程度由工具内部决定，AI 无需传额外参数。
+
