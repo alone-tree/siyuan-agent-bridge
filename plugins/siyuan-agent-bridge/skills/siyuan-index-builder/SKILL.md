@@ -9,8 +9,8 @@ description: 创建和更新思源系统笔记本 思源桥 中的 Workspace Ind
 让 AI 助手无需扫描每份笔记本地图就能定位相关文档。
 索引优先使用文档路径（客观且完整），而非主题（模糊且不完整）。
 
-索引存放在思源系统笔记本中，而非本地文件。首次创建用 `siyuan_create_document`，
-后续更新用 `siyuan_edit_document`。
+索引存放在思源系统笔记本中，而非本地文件。首次创建用 `siyuan_create`，
+后续更新用 `siyuan_edit`。
 
 ## 前置条件
 
@@ -55,7 +55,7 @@ description: 创建和更新思源系统笔记本 思源桥 中的 Workspace Ind
 - **扁平集合**：大部分文档在根目录或一层深。直接列出关键文档。
 - **辐条式**：一篇根索引文档 + 若干子文档。标注枢纽文档。
 
-分类后，按用户指定的阅读深度**阅读枢纽文档**。使用 `siyuan_read_document`
+分类后，按用户指定的阅读深度**阅读枢纽文档**。使用 `siyuan_read`
 配合文档 ID。工具先返回文档大纲，再返回内容。对于长文档，
 `block_start=1`（默认）返回第一个块窗口 —— 预览足够建索引使用。
 如需跳转到特定章节，使用 `block_start=N`。
@@ -64,8 +64,8 @@ description: 创建和更新思源系统笔记本 思源桥 中的 Workspace Ind
 
 将索引写入 `思源桥/工作空间索引`：
 
-- **首次创建**：使用 `siyuan_create_document`，notebook_id 为 `思源桥` 笔记本的 ID（通过 `siyuan_list` 查找），路径 `/工作空间索引`，填入 Markdown 内容。仅在用户确认后设置 `confirmed=true`。
-- **更新**：使用 `siyuan_edit_document`，document_id 为已有的工作空间索引 ID。用 `old_text` → `new_text` 替换对应部分。
+- **首次创建**：使用 `siyuan_create`，notebook_id 为 `思源桥` 笔记本的 ID（通过 `siyuan_list` 查找），路径 `/工作空间索引`，填入 Markdown 内容。仅在用户确认后设置 `confirmed=true`。
+- **更新**：先用 `siyuan_read(include_block_ids=true)` 读取已有工作空间索引，取得目标块的 `start_index` 和 `start_id`，再用 `siyuan_edit` 的结构化编辑动作替换对应部分。
 
 遵循以下模板：
 
@@ -140,7 +140,7 @@ description: 创建和更新思源系统笔记本 思源桥 中的 Workspace Ind
 
 用户可能的回应：
 - "把 /某路径 标记为优先" → 在该段落添加 `> 优先级：高`。
-- "读一下文档 X 并标注" → 用 `siyuan_read_document` 阅读，添加 AI 摘要。
+- "读一下文档 X 并标注" → 用 `siyuan_read` 阅读，添加 AI 摘要。
 - "那个路径实际是关于 Y，不是 X" → 修正结构描述。
 - "不要包含笔记本 Z" → 删除该段落。
 
@@ -153,9 +153,9 @@ description: 创建和更新思源系统笔记本 思源桥 中的 Workspace Ind
 1. 如果索引可能过时，先调用 `siyuan_refresh_index`。
 2. 调用 `siyuan_start` 获取当前笔记本概览表，检测新增或删除的笔记本。
 3. 对可能变化的笔记本，用其笔记本 ID 调用 `siyuan_list`。
-4. 对新增或可能变化的文档，用 `siyuan_read_document` 阅读并生成或刷新摘要。
+4. 对新增或可能变化的文档，用 `siyuan_read` 阅读并生成或刷新摘要。
    不要重写未变化文档的摘要 —— 只更新过时的部分。
-5. 用 `siyuan_edit_document` 更新 `思源桥/工作空间索引`：
+5. 用 `siyuan_edit` 更新 `思源桥/工作空间索引`：
    - 添加新发现的文档或路径，附带摘要。
    - 删除已不存在文档的条目。
    - 刷新你确认内容有变化的文档的 AI 摘要。
@@ -165,7 +165,7 @@ description: 创建和更新思源系统笔记本 思源桥 中的 Workspace Ind
 
 ## 安全规则
 
-- 使用 `siyuan_create_document` 或 `siyuan_edit_document` 写入索引 —— 绝不写入本地 `knowledge_base/` 文件。
+- 使用 `siyuan_create` 或 `siyuan_edit` 写入索引 —— 绝不写入本地 `knowledge_base/` 文件。
 - 不要读取隐藏的文档或笔记本。只从可见的安全索引中工作。
 - 不要覆盖工作空间索引中的人工标注。围绕它们添加你的更新。
 - 用户的话是唯一的确认。"建索引"就是建，"更新索引"就是更新。无需额外确认步骤。

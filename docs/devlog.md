@@ -2573,3 +2573,32 @@ tool description 也改为强调：编辑前应先 `siyuan_read_document(include
 
 `python -m pytest tests/ -q` 通过：142 passed。
 
+## 2026-06-03：工具面精简与统一命名
+
+当前分支已先合并回 `main`，随后在 `main` 上完成第一批工具面精简。
+
+已完成：
+
+- 删除 `siyuan_edit_document`、`siyuan_propose_guide_update`、`siyuan_apply_guide_update`。
+- 将 `siyuan_find_documents` 改为 `siyuan_find`。
+- 将 `siyuan_read_document` 改为 `siyuan_read`。
+- 将 `siyuan_create_document` 改为 `siyuan_create`。
+- 保留 `siyuan_edit` 作为唯一结构化编辑入口；Guide 更新回归普通文档读取 + 编辑流程。
+- 同步更新 README、Skill、测试和当前产品设计文档。
+
+当前 MCP 工具面：
+
+```text
+siyuan_start
+siyuan_refresh_index
+siyuan_list
+siyuan_find
+siyuan_read
+siyuan_create
+siyuan_edit
+```
+
+未完成、进入下一阶段：
+
+- 新增文档文件操作工具：rename / move / delete。
+- 将权限模型从 hidden/read_write 扩展为 hidden/read_only/read_write。

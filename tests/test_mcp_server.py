@@ -471,7 +471,7 @@ class McpServerTests(unittest.TestCase):
 
         mcp_server.detect_active_profile = fake_detect
         try:
-            return server.siyuan_find_documents(args)
+            return server.siyuan_find(args)
         finally:
             mcp_server.detect_active_profile = original
 
@@ -530,7 +530,7 @@ class McpServerWriteTests(unittest.TestCase):
         server, client, original = self._server_and_client()
         try:
             with self.assertRaises(ValueError) as ctx:
-                server.siyuan_create_document({
+                server.siyuan_create({
                     "notebook_id": "nb1",
                     "title": "New Doc",
                     "markdown": "# Hello",
@@ -544,7 +544,7 @@ class McpServerWriteTests(unittest.TestCase):
         server, client, original = self._server_and_client()
         try:
             with self.assertRaises(ValueError) as ctx:
-                server.siyuan_create_document({
+                server.siyuan_create({
                     "notebook_id": "nb-hidden",
                     "title": "New Doc",
                     "markdown": "# Hello",
@@ -557,7 +557,7 @@ class McpServerWriteTests(unittest.TestCase):
     def test_create_document_creates_snapshot_before_write(self):
         server, client, original = self._server_and_client()
         try:
-            result = server.siyuan_create_document({
+            result = server.siyuan_create({
                 "notebook_id": "nb1",
                 "title": "New Doc",
                 "markdown": "# Hello\n\nWorld",
@@ -567,7 +567,7 @@ class McpServerWriteTests(unittest.TestCase):
             self.assertIn("created", result)
             self.assertEqual(len(client._snapshots), 1)
             self.assertIn("siyuan-agent-bridge:auto-snapshot", client._snapshots[0]["memo"])
-            self.assertIn("tool=siyuan_create_document", client._snapshots[0]["memo"])
+            self.assertIn("tool=siyuan_create", client._snapshots[0]["memo"])
             self.assertIn("target=New Doc", client._snapshots[0]["memo"])
             self.assertIn("New Doc", client._push_msgs[0])
         finally:
@@ -576,7 +576,7 @@ class McpServerWriteTests(unittest.TestCase):
     def test_create_document_uses_given_path(self):
         server, client, original = self._server_and_client()
         try:
-            result = server.siyuan_create_document({
+            result = server.siyuan_create({
                 "notebook_id": "nb1",
                 "title": "My Doc",
                 "path": "/custom/path",
@@ -584,173 +584,6 @@ class McpServerWriteTests(unittest.TestCase):
                 "confirmed": True,
             })
             self.assertIn("custom/path", result)
-        finally:
-            mcp_server.detect_active_profile = original
-
-    def test_edit_document_refuses_unconfirmed(self):
-        server, client, original = self._server_and_client()
-        try:
-            with self.assertRaises(ValueError) as ctx:
-                server.siyuan_edit_document({
-                    "document_id": "doc1",
-                    "old_text": "hello",
-                    "new_text": "world",
-                    "confirmed": False,
-                })
-            self.assertIn("confirmed", str(ctx.exception))
-        finally:
-            mcp_server.detect_active_profile = original
-
-    def test_edit_document_old_text_not_found(self):
-        blocks = {
-            "doc1": [
-                {"id": "block1", "markdown": "This is some text."},
-                {"id": "block2", "markdown": "Another paragraph."},
-            ]
-        }
-        server, client, original = self._server_and_client(query_sql_blocks=blocks)
-        try:
-            with self.assertRaises(ValueError) as ctx:
-                server.siyuan_edit_document({
-                    "document_id": "doc1",
-                    "old_text": "nonexistent text",
-                    "new_text": "replacement",
-                    "confirmed": True,
-                })
-            self.assertIn("未找到", str(ctx.exception))
-        finally:
-            mcp_server.detect_active_profile = original
-
-    def test_edit_document_old_text_ambiguous(self):
-        blocks = {
-            "doc1": [
-                {"id": "block1", "markdown": "重复文字在这里。"},
-                {"id": "block2", "markdown": "这里也有重复文字。"},
-            ]
-        }
-        server, client, original = self._server_and_client(query_sql_blocks=blocks)
-        try:
-            with self.assertRaises(ValueError) as ctx:
-                server.siyuan_edit_document({
-                    "document_id": "doc1",
-                    "old_text": "重复文字",
-                    "new_text": "替换",
-                    "confirmed": True,
-                })
-            self.assertIn("匹配到多个块", str(ctx.exception))
-            self.assertIn("block1", str(ctx.exception))
-            self.assertIn("block2", str(ctx.exception))
-        finally:
-            mcp_server.detect_active_profile = original
-
-    def test_edit_document_single_block_full_replace(self):
-        blocks = {
-            "doc1": [
-                {"id": "block1", "markdown": "Original full text."},
-            ]
-        }
-        server, client, original = self._server_and_client(query_sql_blocks=blocks)
-        try:
-            result = server.siyuan_edit_document({
-                "document_id": "doc1",
-                "old_text": "Original full text.",
-                "new_text": "Replaced text.",
-                "confirmed": True,
-            })
-            self.assertIn("文档已编辑", result)
-            self.assertIn("block1", result)
-            self.assertIn("Replaced text.", result)
-            self.assertEqual(len(client._snapshots), 1)
-            self.assertIn("siyuan_edit_document", client._snapshots[0]["memo"])
-        finally:
-            mcp_server.detect_active_profile = original
-
-    def test_edit_document_single_block_substring_replace(self):
-        blocks = {
-            "doc1": [
-                {"id": "block1", "markdown": "这里包含旧文字和其他内容。"},
-            ]
-        }
-        server, client, original = self._server_and_client(query_sql_blocks=blocks)
-        try:
-            result = server.siyuan_edit_document({
-                "document_id": "doc1",
-                "old_text": "旧文字",
-                "new_text": "新文字",
-                "confirmed": True,
-            })
-            self.assertIn("文档已编辑", result)
-            self.assertIn("block1", result)
-        finally:
-            mcp_server.detect_active_profile = original
-
-    def test_edit_document_append_mode(self):
-        blocks = {
-            "doc1": [
-                {"id": "block1", "markdown": "Existing text."},
-            ]
-        }
-        server, client, original = self._server_and_client(query_sql_blocks=blocks)
-        try:
-            result = server.siyuan_edit_document({
-                "document_id": "doc1",
-                "old_text": "",
-                "new_text": "Appended paragraph.",
-                "confirmed": True,
-            })
-            self.assertIn("追加", result)
-            self.assertEqual(len(client._snapshots), 1)
-            self.assertIn("siyuan_edit_document", client._snapshots[0]["memo"])
-        finally:
-            mcp_server.detect_active_profile = original
-
-    def test_edit_document_delete_mode(self):
-        blocks = {
-            "doc1": [
-                {"id": "block1", "markdown": "待删除的错误文字在这里。"},
-            ]
-        }
-        server, client, original = self._server_and_client(query_sql_blocks=blocks)
-        try:
-            result = server.siyuan_edit_document({
-                "document_id": "doc1",
-                "old_text": "待删除的错误文字",
-                "new_text": "",
-                "confirmed": True,
-            })
-            self.assertIn("文档已编辑", result)
-        finally:
-            mcp_server.detect_active_profile = original
-
-    def test_edit_document_refuses_hidden_document(self):
-        write_privacy_rules_cache(
-            self.root,
-            PrivacyRules(ignore=[{"scope": "document", "id": "doc1"}], allow=[]),
-        )
-        server, client, original = self._server_and_client()
-        try:
-            with self.assertRaises(ValueError) as ctx:
-                server.siyuan_edit_document({
-                    "document_id": "doc1",
-                    "old_text": "hello",
-                    "new_text": "world",
-                    "confirmed": True,
-                })
-            self.assertIn("可见", str(ctx.exception))
-        finally:
-            mcp_server.detect_active_profile = original
-
-    def test_edit_document_both_empty_rejected(self):
-        server, client, original = self._server_and_client()
-        try:
-            with self.assertRaises(ValueError) as ctx:
-                server.siyuan_edit_document({
-                    "document_id": "doc1",
-                    "old_text": "",
-                    "new_text": "",
-                    "confirmed": True,
-                })
-            self.assertIn("不能同时为空", str(ctx.exception))
         finally:
             mcp_server.detect_active_profile = original
 
@@ -1501,7 +1334,7 @@ class McpServerWriteTests(unittest.TestCase):
     def test_create_document_strips_duplicate_h1(self):
         server, client, original = self._server_and_client()
         try:
-            result = server.siyuan_create_document({
+            result = server.siyuan_create({
                 "notebook_id": "nb1",
                 "title": "My Doc",
                 "markdown": "# My Doc\n\nContent here.",
@@ -1516,7 +1349,7 @@ class McpServerWriteTests(unittest.TestCase):
     def test_create_document_keeps_different_h1(self):
         server, client, original = self._server_and_client()
         try:
-            result = server.siyuan_create_document({
+            result = server.siyuan_create({
                 "notebook_id": "nb1",
                 "title": "My Doc",
                 "markdown": "# Other Title\n\nContent here.",
@@ -1531,7 +1364,7 @@ class McpServerWriteTests(unittest.TestCase):
         server, client, original = self._server_and_client()
         try:
             with self.assertRaises(ValueError) as ctx:
-                server.siyuan_create_document({
+                server.siyuan_create({
                     "notebook_id": "nb1",
                     "title": "My Doc",
                     "markdown": "# My Doc",
@@ -1980,7 +1813,7 @@ class McpServerReadBlockWindowTests(unittest.TestCase):
 
         mcp_server.detect_active_profile = fake_detect
         try:
-            return server.siyuan_read_document(args)
+            return server.siyuan_read(args)
         finally:
             mcp_server.detect_active_profile = original
 
@@ -2223,7 +2056,7 @@ class McpServerReadBlockIdTests(unittest.TestCase):
 
         mcp_server.detect_active_profile = fake_detect
         try:
-            result = server.siyuan_read_document({"document_id": "doc1"})
+            result = server.siyuan_read({"document_id": "doc1"})
             self.assertNotIn("<!-- siyuan:block", result)
             self.assertIn("普通阅读", result)
             self.assertIn("## Section One", result)
@@ -2248,7 +2081,7 @@ class McpServerReadBlockIdTests(unittest.TestCase):
 
         mcp_server.detect_active_profile = fake_detect
         try:
-            result = server.siyuan_read_document({"document_id": "doc1", "include_block_ids": True})
+            result = server.siyuan_read({"document_id": "doc1", "include_block_ids": True})
             self.assertIn("[1] id=block-h1 type=heading", result)
             self.assertIn("## Section One", result)
             self.assertIn("[2] id=block-p1 type=paragraph", result)
@@ -2275,7 +2108,7 @@ class McpServerReadBlockIdTests(unittest.TestCase):
 
         mcp_server.detect_active_profile = fake_detect
         try:
-            result = server.siyuan_read_document({"document_id": "doc1", "include_block_ids": True})
+            result = server.siyuan_read({"document_id": "doc1", "include_block_ids": True})
             self.assertIn("[1] id=block-h1 type=heading", result)
             self.assertIn("大纲", result)
             self.assertIn("Section One", result)

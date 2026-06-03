@@ -4,7 +4,7 @@
 
 ## 背景
 
-真实引用阅读测试显示，当前 `siyuan_read_document(include_block_ids=true)` 会把普通 Markdown 表格按原始 Markdown 展示，包括 `| --- | --- |` 分隔行。这符合 Markdown 文件阅读习惯，但不利于 AI 直接判断可编辑行号，容易把分隔行误认为数据行。
+真实引用阅读测试显示，当前 `siyuan_read(include_block_ids=true)` 会把普通 Markdown 表格按原始 Markdown 展示，包括 `| --- | --- |` 分隔行。这符合 Markdown 文件阅读习惯，但不利于 AI 直接判断可编辑行号，容易把分隔行误认为数据行。
 
 普通 Markdown 表格不是数据库/属性视图，不需要把表头、字段、列名设计成另一套多维表语义。对 AI 最稳定的模型是二维网格：先用引用阅读定位表格块，再用 `row` + `column_index` 定位单元格。
 

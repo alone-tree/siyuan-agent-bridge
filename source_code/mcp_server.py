@@ -990,13 +990,10 @@ class McpServer:
             "siyuan_start": self.siyuan_start,
             "siyuan_refresh_index": self.siyuan_refresh_index,
             "siyuan_list": self.siyuan_list,
-            "siyuan_find_documents": self.siyuan_find_documents,
-            "siyuan_read_document": self.siyuan_read_document,
-            "siyuan_propose_guide_update": self.siyuan_propose_guide_update,
-            "siyuan_apply_guide_update": self.siyuan_apply_guide_update,
-            "siyuan_create_document": self.siyuan_create_document,
+            "siyuan_find": self.siyuan_find,
+            "siyuan_read": self.siyuan_read,
+            "siyuan_create": self.siyuan_create,
             "siyuan_edit": self.siyuan_edit,
-            "siyuan_edit_document": self.siyuan_edit_document,
         }
         if name not in tools:
             return make_error(request_id, -32602, f"Unknown tool: {name}")
@@ -1092,13 +1089,13 @@ class McpServer:
             "",
             "## AI 使用指南（用户偏好与规则）",
             "",
-            state.ai_guide_markdown.strip() if state.ai_guide_markdown else "（AI 使用指南为空——可以先用 siyuan_propose_guide_update 提议内容，经用户批准后用 siyuan_apply_guide_update 写入）",
+            state.ai_guide_markdown.strip() if state.ai_guide_markdown else "（AI 使用指南为空——如需补充，请先读取系统笔记本中的 AI Guide，再经用户批准用 siyuan_edit 写入）",
             "",
         ])
         # Mention About document but don't include full text
         parts.extend([
             "---",
-            f"**给人看的说明**：系统笔记本中还有一篇 `/关于思源桥`，是对工具核心思想的简要介绍。普通任务无需读取。需要时可用 `siyuan_read_document` 指定文档 ID 阅读。",
+            f"**给人看的说明**：系统笔记本中还有一篇 `/关于思源桥`，是对工具核心思想的简要介绍。普通任务无需读取。需要时可用 `siyuan_read` 指定文档 ID 阅读。",
             "",
         ])
         return "\n".join(parts)
@@ -1234,7 +1231,7 @@ class McpServer:
                 return str(nb.get("name", notebook_id))
         return notebook_id
 
-    def siyuan_find_documents(self, args: dict[str, Any]) -> str:
+    def siyuan_find(self, args: dict[str, Any]) -> str:
         keyword = str(args.get("keyword") or "").strip()
         if not keyword:
             raise ValueError("keyword 参数是必填的")
@@ -1471,7 +1468,7 @@ class McpServer:
             if isinstance(notebook, dict)
         }
 
-    def siyuan_read_document(self, args: dict[str, Any]) -> str:
+    def siyuan_read(self, args: dict[str, Any]) -> str:
         doc = self.resolve_visible_document(args)
         _profile, client = detect_active_profile(load_config(self.root))
         include_block_ids = bool(args.get("include_block_ids"))
@@ -1628,70 +1625,7 @@ class McpServer:
         _profile, client = detect_active_profile(load_config(self.root))
         return client.export_markdown(document_id)
 
-    def siyuan_propose_guide_update(self, args: dict[str, Any]) -> str:
-        title = str(args.get("title") or "Guide update proposal").strip()
-        body = str(args.get("proposal") or args.get("body") or "").strip()
-        if not body:
-            raise ValueError("proposal 参数是必填的")
-        path = self.root / "ai_workspace" / "guide_update_proposals.md"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8", newline="\n") as handle:
-            handle.write(f"\n## {title}\n\n{body}\n")
-        return f"Guide update proposal saved to {path}. Do not apply it until the user explicitly approves."
-
-    def siyuan_apply_guide_update(self, args: dict[str, Any]) -> str:
-        content = str(args.get("content") or "").strip()
-        mode = str(args.get("mode") or "append").strip().casefold()
-        confirmed = bool(args.get("confirmed"))
-        if not confirmed:
-            raise ValueError("需要 confirmed=true。只有在用户明确批准后才能执行此操作。")
-        if not content:
-            raise ValueError("content 参数是必填的")
-
-        config = load_config(self.root)
-        _profile, client = detect_active_profile(config)
-
-        # Find system notebook and AI Guide document
-        state = ensure_agent_notebook(client, self.root, config_language=config.language or None)
-        if not state.ai_guide_doc_id:
-            raise ValueError("AI Guide 文档不存在。请先运行 siyuan_start。")
-
-        nb_id = state.notebook_id
-        ai_guide_id = state.ai_guide_doc_id
-        current_md = state.ai_guide_markdown
-
-        # Create snapshot before editing
-        ts = datetime.now().strftime("%Y%m%d%H%M%S")
-        memo = f"siyuan-agent-bridge:auto-snapshot tool=siyuan_apply_guide_update created={ts}"
-        try:
-            client.create_snapshot(memo)
-        except SiYuanApiError as exc:
-            msg = str(exc)
-            if "数据仓库密钥" in msg or "data repo key" in msg.casefold() or "key" in msg.casefold():
-                raise ValueError(
-                    "快照创建失败：数据仓库密钥未初始化。"
-                    "请打开思源 → 设置 → 关于 → 数据仓库密钥，初始化密钥后重试。"
-                ) from exc
-            raise ValueError(f"快照创建失败，拒绝写入。错误：{msg}") from exc
-
-        if mode == "replace":
-            new_md = content.rstrip() + "\n"
-        elif mode == "append":
-            new_md = current_md.rstrip() + "\n\n" + content.rstrip() + "\n"
-        else:
-            raise ValueError("mode 必须是 append 或 replace 之一")
-
-        with ensure_notebooks_open(client, [nb_id]):
-            client.update_block(ai_guide_id, new_md)
-
-        try:
-            client.push_msg("思源桥：AI 使用指南已更新")
-        except Exception:
-            pass
-
-        return f"AI Guide 已更新。Run siyuan_start before using the updated guide."
-
-    def siyuan_create_document(self, args: dict[str, Any]) -> str:
+    def siyuan_create(self, args: dict[str, Any]) -> str:
         confirmed = bool(args.get("confirmed"))
         if not confirmed:
             raise ValueError("需要 confirmed=true。写入思源必须经过用户明确确认。")
@@ -1730,7 +1664,7 @@ class McpServer:
 
         # Create snapshot before writing
         ts = datetime.now().strftime("%Y%m%d%H%M%S")
-        memo = f"siyuan-agent-bridge:auto-snapshot tool=siyuan_create_document target={title} created={ts}"
+        memo = f"siyuan-agent-bridge:auto-snapshot tool=siyuan_create target={title} created={ts}"
         try:
             client.create_snapshot(memo)
             snapshot_status = "created"
@@ -1829,7 +1763,7 @@ class McpServer:
     @staticmethod
     def _edit_range_from_args(args: dict[str, Any], blocks: list[DisplayBlock]) -> list[DisplayBlock]:
         if args.get("start_index") is None or not str(args.get("start_id") or "").strip():
-            raise ValueError("需要 start_index 和 start_id。请先用 siyuan_read_document(include_block_ids=true) 进行引用阅读。")
+            raise ValueError("需要 start_index 和 start_id。请先用 siyuan_read(include_block_ids=true) 进行引用阅读。")
         try:
             start_index = int(args["start_index"])
         except (TypeError, ValueError) as exc:
@@ -1839,13 +1773,13 @@ class McpServer:
         if start_pos is None:
             raise ValueError(
                 f"目标块校验失败：当前文档没有 start_index={start_index}。"
-                "文档可能在上次读取后发生变化。请重新调用 siyuan_read_document(include_block_ids=true)，"
+                "文档可能在上次读取后发生变化。请重新调用 siyuan_read(include_block_ids=true)，"
                 "用新的块序号和块 ID 再编辑。"
             )
         if blocks[start_pos].id != start_id:
             raise ValueError(
                 f"目标块校验失败：start_index={start_index} 对应的当前块 ID 是 `{blocks[start_pos].id}`，"
-                f"但请求中的 start_id 是 `{start_id}`。请重新调用 siyuan_read_document(include_block_ids=true)，"
+                f"但请求中的 start_id 是 `{start_id}`。请重新调用 siyuan_read(include_block_ids=true)，"
                 "不要沿用旧块 ID。"
             )
 
@@ -1862,13 +1796,13 @@ class McpServer:
         if end_pos is None:
             raise ValueError(
                 f"目标块校验失败：当前文档没有 end_index={end_index}。"
-                "文档可能在上次读取后发生变化。请重新调用 siyuan_read_document(include_block_ids=true)，"
+                "文档可能在上次读取后发生变化。请重新调用 siyuan_read(include_block_ids=true)，"
                 "用新的范围端点再编辑。"
             )
         if blocks[end_pos].id != end_id:
             raise ValueError(
                 f"目标块校验失败：end_index={end_index} 对应的当前块 ID 是 `{blocks[end_pos].id}`，"
-                f"但请求中的 end_id 是 `{end_id}`。请重新调用 siyuan_read_document(include_block_ids=true)，"
+                f"但请求中的 end_id 是 `{end_id}`。请重新调用 siyuan_read(include_block_ids=true)，"
                 "不要沿用旧块 ID。"
             )
         if end_pos < start_pos:
@@ -2114,278 +2048,6 @@ class McpServer:
         ])
         return "\n".join(parts)
 
-    def siyuan_edit_document(self, args: dict[str, Any]) -> str:
-        confirmed = bool(args.get("confirmed"))
-        if not confirmed:
-            raise ValueError("需要 confirmed=true。编辑思源文档必须经过用户明确确认。")
-
-        doc = self.resolve_visible_document(args)
-        doc_id = str(doc.get("id", ""))
-        doc_title = str(doc.get("hpath") or doc.get("title") or doc_id)
-        notebook_id = str(doc.get("notebook_id", ""))
-
-        old_text = str(args.get("old_text") or "")
-        new_text = str(args.get("new_text") or "")
-        target_block_id = str(args.get("block_id") or "").strip()
-
-        if not old_text and not new_text:
-            raise ValueError("old_text 和 new_text 不能同时为空")
-
-        _profile, client = detect_active_profile(load_config(self.root))
-
-        if not old_text:
-            # Append mode: old_text is empty, append new_text to document end
-            ts = datetime.now().strftime("%Y%m%d%H%M%S")
-            memo = f"siyuan-agent-bridge:auto-snapshot tool=siyuan_edit_document target={doc_title} created={ts}"
-            try:
-                client.create_snapshot(memo)
-                snapshot_status = "created"
-            except SiYuanApiError as exc:
-                msg = str(exc)
-                if "数据仓库密钥" in msg or "data repo key" in msg.casefold() or "key" in msg.casefold():
-                    raise ValueError(
-                        "Snapshot creation failed: data repo key is not initialized. "
-                        "Please open SiYuan → Settings → About → Data Repo Key, initialize the key, then retry."
-                    ) from exc
-                raise ValueError(f"快照创建失败，拒绝写入。错误：{msg}") from exc
-
-            with ensure_notebooks_open(client, [notebook_id]):
-                result = client.append_block(doc_id, new_text)
-
-            try:
-                client.push_msg(f"思源桥：已追加内容到「{doc_title}」")
-            except Exception:
-                pass
-
-            return "\n".join([
-                "# 文档已编辑（追加）",
-                "",
-                f"**文档：**{doc_title}（`{doc_id}`）",
-                f"**操作：**在文档末尾追加了新内容",
-                f"**端点：**{client.base_url}",
-                f"**快照：**{snapshot_status}",
-                "",
-                "如需回滚，可通过思源快照手动恢复。",
-            ])
-
-        # Text anchor mode: search for old_text in document blocks
-        if target_block_id:
-            # Direct block targeting via block_id — verify ID, document, and text
-            with ensure_notebooks_open(client, [notebook_id]):
-                id_rows = client.query_sql(
-                    f"SELECT id, type, markdown FROM blocks WHERE id = '{target_block_id}' "
-                    "AND markdown IS NOT NULL AND markdown != ''"
-                )
-            if not id_rows:
-                raise ValueError(
-                    f"块 ID 不存在或内容为空：`{target_block_id}`。"
-                    "请检查块 ID 是否正确。"
-                )
-            id_row = id_rows[0]
-            block_type = str(id_row.get("type", ""))
-            if block_type == "av":
-                raise ValueError(
-                    "目标块为数据库/属性视图，不支持直接编辑。"
-                    "如需修改数据，请用 old_text=\"\"（追加模式）在文档末尾创建新表格。"
-                )
-            # Verify block belongs to this document
-            doc_rows = client.query_sql(
-                f"SELECT id FROM blocks WHERE root_id = '{doc_id}' AND id = '{target_block_id}'"
-            )
-            if not doc_rows:
-                raise ValueError(
-                    f"块 `{target_block_id}` 不属于文档「{doc_title}」。"
-                    "请确认块 ID 和文档 ID 的对应关系。"
-                )
-            block_md = str(id_row.get("markdown", ""))
-            if old_text not in block_md:
-                raise ValueError(
-                    f"块 `{target_block_id}` 存在，但 old_text 与该块内容不匹配。"
-                    "请用 siyuan_read_document(include_block_ids=true) 重新确认块内容。"
-                )
-            match_result: tuple = ("found", target_block_id, block_md, [(target_block_id, block_md, block_md.strip() == old_text.strip())])
-        else:
-            with ensure_notebooks_open(client, [notebook_id]):
-                match_result = self._match_old_text(client, doc_id, old_text)
-
-        match_type = match_result[0]
-
-        if match_type == "database_block":
-            raise ValueError(
-                "匹配到的 old_text 位于数据库/属性视图块中，不支持直接编辑。"
-                "如需修改数据，请用 old_text=\"\"（追加模式）在文档末尾创建新表格。"
-                "如需更新数据库数据，请在思源 UI 中直接操作。"
-            )
-
-        if match_type == "not_found":
-            raise ValueError(
-                f"在文档「{doc_title}」中未找到 old_text 的匹配内容。"
-                "文档可能在你上次阅读后被修改了。"
-                "请用 siyuan_read_document 重新读取文档，提供当前准确的原文。"
-            )
-
-        if match_type == "ambiguous":
-            matches = match_result[3]
-            context_lines = ["old_text 匹配到多个块，请提供更长的 old_text 以消除歧义：\n"]
-            for i, (bid, md, _) in enumerate(matches[:5], 1):
-                preview = md[:80].replace("\n", " ")
-                context_lines.append(f"  {i}. 块 `{bid}`：\"{preview}...\"")
-            raise ValueError("\n".join(context_lines))
-
-        # Single match
-        block_id = str(match_result[1])
-        block_md = str(match_result[2])
-
-        # Create snapshot before writing
-        ts = datetime.now().strftime("%Y%m%d%H%M%S")
-        memo = f"siyuan-agent-bridge:auto-snapshot tool=siyuan_edit_document target={doc_title} created={ts}"
-        try:
-            client.create_snapshot(memo)
-            snapshot_status = "created"
-        except SiYuanApiError as exc:
-            msg = str(exc)
-            if "数据仓库密钥" in msg or "data repo key" in msg.casefold() or "key" in msg.casefold():
-                raise ValueError(
-                    "快照创建失败：数据仓库密钥未初始化。"
-                    "请打开思源 → 设置 → 关于 → 数据仓库密钥，初始化密钥后重试。"
-                ) from exc
-            raise ValueError(f"快照创建失败，拒绝写入。错误：{msg}") from exc
-
-        # Insert-after-anchor-block mode: when new_text = old_text + new content
-        # and the anchor block content is an exact match for old_text, the AI is
-        # following the Claude Code Edit pattern — keep the anchor, add after it.
-        # Instead of replacing the anchor block, insert new blocks after it.
-        if (
-            len(new_text) > len(old_text)
-            and new_text.startswith(old_text)
-            and block_md.strip() == old_text.strip()
-        ):
-            suffix = new_text[len(old_text):].lstrip("\n")
-            if not suffix:
-                raise ValueError(
-                    "new_text 仅包含 old_text 锚点，未跟随新块内容。"
-                    "如需删除该块，请使用 old_text 原文 + new_text=\"\"。"
-                )
-
-            with ensure_notebooks_open(client, [notebook_id]):
-                result = client.insert_block_after(block_id, suffix)
-
-            try:
-                client.push_msg(f"思源桥：已在「{doc_title}」指定位置插入新块")
-            except Exception:
-                pass
-
-            preview = suffix[:200]
-            return "\n".join([
-                "# 文档已编辑（插入）",
-                "",
-                f"**文档：**{doc_title}（`{doc_id}`）",
-                f"**操作：**在块 `{block_id}` 之后插入了新块",
-                f"**端点：**{client.base_url}",
-                f"**快照：**{snapshot_status}",
-                f"**预览：**{preview}",
-                "",
-                "如需回滚，可通过思源快照手动恢复。",
-            ])
-
-        # Compute new block content after replacement
-        if old_text.strip() == block_md.strip():
-            new_block_md = new_text
-        else:
-            new_block_md = block_md.replace(old_text, new_text)
-
-        # If the result is empty, truly delete the block instead of leaving an empty husk
-        if not new_block_md.strip():
-            with ensure_notebooks_open(client, [notebook_id]):
-                client.delete_block(block_id)
-
-            try:
-                client.push_msg(f"思源桥：已删除「{doc_title}」中的块")
-            except Exception:
-                pass
-
-            return "\n".join([
-                "# 文档已编辑（删除）",
-                "",
-                f"**文档：**{doc_title}（`{doc_id}`）",
-                f"**操作：**已删除块 `{block_id}`",
-                f"**端点：**{client.base_url}",
-                f"**快照：**{snapshot_status}",
-                "",
-                "如需回滚，可通过思源快照手动恢复。",
-            ])
-
-        # Read current block IAL before edit (to restore style attrs after update_block resets them)
-        ial_rows = client.query_sql(f"SELECT ial FROM blocks WHERE id = '{block_id}'")
-        custom_attrs: dict[str, str] = {}
-        if ial_rows:
-            custom_attrs = _parse_ial_attrs(str(ial_rows[0].get("ial", "")))
-
-        with ensure_notebooks_open(client, [notebook_id]):
-            client.update_block(block_id, new_block_md)
-
-        # Restore block style attributes silently — update_block resets IAL
-        if custom_attrs:
-            client.set_block_attrs(block_id, custom_attrs)
-
-        try:
-            client.push_msg(f"思源桥：已编辑「{doc_title}」")
-        except Exception:
-            pass
-
-        preview = new_text[:200] if new_text else "（文本已删除）"
-        return "\n".join([
-            "# 文档已编辑",
-            "",
-            f"**文档：**{doc_title}（`{doc_id}`）",
-            f"**已修改的块：**`{block_id}`",
-            f"**已修改块数：**1",
-            f"**端点：**{client.base_url}",
-            f"**快照：**{snapshot_status}",
-            f"**预览：**{preview}",
-            "",
-            "如需回滚，可通过思源快照手动恢复。",
-        ])
-
-    @staticmethod
-    def _match_old_text(
-        client: Any, doc_id: str, old_text: str
-    ) -> tuple[str, str | None, str | None, list[tuple[str, str, bool]]]:
-        """Search for old_text in document blocks.
-
-        Returns:
-            ("found", block_id, block_markdown, matches)  — single match
-            ("not_found", None, None, [])                 — no match
-            ("database_block", None, None, [])            — matched only in av/database blocks
-            ("ambiguous", None, None, matches)            — multiple matches, each (block_id, markdown, is_full)
-        """
-        rows = client.query_sql(
-            f"SELECT id, markdown FROM blocks WHERE root_id = '{doc_id}' "
-            "AND type NOT IN ('d', 'av') AND markdown IS NOT NULL AND markdown != '' "
-            "ORDER BY sort"
-        )
-
-        matches: list[tuple[str, str, bool]] = []
-        for row in rows:
-            block_id = str(row.get("id", ""))
-            md = str(row.get("markdown", ""))
-            if old_text in md:
-                matches.append((block_id, md, md.strip() == old_text.strip()))
-
-        if not matches:
-            # Check if old_text matches database blocks (av) — those are read-only
-            av_rows = client.query_sql(
-                f"SELECT id, markdown FROM blocks WHERE root_id = '{doc_id}' "
-                "AND type = 'av' AND markdown IS NOT NULL AND markdown != '' "
-            )
-            for row in av_rows:
-                if old_text in str(row.get("markdown", "")):
-                    return ("database_block", None, None, [])
-            return ("not_found", None, None, [])
-        if len(matches) > 1:
-            return ("ambiguous", None, None, matches)
-        return ("found", matches[0][0], matches[0][1], matches)
-
     def resolve_notebook_id(self, notebook_name: str) -> str:
         notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
         exact = [item for item in notebooks if str(item.get("name", "")).casefold() == notebook_name.casefold()]
@@ -2558,7 +2220,7 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_list",
-            "description": "List visible notebooks or one level of visible documents. No arguments lists notebooks. Provide path=/Notebook or /Notebook/Folder to list only direct child documents at that path. Each row returns a full readable document path for siyuan_read_document/siyuan_edit, plus document_id fallback, word count, block count, update date, and descendant document count. Results are paginated with offset/limit. notebook_id/notebook_name are compatibility shortcuts for path=/Notebook.",
+            "description": "List visible notebooks or one level of visible documents. No arguments lists notebooks. Provide path=/Notebook or /Notebook/Folder to list only direct child documents at that path. Each row returns a full readable document path for siyuan_read/siyuan_edit, plus document_id fallback, word count, block count, update date, and descendant document count. Results are paginated with offset/limit. notebook_id/notebook_name are compatibility shortcuts for path=/Notebook.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2572,7 +2234,7 @@ def tool_specs() -> list[dict[str, Any]]:
             },
         },
         {
-            "name": "siyuan_find_documents",
+            "name": "siyuan_find",
             "description": "Search the SiYuan knowledge base through SiYuan search APIs, then apply privacy rules before returning results. Temporarily opens closed notebooks while searching and restores them afterwards. Supports 4 modes: keyword (space-separated keywords, AND logic, default), query (AND/OR/NOT/phrase/prefix*), regex, sql (direct SQL, requires admin). Scope: headings (document titles + headings, default) or full (all block text).",
             "inputSchema": {
                 "type": "object",
@@ -2589,7 +2251,7 @@ def tool_specs() -> list[dict[str, Any]]:
             },
         },
         {
-            "name": "siyuan_read_document",
+            "name": "siyuan_read",
             "description": "Read a visible SiYuan document as Markdown. Prefer document path including notebook name, e.g. /Notebook/Folder/Doc; use document_id only as fallback. Always returns the document outline and one complete block window. Set include_block_ids=true before any siyuan_edit call to get exact [index] id type targets. Normal reading keeps Markdown clean and hides block IDs.",
             "inputSchema": {
                 "type": "object",
@@ -2605,31 +2267,7 @@ def tool_specs() -> list[dict[str, Any]]:
             },
         },
         {
-            "name": "siyuan_propose_guide_update",
-            "description": "Save a proposed guide update in ai_workspace without modifying the guide.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {"title": {"type": "string"}, "proposal": {"type": "string"}, "body": {"type": "string"}},
-                "required": ["proposal"],
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "siyuan_apply_guide_update",
-            "description": "Append or replace the AI Guide document in the 思源桥 system notebook only after explicit user approval. Requires confirmed=true. Creates a SiYuan workspace snapshot before writing.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "content": {"type": "string"},
-                    "mode": {"type": "string", "enum": ["append", "replace"], "default": "append"},
-                    "confirmed": {"type": "boolean"},
-                },
-                "required": ["content", "confirmed"],
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "siyuan_create_document",
+            "name": "siyuan_create",
             "description": "Create a new SiYuan document in the specified notebook. Creates a SiYuan workspace snapshot before writing. Refuses to write if the snapshot fails, if the notebook is hidden, or if confirmed is not true. The user can manually roll back via SiYuan snapshots if needed.",
             "inputSchema": {
                 "type": "object",
@@ -2646,7 +2284,7 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_edit",
-            "description": "Edit a visible SiYuan document by document path plus reference-read block index and block ID. Prefer this over siyuan_edit_document for normal editing. Requires confirmed=true and creates a SiYuan workspace snapshot before writing. Use siyuan_read_document(include_block_ids=true) first to get start_index/start_id. Actions: single_block_replace = one existing block -> one block, uses updateBlock, preserves the target block ID and block attrs, so existing block references stay valid. multi_block_replace = one or more existing blocks -> one or more new blocks, inserts new markdown then deletes old blocks, so old block IDs/attrs are not preserved and references to old blocks become invalid. Use multi_block_replace whenever block count may change. insert_after/insert_before do not modify the anchor block. append adds to document end. delete removes blocks. table_edit edits one normal Markdown table block.",
+            "description": "Edit a visible SiYuan document by document path plus reference-read block index and block ID. Requires confirmed=true and creates a SiYuan workspace snapshot before writing. Use siyuan_read(include_block_ids=true) first to get start_index/start_id. Actions: single_block_replace = one existing block -> one block, uses updateBlock, preserves the target block ID and block attrs, so existing block references stay valid. multi_block_replace = one or more existing blocks -> one or more new blocks, inserts new markdown then deletes old blocks, so old block IDs/attrs are not preserved and references to old blocks become invalid. Use multi_block_replace whenever block count may change. insert_after/insert_before do not modify the anchor block. append adds to document end. delete removes blocks. table_edit edits one normal Markdown table block.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2660,7 +2298,7 @@ def tool_specs() -> list[dict[str, Any]]:
                     "markdown": {"type": "string", "description": "Markdown to insert or replace with. For single_block_replace this must render as exactly one display block. For multi_block_replace it may render as one or more new blocks."},
                     "table_edit": {
                         "type": "object",
-                        "description": "Required for action=table_edit on a normal Markdown table block. Use the table coordinate view from siyuan_read_document(include_block_ids=true): row=0 is header, row>=1 are data rows, column_index is 1-based.",
+                        "description": "Required for action=table_edit on a normal Markdown table block. Use the table coordinate view from siyuan_read(include_block_ids=true): row=0 is header, row>=1 are data rows, column_index is 1-based.",
                         "properties": {
                             "operation": {"type": "string", "enum": ["set_cell", "insert_row", "delete_row", "insert_column", "delete_column", "insert_row_before", "insert_row_after"], "description": "Prefer set_cell, insert_row, delete_row, insert_column, delete_column. insert_row_before/insert_row_after are legacy aliases."},
                             "cell": {"type": "object", "description": "Single cell edit for operation=set_cell. Fields: row, column_index or column, value, optional expected_old_value."},
@@ -2678,22 +2316,6 @@ def tool_specs() -> list[dict[str, Any]]:
                     "confirmed": {"type": "boolean", "description": "Must be true. Editing SiYuan documents requires explicit user approval."},
                 },
                 "required": ["action", "confirmed"],
-                "additionalProperties": False,
-            },
-        },
-        {
-            "name": "siyuan_edit_document",
-            "description": "Edit a visible SiYuan document using an exact old_text -> new_text anchor. Creates a SiYuan workspace snapshot before writing. Refuses ambiguous, missing, hidden, or unconfirmed edits.\n\nThree modes:\n- Replace: old_text=\"原文\", new_text=\"修改后\". Replaces matching block content.\n- Append: old_text=\"\", new_text=\"内容\". Appends new blocks to document end.\n- Insert after anchor (Claude Code Edit pattern): old_text is the exact anchor block text, new_text = old_text + new content. When the anchor block content matches old_text exactly and new_text is longer, the new content is inserted as new blocks after the anchor.\n\nUse optional block_id with old_text to disambiguate short text that matches multiple blocks. block_id alone is not sufficient — old_text must also match.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "document_id": {"type": "string", "description": "Document id, exact hpath, title, or unique partial match."},
-                    "old_text": {"type": "string", "default": "", "description": "Exact text to find (from the Markdown you just read). Empty = append new_text to document end. Non-empty and new_text starts with old_text + has more content = insert new blocks after the anchor block (Claude Code Edit pattern)."},
-                    "new_text": {"type": "string", "default": "", "description": "Replacement text. Empty with non-empty old_text = delete the matching text."},
-                    "block_id": {"type": "string", "default": "", "description": "Optional. Disambiguation only — use when old_text is too short and matches multiple blocks. Read with include_block_ids=true to get block IDs, then specify the target block here. Both block_id AND old_text must match; when they match, the block is precisely targeted."},
-                    "confirmed": {"type": "boolean", "description": "Must be true. Editing SiYuan documents requires explicit user approval."},
-                },
-                "required": ["document_id", "old_text", "new_text", "confirmed"],
                 "additionalProperties": False,
             },
         },

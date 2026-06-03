@@ -299,7 +299,7 @@ def render_start_packet(root: Path, profile_name: str, version: str) -> str:
         "3. 遵循 `knowledge_base/guide.md` 中的持久偏好。",
         "4. 使用笔记本概览表选择相关笔记本。",
         "5. 使用 `siyuan_list`（带 `notebook_id`）查看单个笔记本的文档树。",
-        "6. 使用 `siyuan_read_document` 阅读文档。",
+        "6. 使用 `siyuan_read` 阅读文档。",
         "7. 仅在用户明确要求刷新时，使用 `siyuan_refresh_index` 刷新。",
         "",
         "## 从这里开始",
