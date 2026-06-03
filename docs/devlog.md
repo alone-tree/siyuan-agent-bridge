@@ -2631,3 +2631,17 @@ siyuan_edit
 - README 增加 0.2 重大升级说明，但重点放在当前怎么用。
 - INSTALL_FOR_AI 增加当前 7 工具验证和简单读写验证流程。
 - AGENTS、Skill、API 文档同步新工具名和当前编辑心智。
+
+## 2026-06-03：siyuan_create 路径语义设计记录
+
+真实 AI 试用暴露出 `siyuan_create.path` 与 `siyuan_list` / `siyuan_read` / `siyuan_edit` 的路径语义不一致：后者使用包含笔记本名的完整可读路径，例如 `/Notebook/Folder/Doc`；当前 create 实现要求思源底层的笔记本内相对路径，例如 `/Folder/Doc`。AI 复用 list/read 返回路径时，会把笔记本名当作笔记本内第一层文件夹，导致误建嵌套目录。
+
+设计结论：
+
+- create 也应贴近 AI 编程工具的 Write 心智，使用和 read/edit 一致的完整可读路径。
+- 当目标路径可唯一定位到笔记本时，AI 可直接传入 `/Notebook/Folder/Doc`。
+- 只有笔记本名称重名导致路径无法唯一定位时，才要求补充 `notebook_id`，退回现有 `notebook_id + hpath` 语义。
+- `notebook_id` 是歧义消解和底层 API 适配参数，不应成为常规路径心智的前置负担。
+- 当创建目标与已有文档重名时，工具应提供明确的覆写或新建选项，不能静默覆盖或静默改名。
+
+后续实现应同步更新 tool schema、返回信息、测试和 Skill/README 中的 create 用法说明。
