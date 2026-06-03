@@ -43,7 +43,7 @@ from .i18n import build_language_config
 
 
 SERVER_NAME = "siyuan-agent-bridge"
-SERVER_VERSION = "0.1.0"
+SERVER_VERSION = "0.2.0"
 DEFAULT_SNIPPETS_PER_DOC = 5
 
 

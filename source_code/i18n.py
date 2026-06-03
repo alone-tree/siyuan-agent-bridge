@@ -125,11 +125,18 @@ PRIVACY_RULES_TEMPLATES: dict[str, str] = {
 
 ABOUT_TEMPLATES: dict[str, str] = {
     "zh-CN": (
-        "<!-- template_version: 2 -->\n\n"
+        "<!-- template_version: 3 -->\n\n"
         "# 关于思源桥\n\n"
         "本文档由思源桥自动维护，可能在刷新时更新。请不要在这里记录个人内容。\n\n"
         "思源桥是连接思源笔记和 AI 助手的本地桥接工具。"
         "它让 AI 在隐私规则保护下阅读、搜索和维护你的思源知识库。\n\n"
+        "## 当前工具能力\n\n"
+        "- `siyuan_start`：启动入口，刷新安全索引并返回笔记本概览、工作空间索引和 AI 使用指南。\n"
+        "- `siyuan_list`：列出可见笔记本和文档树。\n"
+        "- `siyuan_find`：搜索可见知识库。\n"
+        "- `siyuan_read`：按块窗口阅读文档；需要编辑时可开启引用阅读，取得块序号和块 ID。\n"
+        "- `siyuan_create`：创建新文档。\n"
+        "- `siyuan_edit`：基于引用阅读定位进行结构化编辑，支持替换、插入、追加、删除和普通 Markdown 表格编辑。\n\n"
         "## 系统笔记本里的四份文档\n\n"
         "- **AI 使用指南**：给 AI 看的长期规则，你可以在这里写下偏好、重点笔记本、写作风格和限制。\n"
         "- **工作空间索引**：AI 生成的语义导航索引，帮助新会话快速了解这个工作空间里有什么。\n"
@@ -137,16 +144,24 @@ ABOUT_TEMPLATES: dict[str, str] = {
         "- **关于思源桥**：就是本文档，给人看的工具说明。\n\n"
         "## 日常怎么用\n\n"
         "你平时正常在思源里写笔记。需要时告诉 AI「帮我查一下笔记里关于 XX 的内容」。"
+        "如果要让 AI 修改文档，先让它读取目标文档并确认要修改的位置；写入前会创建思源工作空间快照。"
         "如果某些笔记不想被 AI 看到，在隐私规则文档的表格里添加规则即可。"
         "不要删除或隐藏这个系统笔记本。\n\n"
         "更多信息请阅读项目 README、项目网站，或联系开发者。\n"
     ),
     "en": (
-        "<!-- template_version: 2 -->\n\n"
+        "<!-- template_version: 3 -->\n\n"
         "# About SiYuan Bridge\n\n"
         "This document is maintained by SiYuan Bridge and may be updated during refresh. Do not store personal notes here.\n\n"
         "SiYuan Bridge is a local bridge between SiYuan notes and AI agents, "
         "letting AI read, search, and maintain your knowledge base under privacy rules.\n\n"
+        "## Current Tool Capabilities\n\n"
+        "- `siyuan_start`: startup entry, refreshes the safe index and returns notebook overview, Workspace Index, and AI Guide.\n"
+        "- `siyuan_list`: lists visible notebooks and document trees.\n"
+        "- `siyuan_find`: searches the visible knowledge base.\n"
+        "- `siyuan_read`: reads documents by block windows; reference reading exposes block indexes and IDs for editing.\n"
+        "- `siyuan_create`: creates new documents.\n"
+        "- `siyuan_edit`: structured editing based on reference-reading coordinates, including replace, insert, append, delete, and normal Markdown table edits.\n\n"
         "## Four Documents in This Notebook\n\n"
         "- **AI Guide**: Long-term instructions for AI — your preferences, important notebooks, writing style, and constraints.\n"
         "- **Workspace Index**: AI-generated semantic navigation map for new sessions.\n"
@@ -154,13 +169,14 @@ ABOUT_TEMPLATES: dict[str, str] = {
         "- **About SiYuan Bridge**: This document — a human-readable introduction to the tool.\n\n"
         "## How to Use\n\n"
         "Write notes in SiYuan as usual. When needed, ask AI to search your notes. "
+        "When asking AI to edit, let it read the target document first and confirm the target position; a SiYuan workspace snapshot is created before writing. "
         "To hide content from AI, add rules in the Privacy Rules document tables. "
         "Do not delete or hide this system notebook.\n\n"
         "For more details, read the project README, visit the project website, or contact the developer.\n"
     ),
 }
 
-ABOUT_TEMPLATE_VERSION_MARKER = "<!-- template_version: 2 -->"
+ABOUT_TEMPLATE_VERSION_MARKER = "<!-- template_version: 3 -->"
 
 
 @dataclass(frozen=True)

@@ -2,6 +2,8 @@
 
 日期：2026-06-03
 
+状态：已实现并通过 Claude Code MCP 实测。
+
 ## 背景
 
 真实引用阅读测试显示，当前 `siyuan_read(include_block_ids=true)` 会把普通 Markdown 表格按原始 Markdown 展示，包括 `| --- | --- |` 分隔行。这符合 Markdown 文件阅读习惯，但不利于 AI 直接判断可编辑行号，容易把分隔行误认为数据行。

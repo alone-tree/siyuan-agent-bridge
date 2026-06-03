@@ -36,6 +36,8 @@ description: Use when the user wants to read, search, or write their private SiY
 - `siyuan_read` —— 只读取可见文档；隐藏文档和隐私规则文档即使已知 ID 也不会被读取。
 - `siyuan_list` —— 隐私规则文档不会出现在文档列表中。
 - `siyuan_create`、`siyuan_edit` —— 写入工具。始终 `confirmed=true`。写入前自动创建思源工作空间快照。默认不写入，除非用户明确要求。
+- 编辑已有文档前，先用 `siyuan_read(include_block_ids=true)` 进行引用阅读，并把返回的块序号和块 ID 作为 `siyuan_edit` 定位参数。
+- 编辑普通 Markdown 表格时，使用引用阅读返回的网格坐标：`row=0` 是表头，`row>=1` 是数据行，`column_index` 从 1 开始。表格不是数据库，不要把表头、字段或多维表语义混在一起。
 - `siyuan_refresh_index` —— 会话中途刷新索引并清理 `ai_workspace/`（保留 README.md）。
 - 系统笔记本 `思源桥` / `SiYuan Bridge` 及其文档会被自动创建和维护。
 

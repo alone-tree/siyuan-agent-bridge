@@ -2602,3 +2602,32 @@ siyuan_edit
 
 - 新增文档文件操作工具：rename / move / delete。
 - 将权限模型从 hidden/read_write 扩展为 hidden/read_only/read_write。
+
+## 2026-06-03：0.2.0 发布前文档与版本整理
+
+本次发布定位为重大升级：工具面从旧的长名称和 exact text anchor 写入模型，收敛到当前 7 个 MCP 工具：
+
+```text
+siyuan_start
+siyuan_refresh_index
+siyuan_list
+siyuan_find
+siyuan_read
+siyuan_create
+siyuan_edit
+```
+
+文档分层原则：
+
+- 面向新用户的 README、安装指南、Skill、思源 About 文档，只描述当前能力和当前用法，不展开旧版迁移史。
+- `docs/devlog.md` 保留完整演进记录，用于追踪以前是什么、现在是什么、为什么变化。
+- `docs/PD.md` 保留少量设计演进说明，但重点仍是当前产品设计。
+- `docs/思源API.md` 记录当前 API 封装策略，不能继续把旧工具名写成当前暴露面。
+
+发布前同步：
+
+- 版本号升至 `0.2.0`。
+- About 模板版本从 `template_version: 2` 升至 `template_version: 3`，新版 About 只介绍当前工具能力、引用阅读、结构化编辑和表格编辑。
+- README 增加 0.2 重大升级说明，但重点放在当前怎么用。
+- INSTALL_FOR_AI 增加当前 7 工具验证和简单读写验证流程。
+- AGENTS、Skill、API 文档同步新工具名和当前编辑心智。

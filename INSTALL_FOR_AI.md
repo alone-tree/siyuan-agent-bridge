@@ -91,6 +91,28 @@ python -m source_code doctor
 2. 在新会话中说"帮我查一下笔记"
 3. AI 应触发 `siyuan_start`，返回笔记本概览
 
+当前版本可用的思源桥 MCP 工具应为：
+
+```text
+siyuan_start
+siyuan_refresh_index
+siyuan_list
+siyuan_find
+siyuan_read
+siyuan_create
+siyuan_edit
+```
+
+如果用户是覆盖安装新版，通常只需要在 AI 客户端中新建会话即可加载最新 MCP 工具面。若工具列表仍不正确，再重启 AI 客户端。
+
+简单读写验证：
+
+1. 调用 `siyuan_start`
+2. 用 `siyuan_list` 找到一个可见笔记本
+3. 用 `siyuan_create` 创建一篇测试文档，`confirmed=true`
+4. 用 `siyuan_read(include_block_ids=true)` 读取测试文档
+5. 用 `siyuan_edit` 追加或修改一小段文本，`confirmed=true`
+
 ## 安全规则
 
 1. 不要在对话中复述 token
