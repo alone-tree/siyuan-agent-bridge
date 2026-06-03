@@ -2,6 +2,8 @@
 
 > 2026-06-03 追加设计记录：[`table-edit-next-design.md`](./table-edit-next-design.md) 记录 table_edit 坐标网格与列操作；[`tool-surface-next-design.md`](./tool-surface-next-design.md) 记录工具精简、命名统一、文档文件操作和三档权限模型。
 
+长期规划：需要将整个程序重构一遍，做成可以直接上架思源商店的MCP，并且要求程序运行在电脑本地，MCP的注册、调用不依赖于思源的启动（思源没启动时返回思源未启动，但仍然可以正常调用，不会卡住）
+
 ## 什么是 SiYuan Agent Bridge
 
 一个私有、本地优先的适配层，让外部 AI agent（Claude Code、Codex 等）能将用户的思源笔记当作结构化知识库来阅读和搜索。这不是一个公开发布的产品——它的首要用户是开发者自己，在自己的机器上跑通全流程之后，再考虑对外打包。
