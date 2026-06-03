@@ -1,5 +1,7 @@
 # SiYuan Agent Bridge 项目工程文档
 
+> 2026-06-03 追加设计记录：[`table-edit-next-design.md`](./table-edit-next-design.md) 记录 table_edit 坐标网格与列操作；[`tool-surface-next-design.md`](./tool-surface-next-design.md) 记录工具精简、命名统一、文档文件操作和三档权限模型。
+
 ## 什么是 SiYuan Agent Bridge
 
 一个私有、本地优先的适配层，让外部 AI agent（Claude Code、Codex 等）能将用户的思源笔记当作结构化知识库来阅读和搜索。这不是一个公开发布的产品——它的首要用户是开发者自己，在自己的机器上跑通全流程之后，再考虑对外打包。

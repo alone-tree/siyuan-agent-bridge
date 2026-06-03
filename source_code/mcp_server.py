@@ -380,18 +380,41 @@ def split_markdown_table_row(line: str) -> list[str]:
         stripped = stripped[1:]
     if stripped.endswith("|"):
         stripped = stripped[:-1]
-    return [cell.strip() for cell in stripped.split("|")]
+    cells: list[str] = []
+    buf: list[str] = []
+    escaped = False
+    for ch in stripped:
+        if escaped:
+            buf.append(ch)
+            escaped = False
+            continue
+        if ch == "\\":
+            escaped = True
+            continue
+        if ch == "|":
+            cells.append("".join(buf).strip())
+            buf = []
+            continue
+        buf.append(ch)
+    if escaped:
+        buf.append("\\")
+    cells.append("".join(buf).strip())
+    return cells
+
+
+def escape_markdown_table_cell(value: Any) -> str:
+    return str(value).replace("\n", "<br>").replace("|", "\\|")
 
 
 def render_markdown_table(headers: list[str], rows: list[list[str]]) -> str:
     width = len(headers)
     normalized_rows = [(row + [""] * width)[:width] for row in rows]
     lines = [
-        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join(escape_markdown_table_cell(header) for header in headers) + " |",
         "| " + " | ".join("---" for _ in headers) + " |",
     ]
     for row in normalized_rows:
-        lines.append("| " + " | ".join(row) + " |")
+        lines.append("| " + " | ".join(escape_markdown_table_cell(cell) for cell in row) + " |")
     return "\n".join(lines)
 
 
@@ -405,6 +428,22 @@ def parse_markdown_table(markdown: str) -> tuple[list[str], list[list[str]]]:
         raise ValueError("表格表头或分隔行格式不完整，暂不支持 table_edit。")
     rows = [split_markdown_table_row(line) for line in lines[2:]]
     return headers, [(row + [""] * len(headers))[:len(headers)] for row in rows]
+
+
+def render_table_coordinate_view(markdown: str) -> str:
+    headers, rows = parse_markdown_table(markdown)
+    lines = [
+        "| row_index | " + " | ".join(f"col {i}" for i in range(1, len(headers) + 1)) + " |",
+        "| row 0 | " + " | ".join(escape_markdown_table_cell(header) for header in headers) + " |",
+    ]
+    for row_number, row in enumerate(rows, start=1):
+        normalized = (row + [""] * len(headers))[:len(headers)]
+        lines.append(
+            f"| row {row_number} | "
+            + " | ".join(escape_markdown_table_cell(cell) for cell in normalized)
+            + " |"
+        )
+    return "\n".join(lines)
 
 
 def table_column_index(headers: list[str], edit: dict[str, Any]) -> int:
@@ -424,45 +463,121 @@ def table_column_index(headers: list[str], edit: dict[str, Any]) -> int:
     return matches[0]
 
 
+def table_position(edit: dict[str, Any]) -> str:
+    position = str(edit.get("position") or "").strip().lower()
+    if position not in {"before", "after"}:
+        raise ValueError("table_edit.position 只支持 before 或 after。")
+    return position
+
+
+def table_row_values(headers: list[str], values: Any) -> list[str]:
+    if isinstance(values, dict):
+        return [str(values.get(header, "")) for header in headers]
+    if isinstance(values, list):
+        return ([str(value) for value in values] + [""] * len(headers))[:len(headers)]
+    raise ValueError("insert_row 需要 values，格式为按列顺序排列的数组，或按表头取值的对象。")
+
+
+def apply_table_cell_edit(headers: list[str], rows: list[list[str]], cell: dict[str, Any]) -> None:
+    if cell.get("row") is None:
+        raise ValueError("set_cell 需要 row。row=0 表示表头，row>=1 表示数据行。")
+    row_number = int(cell["row"])
+    col_index = table_column_index(headers, cell)
+    expected = cell.get("expected_old_value")
+
+    if row_number == 0:
+        current = headers[col_index]
+        if expected is not None and current != str(expected):
+            raise ValueError(
+                f"表头单元格旧值校验失败：当前值为 `{current}`，"
+                f"但 expected_old_value 为 `{expected}`。请重新引用阅读后再编辑。"
+            )
+        headers[col_index] = str(cell.get("value") or "")
+        return
+
+    row_index = row_number - 1
+    if row_index < 0 or row_index >= len(rows):
+        raise ValueError(f"row 超出范围。当前表格有 {len(rows)} 行数据，row=0 表示表头。")
+    current = rows[row_index][col_index]
+    if expected is not None and current != str(expected):
+        raise ValueError(
+            f"单元格旧值校验失败：当前值为 `{current}`，"
+            f"但 expected_old_value 为 `{expected}`。请重新引用阅读后再编辑。"
+        )
+    rows[row_index][col_index] = str(cell.get("value") or "")
+
+
 def apply_table_edit(markdown: str, edit: dict[str, Any]) -> str:
     headers, rows = parse_markdown_table(markdown)
     operation = str(edit.get("operation") or "").strip()
-    if operation not in {"set_cell", "insert_row_before", "insert_row_after", "delete_row"}:
-        raise ValueError("table_edit.operation 只支持 set_cell、insert_row_before、insert_row_after、delete_row。")
-
-    row_arg = edit.get("row")
-    if row_arg is None:
-        raise ValueError("table_edit 需要 row。row 是 1-based 数据行编号，不包含表头。")
-    row_index = int(row_arg) - 1
+    legacy_insert_map = {
+        "insert_row_before": ("insert_row", "before"),
+        "insert_row_after": ("insert_row", "after"),
+    }
+    if operation in legacy_insert_map:
+        operation, default_position = legacy_insert_map[operation]
+        edit = {**edit, "operation": operation, "position": edit.get("position") or default_position}
+    if operation not in {"set_cell", "insert_row", "delete_row", "insert_column", "delete_column"}:
+        raise ValueError("table_edit.operation 只支持 set_cell、insert_row、delete_row、insert_column、delete_column。")
 
     if operation == "set_cell":
-        if row_index < 0 or row_index >= len(rows):
-            raise ValueError(f"row 超出范围：当前表格共有 {len(rows)} 行数据。")
-        col_index = table_column_index(headers, edit)
-        expected = edit.get("expected_old_value")
-        if expected is not None and rows[row_index][col_index] != str(expected):
-            raise ValueError(
-                f"单元格旧值校验失败：当前值为 `{rows[row_index][col_index]}`，"
-                f"但 expected_old_value 为 `{expected}`。请重新引用阅读后再编辑。"
-            )
-        rows[row_index][col_index] = str(edit.get("value") or "")
-    elif operation in {"insert_row_before", "insert_row_after"}:
-        if row_index < 0 or row_index > len(rows):
-            raise ValueError(f"row 超出范围：当前表格共有 {len(rows)} 行数据。")
-        values = edit.get("values")
-        if isinstance(values, dict):
-            new_row = [str(values.get(header, "")) for header in headers]
-        elif isinstance(values, list):
-            new_row = [str(value) for value in values]
+        cells = edit.get("cells")
+        if cells is not None:
+            if not isinstance(cells, list) or not cells:
+                raise ValueError("set_cell.cells 必须是非空数组。")
+            for cell in cells:
+                if not isinstance(cell, dict):
+                    raise ValueError("set_cell.cells 中的每一项都必须是对象。")
+                apply_table_cell_edit(headers, rows, cell)
         else:
-            raise ValueError("插入行需要 values，格式为对象（列名到值）或数组。")
-        new_row = (new_row + [""] * len(headers))[:len(headers)]
-        insert_at = row_index if operation == "insert_row_before" else row_index + 1
+            cell = edit.get("cell")
+            if cell is None:
+                cell = edit
+            if not isinstance(cell, dict):
+                raise ValueError("set_cell 需要 cell 对象或 cells 数组。")
+            apply_table_cell_edit(headers, rows, cell)
+    elif operation == "insert_row":
+        if edit.get("row") is None:
+            raise ValueError("insert_row 需要 row。row=0 表示表头，row>=1 表示数据行。")
+        row_number = int(edit["row"])
+        position = table_position(edit)
+        if row_number < 0 or row_number > len(rows):
+            raise ValueError(f"row 超出范围。当前表格有 {len(rows)} 行数据，row=0 表示表头。")
+        if row_number == 0 and position == "before":
+            raise ValueError("不能在表头前插入数据行。请使用 row=0, position=after 或指定数据行。")
+        new_row = table_row_values(headers, edit.get("values"))
+        insert_at = 0 if row_number == 0 else row_number - 1
+        if position == "after" and row_number > 0:
+            insert_at += 1
         rows.insert(insert_at, new_row)
-    else:
+    elif operation == "delete_row":
+        row_arg = edit.get("row")
+        if row_arg is None:
+            raise ValueError("delete_row 需要 row。row>=1 表示数据行，不能删除表头。")
+        row_index = int(row_arg) - 1
         if row_index < 0 or row_index >= len(rows):
-            raise ValueError(f"row 超出范围：当前表格共有 {len(rows)} 行数据。")
+            raise ValueError(f"row 超出范围。当前表格有 {len(rows)} 行数据。")
         rows.pop(row_index)
+    elif operation == "insert_column":
+        col_index = table_column_index(headers, edit)
+        position = table_position(edit)
+        values = edit.get("values")
+        if not isinstance(values, list):
+            raise ValueError("insert_column 需要 values 数组，values[0] 是表头，其后是数据行。")
+        if len(values) > len(rows) + 1:
+            raise ValueError(f"insert_column.values 过长。当前表格需要最多 {len(rows) + 1} 个值（含表头）。")
+        normalized = [str(value) for value in values] + [""] * (len(rows) + 1 - len(values))
+        insert_at = col_index if position == "before" else col_index + 1
+        headers.insert(insert_at, normalized[0])
+        for row, value in zip(rows, normalized[1:]):
+            row.insert(insert_at, value)
+    elif operation == "delete_column":
+        if len(headers) <= 1:
+            raise ValueError("不能删除最后一列。")
+        col_index = table_column_index(headers, edit)
+        headers.pop(col_index)
+        for row in rows:
+            row.pop(col_index)
 
     return render_markdown_table(headers, rows)
 
@@ -625,6 +740,16 @@ def build_display_blocks(client: Any, root_id: str, *, include_block_ids: bool =
                 for child in client.get_child_blocks(block_id):
                     visit(child)
                 return
+        elif include_block_ids and block_type == "t" and block_md.strip():
+            metadata = block_metadata_line(len(blocks) + 1, block_id, block_type, subtype, block_md)
+            try:
+                headers, rows = parse_markdown_table(block_md)
+                display_md = (
+                    f"{metadata} rows={len(rows)} columns={len(headers)}\n\n"
+                    f"{render_table_coordinate_view(block_md)}"
+                )
+            except ValueError:
+                display_md = f"{metadata}\n{block_md}"
         elif include_block_ids and block_md.strip():
             metadata = block_metadata_line(len(blocks) + 1, block_id, block_type, subtype, block_md)
             display_md = f"{metadata}\n{block_md}"
@@ -2535,15 +2660,18 @@ def tool_specs() -> list[dict[str, Any]]:
                     "markdown": {"type": "string", "description": "Markdown to insert or replace with. For single_block_replace this must render as exactly one display block. For multi_block_replace it may render as one or more new blocks."},
                     "table_edit": {
                         "type": "object",
-                        "description": "Required for action=table_edit on a normal Markdown table block.",
+                        "description": "Required for action=table_edit on a normal Markdown table block. Use the table coordinate view from siyuan_read_document(include_block_ids=true): row=0 is header, row>=1 are data rows, column_index is 1-based.",
                         "properties": {
-                            "operation": {"type": "string", "enum": ["set_cell", "insert_row_before", "insert_row_after", "delete_row"]},
-                            "row": {"type": "integer", "description": "1-based data row number, excluding header."},
-                            "column": {"type": "string", "description": "Column name for set_cell."},
-                            "column_index": {"type": "integer", "description": "1-based column number for set_cell when column name is ambiguous."},
-                            "value": {"type": "string", "description": "New cell value for set_cell."},
-                            "values": {"description": "Row values for insert_row_before/insert_row_after. Object keyed by column name, or array in column order."},
-                            "expected_old_value": {"type": "string", "description": "Optional old cell value guard for set_cell."},
+                            "operation": {"type": "string", "enum": ["set_cell", "insert_row", "delete_row", "insert_column", "delete_column", "insert_row_before", "insert_row_after"], "description": "Prefer set_cell, insert_row, delete_row, insert_column, delete_column. insert_row_before/insert_row_after are legacy aliases."},
+                            "cell": {"type": "object", "description": "Single cell edit for operation=set_cell. Fields: row, column_index or column, value, optional expected_old_value."},
+                            "cells": {"type": "array", "description": "Multiple cell edits for operation=set_cell. Each item has row, column_index or column, value, optional expected_old_value."},
+                            "row": {"type": "integer", "description": "Table row coordinate. row=0 is header; row>=1 are data rows. delete_row cannot delete row=0."},
+                            "column": {"type": "string", "description": "Legacy column name fallback. Prefer column_index from the reference-reading coordinate view."},
+                            "column_index": {"type": "integer", "description": "1-based column number from the reference-reading coordinate view."},
+                            "position": {"type": "string", "enum": ["before", "after"], "description": "Required for insert_row and insert_column."},
+                            "value": {"type": "string", "description": "Legacy single-cell value for set_cell when not using cell/cells."},
+                            "values": {"description": "For insert_row: row values as object keyed by header or array in column order. For insert_column: array where values[0] is header and the rest are data rows."},
+                            "expected_old_value": {"type": "string", "description": "Optional old cell value guard for legacy top-level set_cell."},
                         },
                         "additionalProperties": False,
                     },

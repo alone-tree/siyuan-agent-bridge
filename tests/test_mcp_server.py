@@ -905,6 +905,95 @@ class McpServerWriteTests(unittest.TestCase):
         finally:
             mcp_server.detect_active_profile = original
 
+    def test_siyuan_edit_table_edit_set_header_cell_with_coordinates(self):
+        table = "| A | B |\n| --- | --- |\n| 1 | 2 |"
+        blocks = {
+            "doc1": [
+                {"id": "table1", "type": "t", "markdown": table},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "table_edit",
+                "start_index": 1,
+                "start_id": "table1",
+                "table_edit": {
+                    "operation": "set_cell",
+                    "cell": {
+                        "row": 0,
+                        "column_index": 1,
+                        "value": "Metric",
+                        "expected_old_value": "A",
+                    },
+                },
+                "confirmed": True,
+            })
+            self.assertEqual(
+                client._updated_blocks,
+                [("table1", "| Metric | B |\n| --- | --- |\n| 1 | 2 |")],
+            )
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_table_edit_set_multiple_cells(self):
+        table = "| A | B | C |\n| --- | --- | --- |\n| 1 | 2 | 3 |\n| 4 | 5 | 6 |"
+        blocks = {
+            "doc1": [
+                {"id": "table1", "type": "t", "markdown": table},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "table_edit",
+                "start_index": 1,
+                "start_id": "table1",
+                "table_edit": {
+                    "operation": "set_cell",
+                    "cells": [
+                        {"row": 1, "column_index": 2, "value": "20", "expected_old_value": "2"},
+                        {"row": 2, "column_index": 3, "value": "60", "expected_old_value": "6"},
+                    ],
+                },
+                "confirmed": True,
+            })
+            self.assertEqual(
+                client._updated_blocks,
+                [("table1", "| A | B | C |\n| --- | --- | --- |\n| 1 | 20 | 3 |\n| 4 | 5 | 60 |")],
+            )
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_table_edit_preserves_escaped_pipes(self):
+        table = r"| A | B |\n| --- | --- |\n| one\|two | 2 |".replace("\\n", "\n")
+        blocks = {
+            "doc1": [
+                {"id": "table1", "type": "t", "markdown": table},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "table_edit",
+                "start_index": 1,
+                "start_id": "table1",
+                "table_edit": {
+                    "operation": "set_cell",
+                    "cell": {"row": 1, "column_index": 2, "value": "changed"},
+                },
+                "confirmed": True,
+            })
+            self.assertEqual(
+                client._updated_blocks,
+                [("table1", r"| A | B |\n| --- | --- |\n| one\|two | changed |".replace("\\n", "\n"))],
+            )
+        finally:
+            mcp_server.detect_active_profile = original
+
     def test_siyuan_edit_delete_allows_superblock(self):
         blocks = {
             "doc1": [
@@ -1083,6 +1172,35 @@ class McpServerWriteTests(unittest.TestCase):
         finally:
             mcp_server.detect_active_profile = original
 
+    def test_siyuan_edit_table_insert_row_new_operation(self):
+        table = "| A | B |\n| --- | --- |\n| 1 | 2 |"
+        blocks = {
+            "doc1": [
+                {"id": "table1", "type": "t", "markdown": table},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "table_edit",
+                "start_index": 1,
+                "start_id": "table1",
+                "table_edit": {
+                    "operation": "insert_row",
+                    "row": 0,
+                    "position": "after",
+                    "values": ["new", "row"],
+                },
+                "confirmed": True,
+            })
+            self.assertEqual(
+                client._updated_blocks,
+                [("table1", "| A | B |\n| --- | --- |\n| new | row |\n| 1 | 2 |")],
+            )
+        finally:
+            mcp_server.detect_active_profile = original
+
     def test_siyuan_edit_table_insert_row_after(self):
         table = "| A | B |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |"
         blocks = {
@@ -1136,6 +1254,88 @@ class McpServerWriteTests(unittest.TestCase):
             new_table = client._updated_blocks[0][1]
             self.assertNotIn("| 1 | 2 |", new_table)
             self.assertIn("| 3 | 4 |", new_table)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_table_insert_column(self):
+        table = "| A | B |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |"
+        blocks = {
+            "doc1": [
+                {"id": "table1", "type": "t", "markdown": table},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "table_edit",
+                "start_index": 1,
+                "start_id": "table1",
+                "table_edit": {
+                    "operation": "insert_column",
+                    "column_index": 1,
+                    "position": "after",
+                    "values": ["C", "x"],
+                },
+                "confirmed": True,
+            })
+            self.assertEqual(
+                client._updated_blocks,
+                [("table1", "| A | C | B |\n| --- | --- | --- |\n| 1 | x | 2 |\n| 3 |  | 4 |")],
+            )
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_table_delete_column(self):
+        table = "| A | B | C |\n| --- | --- | --- |\n| 1 | 2 | 3 |"
+        blocks = {
+            "doc1": [
+                {"id": "table1", "type": "t", "markdown": table},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            server.siyuan_edit({
+                "document": "/Main/Projects/Doc One",
+                "action": "table_edit",
+                "start_index": 1,
+                "start_id": "table1",
+                "table_edit": {
+                    "operation": "delete_column",
+                    "column_index": 2,
+                },
+                "confirmed": True,
+            })
+            self.assertEqual(
+                client._updated_blocks,
+                [("table1", "| A | C |\n| --- | --- |\n| 1 | 3 |")],
+            )
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_table_delete_last_column_rejected_before_snapshot(self):
+        table = "| A |\n| --- |\n| 1 |"
+        blocks = {
+            "doc1": [
+                {"id": "table1", "type": "t", "markdown": table},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            with self.assertRaises(ValueError):
+                server.siyuan_edit({
+                    "document": "/Main/Projects/Doc One",
+                    "action": "table_edit",
+                    "start_index": 1,
+                    "start_id": "table1",
+                    "table_edit": {
+                        "operation": "delete_column",
+                        "column_index": 1,
+                    },
+                    "confirmed": True,
+                })
+            self.assertFalse(client._snapshots)
+            self.assertFalse(client._updated_blocks)
         finally:
             mcp_server.detect_active_profile = original
 
@@ -1546,6 +1746,31 @@ class DisplayBlockBuildTests(unittest.TestCase):
         })
         blocks = mcp_server.build_display_blocks(client, "doc1", include_block_ids=False)
         self.assertEqual(blocks[0].markdown, "Text here.")
+
+    def test_reference_reading_renders_table_coordinate_view(self):
+        table = "| A | B |\n| --- | --- |\n| 1 | 2 |"
+        client = self._make_client({
+            "doc1": [
+                {"id": "table1", "type": "t", "markdown": table},
+            ]
+        })
+        blocks = mcp_server.build_display_blocks(client, "doc1", include_block_ids=True)
+        self.assertIn("[1] id=table1 type=table rows=1 columns=2", blocks[0].markdown)
+        self.assertIn("| row_index | col 1 | col 2 |", blocks[0].markdown)
+        self.assertIn("| row 0 | A | B |", blocks[0].markdown)
+        self.assertIn("| row 1 | 1 | 2 |", blocks[0].markdown)
+        self.assertNotIn("| --- | --- |", blocks[0].markdown)
+        self.assertEqual(blocks[0].source_markdown, table)
+
+    def test_normal_reading_keeps_raw_markdown_table(self):
+        table = "| A | B |\n| --- | --- |\n| 1 | 2 |"
+        client = self._make_client({
+            "doc1": [
+                {"id": "table1", "type": "t", "markdown": table},
+            ]
+        })
+        blocks = mcp_server.build_display_blocks(client, "doc1", include_block_ids=False)
+        self.assertEqual(blocks[0].markdown, table)
 
     def test_heading_detection(self):
         client = self._make_client({

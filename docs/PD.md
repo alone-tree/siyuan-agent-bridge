@@ -1,5 +1,7 @@
 # PD — 思源桥产品设计文档
 
+> 2026-06-03 追加设计记录：[`table-edit-next-design.md`](./table-edit-next-design.md) 记录 table_edit 坐标网格与列操作；[`tool-surface-next-design.md`](./tool-surface-next-design.md) 记录工具精简、命名统一、文档文件操作和三档权限模型。
+
 面向开发者和深度用户，阐述设计理念、架构决策和实现权衡。
 
 ---
