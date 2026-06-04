@@ -29,6 +29,7 @@ class FakeSearchClient:
         self._inserted_after: list[tuple[str, str]] = []
         self._inserted_before: list[tuple[str, str]] = []
         self._deleted_blocks: list[str] = []
+        self._created_docs: list[tuple[str, str, str]] = []
 
     def version(self):
         return "3.0.0"
@@ -73,6 +74,7 @@ class FakeSearchClient:
         return snap
 
     def create_doc_with_md(self, notebook, path, markdown):
+        self._created_docs.append((notebook, path, markdown))
         doc_id = f"new-doc-{len(self._docs)}"
         self._docs[doc_id] = markdown
         return {"id": doc_id}
@@ -568,7 +570,7 @@ class McpServerWriteTests(unittest.TestCase):
             self.assertEqual(len(client._snapshots), 1)
             self.assertIn("siyuan-agent-bridge:auto-snapshot", client._snapshots[0]["memo"])
             self.assertIn("tool=siyuan_create", client._snapshots[0]["memo"])
-            self.assertIn("target=New Doc", client._snapshots[0]["memo"])
+            self.assertIn("target=/Main/New Doc", client._snapshots[0]["memo"])
             self.assertIn("New Doc", client._push_msgs[0])
         finally:
             mcp_server.detect_active_profile = original
@@ -584,6 +586,96 @@ class McpServerWriteTests(unittest.TestCase):
                 "confirmed": True,
             })
             self.assertIn("custom/path", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_create_document_full_path_resolves_notebook_and_internal_path(self):
+        server, client, original = self._server_and_client()
+        try:
+            result = server.siyuan_create({
+                "title": "New Doc",
+                "path": "/Main/Projects/New Doc",
+                "markdown": "content",
+                "confirmed": True,
+            })
+            self.assertEqual(client._created_docs, [("nb1", "/Projects/New Doc", "content")])
+            self.assertIn("/Main/Projects/New Doc", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_create_document_ambiguous_notebook_name_requires_notebook_id(self):
+        base = self.root / "knowledge_base"
+        (base / "notebooks.json").write_text(
+            json.dumps([{"id": "nb1", "name": "Main"}, {"id": "nb2", "name": "Main"}], ensure_ascii=False),
+            encoding="utf-8",
+        )
+        server, client, original = self._server_and_client()
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_create({
+                    "title": "New Doc",
+                    "path": "/Main/Projects/New Doc",
+                    "markdown": "content",
+                    "confirmed": True,
+                })
+            self.assertIn("notebook_id", str(ctx.exception))
+            self.assertFalse(client._snapshots)
+            self.assertFalse(client._created_docs)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_create_document_existing_path_rejects_by_default(self):
+        server, client, original = self._server_and_client()
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_create({
+                    "title": "Doc One",
+                    "path": "/Main/Projects/Doc One",
+                    "markdown": "replacement",
+                    "confirmed": True,
+                })
+            self.assertIn("if_exists=overwrite", str(ctx.exception))
+            self.assertFalse(client._snapshots)
+            self.assertFalse(client._created_docs)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_create_document_existing_path_can_overwrite_preserving_doc_id(self):
+        blocks = {
+            "doc1": [
+                {"id": "block1", "type": "p", "markdown": "Old first.", "parent_id": "doc1", "sort": 1},
+                {"id": "block2", "type": "p", "markdown": "Old second.", "parent_id": "doc1", "sort": 2},
+            ]
+        }
+        server, client, original = self._server_and_client(query_sql_blocks=blocks)
+        try:
+            result = server.siyuan_create({
+                "title": "Doc One",
+                "path": "/Main/Projects/Doc One",
+                "markdown": "Fresh content.",
+                "if_exists": "overwrite",
+                "confirmed": True,
+            })
+            self.assertEqual(client._created_docs, [])
+            self.assertEqual(client._deleted_blocks, ["block2", "block1"])
+            self.assertEqual(client._appended_blocks, [("doc1", "Fresh content.")])
+            self.assertIn("`doc1`", result)
+            self.assertIn("overwritten", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_create_document_existing_path_can_create_new_same_name(self):
+        server, client, original = self._server_and_client()
+        try:
+            result = server.siyuan_create({
+                "title": "Doc One",
+                "path": "/Main/Projects/Doc One",
+                "markdown": "Another document.",
+                "if_exists": "create_new",
+                "confirmed": True,
+            })
+            self.assertEqual(client._created_docs, [("nb1", "/Projects/Doc One", "Another document.")])
+            self.assertIn("created_new", result)
         finally:
             mcp_server.detect_active_profile = original
 
@@ -1340,7 +1432,7 @@ class McpServerWriteTests(unittest.TestCase):
                 "markdown": "# My Doc\n\nContent here.",
                 "confirmed": True,
             })
-            self.assertIn("文档创建成功", result)
+            self.assertIn("created", result)
             self.assertIn("Content here.", client._docs["new-doc-0"])
             self.assertNotIn("# My Doc", client._docs["new-doc-0"])
         finally:
@@ -1355,7 +1447,7 @@ class McpServerWriteTests(unittest.TestCase):
                 "markdown": "# Other Title\n\nContent here.",
                 "confirmed": True,
             })
-            self.assertIn("文档创建成功", result)
+            self.assertIn("created", result)
             self.assertIn("# Other Title", client._docs["new-doc-0"])
         finally:
             mcp_server.detect_active_profile = original

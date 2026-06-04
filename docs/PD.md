@@ -360,7 +360,9 @@ AI 想编辑文档时，最自然需要的是：
 
 只有当同一路径存在重名或路径无法唯一定位时，才要求补充文档 ID。
 
-`siyuan_create` 也应沿用同一套路径心智：当目标完整路径可唯一定位到笔记本时，AI 可直接传入 `/Notebook/Folder/Doc`；只有笔记本名称重名导致路径无法唯一定位时，才要求补充 `notebook_id`，退回思源底层的 `notebook_id + hpath` 定位。若创建目标与已有文档重名，工具应提供明确的覆写或新建选项，而不是静默选择。
+`siyuan_create` 也沿用同一套路径心智：当目标完整路径可唯一定位到笔记本时，AI 直接传入 `/Notebook/Folder/Doc`，服务端内部解析笔记本 ID 和思源 hpath；只有笔记本名称重名或 AI 明确使用笔记本内路径时，才要求补充 `notebook_id`，退回思源底层的 `notebook_id + hpath` 定位。
+
+目标文档已存在时，`siyuan_create` 使用 `if_exists` 明确处理：默认 `reject`，拒绝写入并提示选项；`overwrite` 清空当前文档所有块后写入新 Markdown，保留当前文档 ID；`create_new` 新增一个同名文档。
 
 ### read 模式
 

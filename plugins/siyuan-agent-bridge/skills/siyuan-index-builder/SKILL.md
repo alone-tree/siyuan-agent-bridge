@@ -64,7 +64,7 @@ description: 创建和更新思源系统笔记本 思源桥 中的 Workspace Ind
 
 将索引写入 `思源桥/工作空间索引`：
 
-- **首次创建**：使用 `siyuan_create`，notebook_id 为 `思源桥` 笔记本的 ID（通过 `siyuan_list` 查找），路径 `/工作空间索引`，填入 Markdown 内容。仅在用户确认后设置 `confirmed=true`。
+- **首次创建**：使用 `siyuan_create`，优先传完整路径 `/思源桥/工作空间索引` 或 `/SiYuan Bridge/Workspace Index`，填入 Markdown 内容。仅在用户确认后设置 `confirmed=true`。只有系统笔记本名称重名时，才改用 `notebook_id` + 内部路径。
 - **更新**：先用 `siyuan_read(include_block_ids=true)` 读取已有工作空间索引，取得目标块的 `start_index` 和 `start_id`，再用 `siyuan_edit` 的结构化编辑动作替换对应部分。
 
 遵循以下模板：

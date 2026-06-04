@@ -2647,3 +2647,17 @@ siyuan_edit
 - 当创建目标与已有文档重名时，工具应提供明确的覆写或新建选项，不能静默覆盖或静默改名。
 
 后续实现应同步更新 tool schema、返回信息、测试和 Skill/README 中的 create 用法说明。
+
+## 2026-06-04：siyuan_create 完整路径与冲突策略实现
+
+已按路径语义设计完成实现：
+
+- `siyuan_create.path` 优先接受完整可读路径 `/Notebook/Folder/Doc`，服务端内部解析笔记本 ID 和思源内部 hpath。
+- 当路径第一段匹配多个同名可见笔记本时，拒绝并提示 AI 改用 `notebook_id + 内部路径`。
+- 旧式 `notebook_id + /Folder/Doc` 保留为兼容入口，也用于同名笔记本消歧。
+- 新增 `if_exists`：默认 `reject`；`overwrite` 清空已有文档所有展示块后追加新 Markdown，保留文档 ID；`create_new` 调用 `createDocWithMd` 新增同名文档。
+- 覆盖前仍创建思源工作空间快照；如果同一路径下已有多个同名文档，`overwrite` 拒绝，因为无法唯一决定要保留哪个文档 ID。
+- 已同步 tool schema、README、Skill、PD 和 API 文档，并新增回归测试覆盖完整路径解析、同名笔记本、默认拒绝、覆盖和新增同名文档。
+- 106 个单元测试全部通过。
+- MCP 端到端验证通过：另一个 Claude Code 实例通过 siyuan-bridge MCP 成功完成完整路径创建→默认拒绝→overwrite→确认覆盖 7 步测试，以及不传 if_exists 的默认行为测试（路径存在拒绝/路径不存在正常创建）。
+- 清理过时记忆文件，siyuan_create 路径统一问题已闭环。

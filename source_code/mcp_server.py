@@ -320,6 +320,15 @@ class DisplayBlock:
     source_markdown: str = ""
 
 
+@dataclass
+class CreateTarget:
+    notebook_id: str
+    notebook_name: str
+    internal_path: str
+    display_path: str
+    existing_docs: list[dict[str, Any]]
+
+
 def semantic_block_type(raw_type: str, subtype: str, markdown: str) -> str:
     if raw_type == "p" and re.search(r"!?\[[^\]]+\]\(assets/[^)]+\)", markdown):
         return "attachment"
@@ -597,6 +606,91 @@ def normalize_display_path(path: str) -> str:
     if not text:
         return ""
     return "/" + text.strip("/")
+
+
+def _notebook_by_id(notebooks: list[dict[str, Any]], notebook_id: str) -> dict[str, Any] | None:
+    return next((nb for nb in notebooks if str(nb.get("id", "")) == notebook_id), None)
+
+
+def _notebook_name_matches(notebooks: list[dict[str, Any]], name: str) -> list[dict[str, Any]]:
+    folded = name.casefold()
+    return [nb for nb in notebooks if str(nb.get("name", "")).casefold() == folded]
+
+
+def _existing_docs_at_path(docs: list[dict[str, Any]], notebook_id: str, internal_path: str) -> list[dict[str, Any]]:
+    wanted = normalize_display_path(internal_path).strip("/").casefold()
+    return [
+        doc for doc in docs
+        if str(doc.get("notebook_id", "")) == notebook_id
+        and normalize_display_path(str(doc.get("hpath", ""))).strip("/").casefold() == wanted
+    ]
+
+
+def resolve_create_target(
+    args: dict[str, Any],
+    notebooks: list[dict[str, Any]],
+    docs: list[dict[str, Any]],
+    title: str,
+) -> CreateTarget:
+    raw_path = str(args.get("path") or "").strip()
+    notebook_id_arg = str(args.get("notebook_id") or "").strip()
+    path = normalize_display_path(raw_path)
+
+    if not path:
+        if not notebook_id_arg:
+            raise ValueError(
+                "siyuan_create 优先使用完整路径 path=/Notebook/Folder/Doc。"
+                "如果不传 path，则必须提供 notebook_id 和笔记本内路径。"
+            )
+        nb = _notebook_by_id(notebooks, notebook_id_arg)
+        if nb is None:
+            raise ValueError(f"笔记本 {notebook_id_arg} 不可见，可能已被隐私规则隐藏。")
+        internal_path = f"/{title}"
+    else:
+        parts = path.strip("/").split("/", 1)
+        first = parts[0]
+        rest = parts[1] if len(parts) > 1 else ""
+        name_matches = _notebook_name_matches(notebooks, first)
+
+        if len(name_matches) > 1 and not notebook_id_arg:
+            choices = "\n".join(f"- `{nb.get('id', '')}` {nb.get('name', '')}" for nb in name_matches)
+            raise ValueError(
+                "目标笔记本名称存在歧义。请改用 notebook_id + 笔记本内路径，例如 "
+                "`notebook_id=<目标笔记本ID>, path=/Folder/Doc`。\n"
+                + choices
+            )
+
+        if name_matches:
+            if notebook_id_arg:
+                nb = next((item for item in name_matches if str(item.get("id", "")) == notebook_id_arg), None)
+                if nb is None:
+                    raise ValueError("path 中的笔记本名称与 notebook_id 不匹配。")
+            else:
+                nb = name_matches[0]
+            internal_path = normalize_display_path(rest or title)
+        else:
+            if not notebook_id_arg:
+                raise ValueError(
+                    "path 应使用完整可读路径 /Notebook/Folder/Doc。"
+                    "未匹配到路径第一段对应的可见笔记本；如需使用笔记本内路径，请同时提供 notebook_id。"
+                )
+            nb = _notebook_by_id(notebooks, notebook_id_arg)
+            if nb is None:
+                raise ValueError(f"笔记本 {notebook_id_arg} 不可见，可能已被隐私规则隐藏。")
+            internal_path = path
+
+    notebook_id = str(nb.get("id", ""))
+    notebook_name = str(nb.get("name", notebook_id))
+    internal_path = normalize_display_path(internal_path)
+    display_path = normalize_display_path(f"{notebook_name}/{internal_path.strip('/')}")
+    existing_docs = _existing_docs_at_path(docs, notebook_id, internal_path)
+    return CreateTarget(
+        notebook_id=notebook_id,
+        notebook_name=notebook_name,
+        internal_path=internal_path,
+        display_path=display_path,
+        existing_docs=existing_docs,
+    )
 
 
 def direct_child_key(parent_path: str, document_path: str) -> str | None:
@@ -1630,10 +1724,6 @@ class McpServer:
         if not confirmed:
             raise ValueError("需要 confirmed=true。写入思源必须经过用户明确确认。")
 
-        notebook_id = str(args.get("notebook_id") or "").strip()
-        if not notebook_id:
-            raise ValueError("notebook_id 参数是必填的")
-
         title = str(args.get("title") or "").strip()
         if not title:
             raise ValueError("title 参数是必填的")
@@ -1642,29 +1732,47 @@ class McpServer:
         if not markdown:
             raise ValueError("markdown 参数是必填的")
 
-        path = str(args.get("path") or "").strip()
-        if not path:
-            path = f"/{title}"
-        elif not path.startswith("/"):
-            path = f"/{path}"
+        if_exists = str(args.get("if_exists") or "reject").strip().casefold()
+        if if_exists not in {"reject", "overwrite", "create_new"}:
+            raise ValueError("if_exists 只支持 reject、overwrite、create_new。默认 reject。")
 
-        # Check notebook is visible
         notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
-        nb = next((n for n in notebooks if str(n.get("id", "")) == notebook_id), None)
-        if nb is None:
-            raise ValueError(f"笔记本 {notebook_id} 不可见，可能已被隐私规则隐藏。")
+        docs = filter_documents(load_docs(self.root), load_privacy_rules(self.root))
+        target = resolve_create_target(args, notebooks, docs, title)
 
         # Prevent creating Privacy Rules document
-        if is_privacy_rules_document(path.strip("/")):
+        if is_privacy_rules_document(target.internal_path.strip("/")):
             raise ValueError(
                 "Privacy Rules 文档不可通过 AI 创建。隐私规则由人类在思源中维护。"
+            )
+
+        if target.existing_docs and if_exists == "reject":
+            choices = "\n".join(
+                f"- `{doc.get('id', '')}` {display_document_path(doc)}"
+                for doc in target.existing_docs
+            )
+            raise ValueError(
+                "目标文档已存在，默认拒绝写入以避免误覆盖。\n"
+                "可选处理：if_exists=overwrite 清空当前文档所有块后重写，并保留文档 ID；"
+                "if_exists=create_new 新增一个同名文档。\n"
+                + choices
+            )
+        if len(target.existing_docs) > 1 and if_exists == "overwrite":
+            choices = "\n".join(
+                f"- `{doc.get('id', '')}` {display_document_path(doc)}"
+                for doc in target.existing_docs
+            )
+            raise ValueError(
+                "目标路径下已有多个同名文档，无法判断覆盖时应保留哪个文档 ID。"
+                "请先用 siyuan_edit 定位具体文档，或使用 if_exists=create_new。\n"
+                + choices
             )
 
         _profile, client = detect_active_profile(load_config(self.root))
 
         # Create snapshot before writing
         ts = datetime.now().strftime("%Y%m%d%H%M%S")
-        memo = f"siyuan-agent-bridge:auto-snapshot tool=siyuan_create target={title} created={ts}"
+        memo = f"siyuan-agent-bridge:auto-snapshot tool=siyuan_create target={target.display_path} created={ts}"
         try:
             client.create_snapshot(memo)
             snapshot_status = "created"
@@ -1682,9 +1790,22 @@ class McpServer:
         if not markdown.strip():
             raise ValueError("markdown 参数是必填的")
 
-        # Create document
-        with ensure_notebooks_open(client, [notebook_id]):
-            result = client.create_doc_with_md(notebook_id, path, markdown)
+        action_status = "created"
+        overwritten_blocks: list[DisplayBlock] = []
+        existing_doc: dict[str, Any] | None = target.existing_docs[0] if target.existing_docs else None
+
+        with ensure_notebooks_open(client, [target.notebook_id]):
+            if existing_doc and if_exists == "overwrite":
+                doc_id = str(existing_doc.get("id", ""))
+                overwritten_blocks = build_display_blocks(client, doc_id, include_block_ids=True)
+                for block in reversed(overwritten_blocks):
+                    client.delete_block(block.id)
+                client.append_block(doc_id, markdown)
+                result = {"id": doc_id}
+                action_status = "overwritten"
+            else:
+                result = client.create_doc_with_md(target.notebook_id, target.internal_path, markdown)
+                action_status = "created_new" if existing_doc and if_exists == "create_new" else "created"
 
         doc_id = str(result.get("id") or result.get("docID") or result.get("doc_id") or "")
         if not doc_id:
@@ -1692,7 +1813,11 @@ class McpServer:
             try:
                 live_docs = load_live_docs(client)
                 for doc in live_docs:
-                    if str(doc.get("hpath", "")).strip("/") == path.strip("/") and str(doc.get("notebook_id", "")) == notebook_id:
+                    if (
+                        str(doc.get("hpath", "")).strip("/") == target.internal_path.strip("/")
+                        and str(doc.get("notebook_id", "")) == target.notebook_id
+                        and str(doc.get("id", "")) not in {str(item.get("id", "")) for item in target.existing_docs}
+                    ):
                         doc_id = str(doc.get("id", ""))
                         break
             except Exception:
@@ -1700,7 +1825,7 @@ class McpServer:
 
         # Notify
         try:
-            client.push_msg(f"思源桥：已创建「{title}」")
+            client.push_msg(f"思源桥：已写入「{target.display_path}」")
         except Exception:
             pass
 
@@ -1712,16 +1837,19 @@ class McpServer:
         except Exception:
             pass
 
-        notebook_name = str(nb.get('name', notebook_id))
         parts = [
-            "# 文档创建成功",
+            "# 文档写入成功",
             "",
+            f"**动作：**{action_status}",
             f"**标题：**{title}",
-            f"**路径：**{path}",
-            f"**笔记本：**{notebook_name}（`{notebook_id}`）",
+            f"**路径：**{target.display_path}",
+            f"**内部路径：**{target.internal_path}",
+            f"**笔记本：**{target.notebook_name}（`{target.notebook_id}`）",
         ]
         if doc_id:
             parts.append(f"**文档 ID：**`{doc_id}`")
+        if overwritten_blocks:
+            parts.append(f"**覆盖：**已清空并重写 {len(overwritten_blocks)} 个原块，保留当前文档 ID。")
         parts.append(f"**端点：**{client.base_url}")
         parts.append(f"**快照：**{snapshot_status}")
         if refresh_ok:
@@ -2268,17 +2396,18 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_create",
-            "description": "Create a new SiYuan document in the specified notebook. Creates a SiYuan workspace snapshot before writing. Refuses to write if the snapshot fails, if the notebook is hidden, or if confirmed is not true. The user can manually roll back via SiYuan snapshots if needed.",
+            "description": "Create or write a SiYuan document. Prefer path as the full readable path including notebook name, e.g. /Notebook/Folder/Doc; the server resolves the notebook ID and internal hpath. If the notebook name is ambiguous, use notebook_id plus an internal path like /Folder/Doc. Creates a SiYuan workspace snapshot before writing. Existing target behavior is controlled by if_exists: reject refuses by default, overwrite clears all blocks in the existing document and rewrites it while preserving the document ID, create_new asks SiYuan to create another same-name document.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "notebook_id": {"type": "string", "description": "Notebook ID to create the document in."},
+                    "notebook_id": {"type": "string", "description": "Optional notebook ID. Required only when path is an internal notebook path or when the notebook name in a full path is ambiguous."},
                     "title": {"type": "string", "description": "Document title."},
-                    "path": {"type": "string", "description": "Optional path within the notebook. Defaults to /<title>."},
-                    "markdown": {"type": "string", "description": "Markdown content for the new document."},
+                    "path": {"type": "string", "description": "Preferred: full readable path /Notebook/Folder/Doc. With notebook_id, legacy internal path /Folder/Doc is also accepted. If omitted, notebook_id is required and path defaults to /<title> inside that notebook."},
+                    "markdown": {"type": "string", "description": "Markdown content to write."},
+                    "if_exists": {"type": "string", "enum": ["reject", "overwrite", "create_new"], "default": "reject", "description": "Behavior when the target path already exists. reject refuses and explains options. overwrite clears all existing blocks and appends markdown, preserving document ID. create_new creates another same-name document."},
                     "confirmed": {"type": "boolean", "description": "Must be true. Writing to SiYuan requires explicit user approval."},
                 },
-                "required": ["notebook_id", "title", "markdown", "confirmed"],
+                "required": ["title", "markdown", "confirmed"],
                 "additionalProperties": False,
             },
         },

@@ -51,7 +51,7 @@
 | MCP 工具 | 用户语义 | 内部 API 组合 |
 |----------|----------|---------------|
 | `siyuan_edit` | 在已有可见文档中替换、追加、删除、插入文本，或编辑普通 Markdown 表格 | 隐私检查；引用阅读定位校验；`repo/createSnapshot`；`block/updateBlock` / `appendBlock` / `insertBlock` / `deleteBlock`；`notification/pushMsg` |
-| `siyuan_create` | 在指定笔记本/路径下创建新文档 | 隐私和路径检查；`repo/createSnapshot`；`filetree/createDocWithMd`；`notification/pushMsg` |
+| `siyuan_create` | 通过完整可读路径创建、覆盖或新增同名文档 | 隐私和路径检查；`repo/createSnapshot`；`filetree/createDocWithMd` 或 `block/deleteBlock` + `block/appendBlock`；`notification/pushMsg` |
 
 AI 不需要知道这些底层端点。它只提供：
 
@@ -68,10 +68,10 @@ confirmed
 或：
 
 ```text
-notebook_id
 title
 path
 markdown
+if_exists（可选：reject / overwrite / create_new）
 confirmed
 ```
 
