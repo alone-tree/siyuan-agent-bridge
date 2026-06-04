@@ -2691,6 +2691,38 @@ siyuan_doc_manage
 
 已实现 `siyuan_doc_manage` MCP 工具。
 
+### 2026-06-04：路径索引同步问题实测
+
+在真实思源环境中完成 `siyuan_doc_manage` 5 个 action 的端到端测试：
+
+| action | 结果 | 备注 |
+|--------|------|------|
+| rename | ✅ | 重命名后文档标题和路径均更新 |
+| move | ✅ | 文档移动到目标父节点下 |
+| delete | ✅ | 文档被删除 |
+| copy | ✅ | 副本创建成功，内容完整 |
+| export | ✅ | Markdown 导出到 `ai_workspace/exports/`，内容正确 |
+
+**发现的问题：路径索引同步延迟**
+
+rename 或 move 操作后，MCP server 内部路径索引可能未即时同步。表现为：
+
+1. rename 后 → 下一个操作用旧路径可能成功（部分缓存仍有效），也可能失败。
+2. move 后 → 用旧路径执行下一个操作大概率失败，报"未找到匹配的可见文档"。
+3. export 对这种延迟的容忍度较高（可能走了不同的内部查找路径）。
+
+**验证通过的工作流**：
+
+```
+操作（rename/move）
+  → siyuan_refresh_index()
+  → 用新路径执行下一个操作 ✅
+```
+
+或直接使用 `document_id` 替代路径——`document_id` 不受路径索引影响，所有 action 均兼容。
+
+**结论**：这不是 bug，是设计上可预期的行为。`siyuan_doc_manage` 的 tool description 和 Skill 应提示 AI：连续操作同一文档时，rename/move 后要么用 `document_id` 继续，要么先 refresh 再用新路径。
+
 actions：
 
 - `rename`：调用 `renameDocByID`，需要 `confirmed=true` 和 `read_write` 权限。
