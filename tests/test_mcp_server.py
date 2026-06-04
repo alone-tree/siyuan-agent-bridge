@@ -30,6 +30,9 @@ class FakeSearchClient:
         self._inserted_before: list[tuple[str, str]] = []
         self._deleted_blocks: list[str] = []
         self._created_docs: list[tuple[str, str, str]] = []
+        self._renamed_docs: list[tuple[str, str]] = []
+        self._removed_docs: list[str] = []
+        self._moved_docs: list[tuple[list[str], str]] = []
 
     def version(self):
         return "3.0.0"
@@ -78,6 +81,18 @@ class FakeSearchClient:
         doc_id = f"new-doc-{len(self._docs)}"
         self._docs[doc_id] = markdown
         return {"id": doc_id}
+
+    def rename_doc_by_id(self, doc_id, title):
+        self._renamed_docs.append((doc_id, title))
+        return {}
+
+    def remove_doc_by_id(self, doc_id):
+        self._removed_docs.append(doc_id)
+        return {}
+
+    def move_docs_by_id(self, doc_ids, target_id):
+        self._moved_docs.append((doc_ids, target_id))
+        return {}
 
     def update_block(self, block_id, markdown):
         self._updated_blocks.append((block_id, markdown))
@@ -676,6 +691,181 @@ class McpServerWriteTests(unittest.TestCase):
             })
             self.assertEqual(client._created_docs, [("nb1", "/Projects/Doc One", "Another document.")])
             self.assertIn("created_new", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_create_document_rejects_read_only_notebook(self):
+        write_privacy_rules_cache(
+            self.root,
+            PrivacyRules(
+                ignore=[],
+                allow=[],
+                permissions=[{"scope": "notebook", "id": "nb1", "permission": "read_only"}],
+            ),
+        )
+        server, client, original = self._server_and_client()
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_create({
+                    "title": "New Doc",
+                    "path": "/Main/New Doc",
+                    "markdown": "# Hi",
+                    "confirmed": True,
+                })
+            self.assertIn("read_write", str(ctx.exception))
+            self.assertFalse(client._created_docs)
+            self.assertFalse(client._snapshots)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_doc_manage_rename_creates_snapshot(self):
+        server, client, original = self._server_and_client()
+        try:
+            result = server.siyuan_doc_manage({
+                "document": "/Main/Projects/Doc One",
+                "action": "rename",
+                "new_title": "Renamed",
+                "confirmed": True,
+            })
+            self.assertEqual(client._renamed_docs, [("doc1", "Renamed")])
+            self.assertEqual(len(client._snapshots), 1)
+            self.assertIn("siyuan_doc_manage", client._snapshots[0]["memo"])
+            self.assertIn("已重命名为", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_doc_manage_move_to_notebook(self):
+        server, client, original = self._server_and_client()
+        try:
+            result = server.siyuan_doc_manage({
+                "document": "/Main/Projects/Doc One",
+                "action": "move",
+                "target_parent": "/Main",
+                "confirmed": True,
+            })
+            self.assertEqual(client._moved_docs, [(["doc1"], "nb1")])
+            self.assertIn("已移动到", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_doc_manage_delete_requires_confirmed(self):
+        server, client, original = self._server_and_client()
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_doc_manage({
+                    "document": "/Main/Projects/Doc One",
+                    "action": "delete",
+                    "confirmed": False,
+                })
+            self.assertIn("confirmed", str(ctx.exception))
+            self.assertFalse(client._removed_docs)
+            self.assertFalse(client._snapshots)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_doc_manage_delete_removes_doc(self):
+        server, client, original = self._server_and_client()
+        try:
+            result = server.siyuan_doc_manage({
+                "document": "/Main/Projects/Doc One",
+                "action": "delete",
+                "confirmed": True,
+            })
+            self.assertEqual(client._removed_docs, ["doc1"])
+            self.assertIn("可通过思源快照", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_doc_manage_copy_allows_read_only_source(self):
+        write_privacy_rules_cache(
+            self.root,
+            PrivacyRules(
+                ignore=[],
+                allow=[],
+                permissions=[{"scope": "document", "id": "doc1", "permission": "read_only"}],
+            ),
+        )
+        server, client, original = self._server_and_client()
+        client._docs["doc1"] = "# Source\n\nBody"
+        try:
+            result = server.siyuan_doc_manage({
+                "document": "/Main/Projects/Doc One",
+                "action": "copy",
+                "target_path": "/Main/Projects/Doc Copy",
+                "confirmed": True,
+            })
+            self.assertEqual(client._created_docs, [("nb1", "/Projects/Doc Copy", "# Source\n\nBody")])
+            self.assertIn("已复制到", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_doc_manage_rename_rejects_read_only_source(self):
+        write_privacy_rules_cache(
+            self.root,
+            PrivacyRules(
+                ignore=[],
+                allow=[],
+                permissions=[{"scope": "document", "id": "doc1", "permission": "read_only"}],
+            ),
+        )
+        server, client, original = self._server_and_client()
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_doc_manage({
+                    "document": "/Main/Projects/Doc One",
+                    "action": "rename",
+                    "new_title": "Nope",
+                    "confirmed": True,
+                })
+            self.assertIn("read_only", str(ctx.exception))
+            self.assertFalse(client._renamed_docs)
+            self.assertFalse(client._snapshots)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_edit_rejects_read_only_document(self):
+        write_privacy_rules_cache(
+            self.root,
+            PrivacyRules(
+                ignore=[],
+                allow=[],
+                permissions=[{"scope": "document", "id": "doc1", "permission": "read_only"}],
+            ),
+        )
+        server, client, original = self._server_and_client({
+            "doc1": [
+                {"id": "b1", "parent_id": "doc1", "root_id": "doc1", "type": "p", "subtype": "", "markdown": "Old", "content": "", "sort": 1},
+            ]
+        })
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_edit({
+                    "document": "/Main/Projects/Doc One",
+                    "action": "single_block_replace",
+                    "start_index": 1,
+                    "start_id": "b1",
+                    "markdown": "New",
+                    "confirmed": True,
+                })
+            self.assertIn("read_only", str(ctx.exception))
+            self.assertFalse(client._updated_blocks)
+            self.assertFalse(client._snapshots)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_doc_manage_export_writes_markdown_without_snapshot(self):
+        server, client, original = self._server_and_client()
+        client._docs["doc1"] = "# Exported\n\nBody"
+        try:
+            result = server.siyuan_doc_manage({
+                "document": "/Main/Projects/Doc One",
+                "action": "export",
+            })
+            self.assertIn("文档已导出", result)
+            self.assertFalse(client._snapshots)
+            exported = list((self.root / "ai_workspace" / "exports").glob("*.md"))
+            self.assertEqual(len(exported), 1)
+            self.assertEqual(exported[0].read_text(encoding="utf-8"), "# Exported\n\nBody")
         finally:
             mcp_server.detect_active_profile = original
 

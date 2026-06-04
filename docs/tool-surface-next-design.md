@@ -2,7 +2,7 @@
 
 日期：2026-06-03
 
-状态：工具删除和命名统一已进入 0.2.0 发布准备；权限三档和文档文件操作仍待实现。
+状态：工具删除、命名统一、文档级管理工具和权限模型第一版均已实现。
 
 ## 背景
 
@@ -48,47 +48,52 @@
 - 对通用 AI 使用者而言，`read / find / edit / create / list` 已经足够明确。
 - 参数和工具说明中继续明确目标是 SiYuan 文档，避免语义漂移。
 
-## 待实现：新增文档文件操作工具
+## 已完成：新增文档级管理工具
 
 需要提供文档级文件操作：
 
 - 修改文档名称
 - 移动文档位置
 - 删除某篇文档
+- 复制文档
+- 导出文档
 
-建议做成一个综合工具：
+已实现为一个综合工具：
 
 ```text
-siyuan_file
+siyuan_doc_manage
 ```
 
-候选 actions：
+actions：
 
 - `rename`
 - `move`
 - `delete`
+- `copy`
+- `export`
 
 理由：
 
 - 这些操作属于文档树/文件管理，不是正文内容编辑。
 - 综合成一个工具能减少工具数量，同时保留操作语义清晰。
 - 删除、移动、重命名都属于较高风险操作，应统一走权限检查和确认机制。
+- `copy` 和 `export` 属于读取派生操作，源文档只需可读；其中 `copy` 会创建新文档，仍需 `confirmed=true` 和写前快照。
 
 安全要求：
 
 - 必须 `confirmed=true`。
 - 执行前创建 SiYuan 工作空间快照。
 - 隐藏文档不可操作。
-- 只读文档不可操作。
 - `read_write` 权限的文档才允许 rename / move / delete。
+- `read_only` 文档允许 copy / export，不允许 rename / move / delete。
 - 删除文档需要在返回信息中明确提示可通过 SiYuan 快照手动恢复。
 
-是否把 create 也并入 `siyuan_file`：
+是否把 create 也并入 `siyuan_doc_manage`：
 
 - 暂不建议。`siyuan_create` 是内容写入入口的一部分，和 `siyuan_edit` 关系更近。
-- `rename / move / delete` 是文档存在后的管理操作，适合聚合。
+- `rename / move / delete / copy / export` 是文档存在后的管理操作，适合聚合。
 
-## 待实现：细化权限控制
+## 已完成：细化权限控制第一版
 
 当前隐私规则只有隐藏/展示两档，下一步扩展为：
 
@@ -126,6 +131,8 @@ permission = hidden | read_only | read_write
 | rename | no | no | yes |
 | move | no | no | yes |
 | delete | no | no | yes |
+| copy | no | yes | yes |
+| export | no | yes | yes |
 
 开放问题：
 
@@ -136,6 +143,6 @@ permission = hidden | read_only | read_write
 ## 实施顺序
 
 1. 已完成工具删除和命名统一。
-2. 下一步实现权限模型扩展，兼容旧 Privacy Rules 格式。
-3. 再新增 `siyuan_file`，把 rename / move / delete 统一接入权限检查。
+2. 已实现权限模型扩展第一版，兼容旧 Privacy Rules 格式。
+3. 已新增 `siyuan_doc_manage`，把 rename / move / delete / copy / export 统一接入权限检查。
 4. 最后更新 Skill、README、安装说明和测试。

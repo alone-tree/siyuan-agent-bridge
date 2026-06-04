@@ -28,7 +28,7 @@
 | 笔记本管理 | `/api/notebook/createNotebook`, rename/remove 类端点 | 创建、重命名、删除笔记本 | 不开放。笔记本管理是人工决策 |
 | 文档树读取 | `/api/filetree/listDocsByPath`, `/api/filetree/getHPathByID`, `/api/filetree/getIDsByHPath` | 解析文档路径、结构和 ID | 内部使用或现有只读工具间接使用 |
 | 文档创建 | `/api/filetree/createDocWithMd` | 创建新文档 | 暴露为 `siyuan_create` |
-| 文档结构变更 | rename/remove/move doc 类端点 | 重命名、删除、移动文档 | 暂不开放；后续考虑 `siyuan_file` |
+| 文档结构变更 | `/api/filetree/renameDocByID`, `/api/filetree/removeDocByID`, `/api/filetree/moveDocsByID` | 重命名、删除、移动文档 | 通过 `siyuan_doc_manage` 封装，写前快照 |
 | 块读取 | `/api/block/getBlockKramdown`, `/api/block/getChildBlocks` | 读取块内容、构建块窗口、引用阅读定位 | 内部使用 |
 | 块编辑 | `/api/block/updateBlock`, `/api/block/appendBlock`, `/api/block/insertBlock`, `/api/block/prependBlock` | 实现文档内增删改 | 只由 `siyuan_edit` 内部调用 |
 | 块删除/移动 | `/api/block/deleteBlock`, `/api/block/moveBlock` | 删除或移动块 | 删除由 `siyuan_edit` 的 `delete` 动作封装；移动暂不开放 |
@@ -46,12 +46,13 @@
 
 ## 当前写入 API 组合
 
-当前暴露两个写入 MCP 工具：
+当前暴露三个会修改思源内容的 MCP 工具：
 
 | MCP 工具 | 用户语义 | 内部 API 组合 |
 |----------|----------|---------------|
 | `siyuan_edit` | 在已有可见文档中替换、追加、删除、插入文本，或编辑普通 Markdown 表格 | 隐私检查；引用阅读定位校验；`repo/createSnapshot`；`block/updateBlock` / `appendBlock` / `insertBlock` / `deleteBlock`；`notification/pushMsg` |
 | `siyuan_create` | 通过完整可读路径创建、覆盖或新增同名文档 | 隐私和路径检查；`repo/createSnapshot`；`filetree/createDocWithMd` 或 `block/deleteBlock` + `block/appendBlock`；`notification/pushMsg` |
+| `siyuan_doc_manage` | 管理文档树：改名、移动、删除、复制、导出 | 权限检查；`copy/export` 允许只读；`rename/move/delete` 需可写；写操作调用 `repo/createSnapshot`；内部使用 `renameDocByID` / `moveDocsByID` / `removeDocByID` / `createDocWithMd` / `exportMdContent` |
 
 AI 不需要知道这些底层端点。它只提供：
 
@@ -149,8 +150,8 @@ timestamp
 | API 类型 | 原因 |
 |----------|------|
 | `checkoutRepo` | 恢复整个工作空间，可能覆盖用户后续修改 |
-| `removeNotebook` / `removeDocByID` | 删除范围大，误用代价高 |
-| `moveDocsByID` / `moveBlock` | 改变知识库结构，适合用户在 UI 中操作 |
+| `removeNotebook` | 删除范围大，笔记本管理是人工决策 |
+| `moveBlock` | 块移动会改变正文结构，暂不开放 |
 | `deleteBlock` 独立工具 | 删除由 `siyuan_edit` 的 `delete` 动作封装，仍受引用阅读定位和快照约束 |
 | 任意 SQL 工具 | 容易泄露隐私边界外的数据，也可能诱导 AI 绕过高层工具 |
 | 设置、同步、账号、插件、集市类 API | 和笔记编辑目标无关，风险大于收益 |

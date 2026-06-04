@@ -101,6 +101,7 @@ siyuan_find
 siyuan_read
 siyuan_create
 siyuan_edit
+siyuan_doc_manage
 ```
 
 如果用户是覆盖安装新版，通常只需要在 AI 客户端中新建会话即可加载最新 MCP 工具面。若工具列表仍不正确，再重启 AI 客户端。
@@ -112,6 +113,7 @@ siyuan_edit
 3. 用 `siyuan_create` 创建一篇测试文档，`confirmed=true`
 4. 用 `siyuan_read(include_block_ids=true)` 读取测试文档
 5. 用 `siyuan_edit` 追加或修改一小段文本，`confirmed=true`
+6. 可用 `siyuan_doc_manage(action=export)` 验证文档导出
 
 ## 安全规则
 

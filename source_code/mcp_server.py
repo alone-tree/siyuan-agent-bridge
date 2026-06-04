@@ -15,6 +15,7 @@ from .config import detect_active_profile, load_config
 from .ignore import (
     PrivacyRules,
     compile_rules,
+    document_permission,
     filter_documents,
     load_privacy_rules,
     rule_matches_doc,
@@ -1088,6 +1089,7 @@ class McpServer:
             "siyuan_read": self.siyuan_read,
             "siyuan_create": self.siyuan_create,
             "siyuan_edit": self.siyuan_edit,
+            "siyuan_doc_manage": self.siyuan_doc_manage,
         }
         if name not in tools:
             return make_error(request_id, -32602, f"Unknown tool: {name}")
@@ -1739,12 +1741,25 @@ class McpServer:
         notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
         docs = filter_documents(load_docs(self.root), load_privacy_rules(self.root))
         target = resolve_create_target(args, notebooks, docs, title)
+        all_docs = load_docs(self.root)
+        privacy = load_privacy_rules(self.root)
+        target_doc_for_permission = {
+            "id": "",
+            "notebook_id": target.notebook_id,
+            "notebook_name": target.notebook_name,
+            "hpath": target.internal_path,
+        }
+        if document_permission(target_doc_for_permission, privacy, all_docs) != "read_write":
+            raise ValueError("目标路径权限不是 read_write，不允许创建或覆盖文档。")
 
         # Prevent creating Privacy Rules document
         if is_privacy_rules_document(target.internal_path.strip("/")):
             raise ValueError(
                 "Privacy Rules 文档不可通过 AI 创建。隐私规则由人类在思源中维护。"
             )
+        for existing in target.existing_docs:
+            if document_permission(existing, privacy, all_docs) != "read_write":
+                raise ValueError(f"目标文档权限不是 read_write，不允许写入：{display_document_path(existing)}")
 
         if target.existing_docs and if_exists == "reject":
             choices = "\n".join(
@@ -1962,6 +1977,10 @@ class McpServer:
         doc_id = str(doc.get("id", ""))
         doc_title = display_document_path(doc)
         notebook_id = str(doc.get("notebook_id", ""))
+        all_docs = load_docs(self.root)
+        permission = document_permission(doc, load_privacy_rules(self.root), all_docs)
+        if permission != "read_write":
+            raise ValueError(f"当前文档权限为 {permission}，不允许编辑。")
 
         _profile, client = detect_active_profile(load_config(self.root))
 
@@ -2175,6 +2194,163 @@ class McpServer:
             "如需回滚，可通过思源快照手动恢复。",
         ])
         return "\n".join(parts)
+
+    def siyuan_doc_manage(self, args: dict[str, Any]) -> str:
+        action = str(args.get("action") or "").strip().casefold()
+        allowed_actions = {"rename", "move", "delete", "copy", "export"}
+        if action not in allowed_actions:
+            raise ValueError("action 只支持 rename、move、delete、copy、export。")
+
+        doc = self.resolve_visible_document(args)
+        doc_id = str(doc.get("id", ""))
+        doc_path = display_document_path(doc)
+        notebook_id = str(doc.get("notebook_id", ""))
+        docs = load_docs(self.root)
+        privacy = load_privacy_rules(self.root)
+        permission = document_permission(doc, privacy, docs)
+        if permission == "hidden":
+            raise ValueError("未找到匹配的可见文档。文档可能已被隐藏、尚未索引，或定位符有误。")
+
+        write_actions = {"rename", "move", "delete"}
+        if action in write_actions and permission != "read_write":
+            raise ValueError(f"当前文档权限为 {permission}，不允许 {action}。")
+        if action in write_actions | {"copy"} and not bool(args.get("confirmed")):
+            raise ValueError(f"action={action} 需要 confirmed=true。")
+
+        _profile, client = detect_active_profile(load_config(self.root))
+
+        if action == "export":
+            with ensure_notebooks_open(client, [notebook_id]):
+                markdown = client.export_markdown(doc_id)
+            exports_dir = self.root / "ai_workspace" / "exports"
+            exports_dir.mkdir(parents=True, exist_ok=True)
+            safe_name = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', "_", doc_path.strip("/") or doc_id)
+            export_path = exports_dir / f"{safe_name}.md"
+            export_path.write_text(markdown, encoding="utf-8")
+            return "\n".join([
+                "# 文档已导出",
+                "",
+                f"文档：{doc_path}（`{doc_id}`）",
+                f"格式：Markdown",
+                f"路径：{export_path.resolve()}",
+            ])
+
+        new_title = ""
+        target_id = ""
+        target_label = ""
+        copy_target: CreateTarget | None = None
+        copy_title = ""
+        if action == "rename":
+            new_title = str(args.get("new_title") or "").strip()
+            if not new_title:
+                raise ValueError("action=rename 需要 new_title。")
+        elif action == "move":
+            target_parent = str(args.get("target_parent") or "").strip()
+            if not target_parent:
+                raise ValueError("action=move 需要 target_parent，例如 /Notebook 或 /Notebook/Folder。")
+            target_id, target_label = self.resolve_doc_manage_parent(target_parent)
+        elif action == "copy":
+            target_path = str(args.get("target_path") or "").strip()
+            target_title = str(args.get("target_title") or "").strip()
+            if not target_path and not target_title:
+                raise ValueError("action=copy 需要 target_path 或 target_title。")
+            if target_path:
+                copy_title = target_path.strip("/").split("/")[-1]
+            else:
+                copy_title = target_title
+                source_parent = "/".join(doc_path.strip("/").split("/")[:-1])
+                target_path = normalize_display_path(f"{source_parent}/{target_title}")
+            if not copy_title:
+                raise ValueError("复制目标标题为空。")
+            notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
+            visible_docs = filter_documents(load_docs(self.root), privacy)
+            copy_target = resolve_create_target({"path": target_path}, notebooks, visible_docs, copy_title)
+            target_doc_for_permission = {
+                "id": "",
+                "notebook_id": copy_target.notebook_id,
+                "notebook_name": copy_target.notebook_name,
+                "hpath": copy_target.internal_path,
+            }
+            if document_permission(target_doc_for_permission, privacy, docs) != "read_write":
+                raise ValueError("复制目标路径权限不是 read_write，不允许创建副本。")
+            if copy_target.existing_docs:
+                choices = "\n".join(f"- `{item.get('id', '')}` {display_document_path(item)}" for item in copy_target.existing_docs)
+                raise ValueError("复制目标文档已存在，拒绝覆盖。\n" + choices)
+
+        snapshot_status = self._create_snapshot_or_raise(client, "siyuan_doc_manage", doc_path)
+
+        if action == "rename":
+            with ensure_notebooks_open(client, [notebook_id]):
+                client.rename_doc_by_id(doc_id, new_title)
+            result_line = f"已重命名为：{new_title}"
+
+        elif action == "move":
+            with ensure_notebooks_open(client, [notebook_id]):
+                client.move_docs_by_id([doc_id], target_id)
+            result_line = f"已移动到：{target_label}"
+
+        elif action == "delete":
+            with ensure_notebooks_open(client, [notebook_id]):
+                client.remove_doc_by_id(doc_id)
+            result_line = "已删除文档。可通过思源快照手动恢复。"
+
+        elif action == "copy":
+            assert copy_target is not None
+            with ensure_notebooks_open(client, [notebook_id, copy_target.notebook_id]):
+                markdown = client.export_markdown(doc_id)
+                result = client.create_doc_with_md(copy_target.notebook_id, copy_target.internal_path, markdown)
+            new_doc_id = str(result.get("id") or result.get("docID") or result.get("doc_id") or "")
+            result_line = f"已复制到：{copy_target.display_path}" + (f"（`{new_doc_id}`）" if new_doc_id else "")
+
+        try:
+            client.push_msg(f"思源桥：文档管理已完成「{doc_path}」")
+        except Exception:
+            pass
+
+        refresh_ok = False
+        if action != "export":
+            try:
+                refresh_index(client, self.root)
+                refresh_ok = True
+            except Exception:
+                pass
+
+        parts = [
+            "# 文档管理已完成",
+            "",
+            f"文档：{doc_path}（`{doc_id}`）",
+            f"action：{action}",
+            result_line,
+            f"快照：{snapshot_status}",
+        ]
+        if action != "export":
+            parts.append("索引：已自动刷新" if refresh_ok else "索引：自动刷新失败，请手动运行 `siyuan_refresh_index`")
+        if action == "delete":
+            parts.append("如需回滚，可通过思源快照手动恢复。")
+        return "\n".join(parts)
+
+    def resolve_doc_manage_parent(self, target_parent: str) -> tuple[str, str]:
+        path = normalize_display_path(target_parent)
+        if not path:
+            raise ValueError("target_parent 不能为空。")
+        docs = filter_documents(load_docs(self.root), load_privacy_rules(self.root))
+        notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
+        notebook = next(
+            (nb for nb in notebooks if normalize_display_path(str(nb.get("name", ""))).casefold() == path.casefold()),
+            None,
+        )
+        if notebook is not None:
+            return str(notebook.get("id", "")), normalize_display_path(str(notebook.get("name", "")))
+        matches = [
+            doc for doc in docs
+            if display_document_path(doc).casefold() == path.casefold()
+        ]
+        if len(matches) == 1:
+            return str(matches[0].get("id", "")), display_document_path(matches[0])
+        if len(matches) > 1:
+            choices = "\n".join(f"- `{doc.get('id')}` {display_document_path(doc)}" for doc in matches)
+            raise ValueError(f"target_parent 存在歧义：\n{choices}")
+        raise ValueError(f"未找到可见 target_parent：{path}")
 
     def resolve_notebook_id(self, notebook_name: str) -> str:
         notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
@@ -2445,6 +2621,25 @@ def tool_specs() -> list[dict[str, Any]]:
                     "confirmed": {"type": "boolean", "description": "Must be true. Editing SiYuan documents requires explicit user approval."},
                 },
                 "required": ["action", "confirmed"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "siyuan_doc_manage",
+            "description": "Manage visible SiYuan documents at the document-tree level, not document body editing. Actions: rename, move, delete, copy, export. copy/export are allowed for readable documents. rename/move/delete require read_write permission, confirmed=true, and create a SiYuan workspace snapshot before writing. copy also requires confirmed=true because it creates a new document. export writes Markdown to ai_workspace/exports and does not modify SiYuan.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "document": {"type": "string", "description": "Document path including notebook name, e.g. /Notebook/Folder/Doc. Preferred."},
+                    "document_id": {"type": "string", "description": "Document id fallback when path is ambiguous or unavailable."},
+                    "action": {"type": "string", "enum": ["rename", "move", "delete", "copy", "export"], "description": "Document management action."},
+                    "new_title": {"type": "string", "description": "Required for action=rename."},
+                    "target_parent": {"type": "string", "description": "Required for action=move. Visible target notebook or parent document path, e.g. /Notebook or /Notebook/Folder."},
+                    "target_path": {"type": "string", "description": "For action=copy. Preferred full readable target path /Notebook/Folder/New Doc."},
+                    "target_title": {"type": "string", "description": "For action=copy when copying next to the source document."},
+                    "confirmed": {"type": "boolean", "description": "Required for rename/move/delete/copy. Not required for export."},
+                },
+                "required": ["action"],
                 "additionalProperties": False,
             },
         },

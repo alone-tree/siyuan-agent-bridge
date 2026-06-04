@@ -197,6 +197,30 @@ class SiYuanClient:
             raise SiYuanApiError("Unexpected createDocWithMd response shape")
         return data
 
+    def rename_doc_by_id(self, doc_id: str, title: str) -> dict[str, Any]:
+        data = self._post("/api/filetree/renameDocByID", {"id": doc_id, "title": title})
+        if data is None:
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        return data
+
+    def remove_doc_by_id(self, doc_id: str) -> dict[str, Any]:
+        data = self._post("/api/filetree/removeDocByID", {"id": doc_id})
+        if data is None:
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        return data
+
+    def move_docs_by_id(self, doc_ids: list[str], target_id: str) -> dict[str, Any]:
+        data = self._post("/api/filetree/moveDocsByID", {"fromIDs": doc_ids, "toID": target_id})
+        if data is None:
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        return data
+
     def update_block(self, block_id: str, markdown: str, ial: str | None = None) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "id": block_id,

@@ -38,6 +38,7 @@ description: Use when the user wants to read, search, or write their private SiY
 - `siyuan_create`、`siyuan_edit` —— 写入工具。始终 `confirmed=true`。写入前自动创建思源工作空间快照。默认不写入，除非用户明确要求。
 - `siyuan_create` 优先传完整可读路径 `path=/Notebook/Folder/Doc`；只有笔记本名称重名或使用内部路径时才补充 `notebook_id`。目标已存在时默认 `if_exists=reject`，可显式用 `overwrite` 清空块后重写并保留文档 ID，或用 `create_new` 新增同名文档。
 - 编辑已有文档前，先用 `siyuan_read(include_block_ids=true)` 进行引用阅读，并把返回的块序号和块 ID 作为 `siyuan_edit` 定位参数。
+- `siyuan_doc_manage` —— 管理文档树。`rename/move/delete/copy` 需要用户明确要求和 `confirmed=true`；`rename/move/delete` 还需要可写权限。`export` 只导出可读文档到 `ai_workspace/exports/`。
 - 编辑普通 Markdown 表格时，使用引用阅读返回的网格坐标：`row=0` 是表头，`row>=1` 是数据行，`column_index` 从 1 开始。表格不是数据库，不要把表头、字段或多维表语义混在一起。
 - `siyuan_refresh_index` —— 会话中途刷新索引并清理 `ai_workspace/`（保留 README.md）。
 - 系统笔记本 `思源桥` / `SiYuan Bridge` 及其文档会被自动创建和维护。

@@ -28,7 +28,7 @@ source_code/  (Python 适配层)
     ├── agent_notebook.py → 系统笔记本服务层（确保系统文档就绪）
     ├── config.py        → 多 URL / token 配置加载
     ├── cli.py           → 早期辅助 CLI（开发诊断用，非主要接口）
-    └── mcp_server.py    → MCP stdio server — 面向 AI 的主要接口，暴露 9 个工具给 AI（含 2 个写入工具）
+    └── mcp_server.py    → MCP stdio server — 面向 AI 的主要接口，暴露 8 个工具给 AI
     │
     ▼
 knowledge_base/  (生成的安全索引，每次 refresh 覆盖)
@@ -73,7 +73,7 @@ plugins/siyuan-agent-bridge/  (面向 AI 的指令层)
 |----|------|--------|------|
 | **数据采集层** | 从思源 API 拉取笔记本列表和原始文档块 | Python 脚本 / MCP 工具 | 内存中的数据结构 |
 | **过滤与索引层** | 应用隐私忽略规则，过滤后生成结构化索引 | `indexer.py` + `ignore.py` | `tree.md` + `docs.jsonl` + `notebooks.json` |
-| **能力暴露层** | 通过 MCP 协议向 AI 暴露读写工具 | `mcp_server.py` (9 tools) | AI 可调用的语义能力 |
+| **能力暴露层** | 通过 MCP 协议向 AI 暴露读写工具 | `mcp_server.py` (8 tools) | AI 可调用的语义能力 |
 
 ### 数据层
 
@@ -2607,7 +2607,7 @@ siyuan_edit
 
 ## 2026-06-03：0.2.0 发布前文档与版本整理
 
-本次发布定位为重大升级：工具面从旧的长名称和 exact text anchor 写入模型，收敛到当前 7 个 MCP 工具：
+本次发布定位为重大升级：工具面从旧的长名称和 exact text anchor 写入模型，收敛到当前 MCP 工具面：
 
 ```text
 siyuan_start
@@ -2617,6 +2617,7 @@ siyuan_find
 siyuan_read
 siyuan_create
 siyuan_edit
+siyuan_doc_manage
 ```
 
 文档分层原则：
@@ -2631,7 +2632,7 @@ siyuan_edit
 - 版本号升至 `0.2.0`。
 - About 模板版本从 `template_version: 2` 升至 `template_version: 3`，新版 About 只介绍当前工具能力、引用阅读、结构化编辑和表格编辑。
 - README 增加 0.2 重大升级说明，但重点放在当前怎么用。
-- INSTALL_FOR_AI 增加当前 7 工具验证和简单读写验证流程。
+- INSTALL_FOR_AI 增加当前工具验证和简单读写验证流程。
 - AGENTS、Skill、API 文档同步新工具名和当前编辑心智。
 
 ## 2026-06-03：siyuan_create 路径语义设计记录
@@ -2685,3 +2686,28 @@ siyuan_edit
 - 在指定块位置插入图片、Excel 等附件：后续增强 `siyuan_edit`，或在附件能力变复杂时单独设计 `siyuan_asset`。
 
 当前结论：`siyuan_doc_manage` 只做文档树管理，不混入导入和附件插入。
+
+## 2026-06-04：siyuan_doc_manage 第一版实现
+
+已实现 `siyuan_doc_manage` MCP 工具。
+
+actions：
+
+- `rename`：调用 `renameDocByID`，需要 `confirmed=true` 和 `read_write` 权限。
+- `move`：调用 `moveDocsByID`，目标为可见笔记本或父文档路径，需要 `confirmed=true` 和 `read_write` 权限。
+- `delete`：调用 `removeDocByID`，需要 `confirmed=true` 和 `read_write` 权限。
+- `copy`：导出源文档 Markdown 后调用 `createDocWithMd` 创建副本；源文档只需可读，但创建副本需要 `confirmed=true` 和写前快照。
+- `export`：导出 Markdown 到 `ai_workspace/exports/`，不修改思源，不需要快照。
+
+权限模型：
+
+- 旧 Privacy Rules 的 `Hide=yes/no` 继续兼容。
+- 新增可选 `Permission` 列，支持 `hidden/read_only/read_write`。
+- `copy/export` 允许 `read_only` 文档。
+- `rename/move/delete` 禁止 `read_only` 文档。
+
+测试：
+
+- 新增 client API payload 测试。
+- 新增 `siyuan_doc_manage` rename / move / delete / copy / export 测试。
+- 新增 `Permission=read_only` 解析和权限判断测试。

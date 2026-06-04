@@ -116,6 +116,48 @@ class ClientTests(unittest.TestCase):
         result = client.create_doc_with_md("nb1", "/Test", "# Hi")
         self.assertEqual(result["id"], "20260503090000-newdoc-string")
 
+    def test_rename_doc_by_id_payload(self):
+        seen = {}
+
+        def transport(req, timeout):
+            seen["url"] = req.full_url
+            seen["body"] = json.loads(req.data.decode("utf-8"))
+            return FakeResponse({"code": 0, "data": {}})
+
+        client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
+        client.rename_doc_by_id("doc1", "New Title")
+
+        self.assertEqual(seen["url"], "http://127.0.0.1:6806/api/filetree/renameDocByID")
+        self.assertEqual(seen["body"], {"id": "doc1", "title": "New Title"})
+
+    def test_remove_doc_by_id_payload(self):
+        seen = {}
+
+        def transport(req, timeout):
+            seen["url"] = req.full_url
+            seen["body"] = json.loads(req.data.decode("utf-8"))
+            return FakeResponse({"code": 0, "data": {}})
+
+        client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
+        client.remove_doc_by_id("doc1")
+
+        self.assertEqual(seen["url"], "http://127.0.0.1:6806/api/filetree/removeDocByID")
+        self.assertEqual(seen["body"], {"id": "doc1"})
+
+    def test_move_docs_by_id_payload(self):
+        seen = {}
+
+        def transport(req, timeout):
+            seen["url"] = req.full_url
+            seen["body"] = json.loads(req.data.decode("utf-8"))
+            return FakeResponse({"code": 0, "data": {}})
+
+        client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
+        client.move_docs_by_id(["doc1"], "target")
+
+        self.assertEqual(seen["url"], "http://127.0.0.1:6806/api/filetree/moveDocsByID")
+        self.assertEqual(seen["body"], {"fromIDs": ["doc1"], "toID": "target"})
+
     def test_update_block_payload(self):
         seen = {}
 

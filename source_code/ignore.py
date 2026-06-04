@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from dataclasses import field
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -11,6 +12,7 @@ from typing import Any, Iterable
 class PrivacyRules:
     ignore: list[dict[str, Any]]
     allow: list[dict[str, Any]]
+    permissions: list[dict[str, Any]] = field(default_factory=list)
 
 
 # ── Privacy Rules cache ────────────────────────────────────────────────
@@ -27,7 +29,8 @@ def load_privacy_rules(root: Path) -> PrivacyRules:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         ignore = [r for r in data.get("ignore", []) if isinstance(r, dict)]
-        return PrivacyRules(ignore=ignore, allow=[])
+        permissions = [r for r in data.get("permissions", []) if isinstance(r, dict)]
+        return PrivacyRules(ignore=ignore, allow=[], permissions=permissions)
     except (json.JSONDecodeError, OSError):
         return PrivacyRules(ignore=[], allow=[])
 
@@ -36,7 +39,7 @@ def write_privacy_rules_cache(root: Path, rules: PrivacyRules) -> None:
     """Write parsed privacy rules to the cache file."""
     cache_dir = root / "knowledge_base"
     cache_dir.mkdir(parents=True, exist_ok=True)
-    payload = {"ignore": rules.ignore, "allow": rules.allow}
+    payload = {"ignore": rules.ignore, "allow": rules.allow, "permissions": rules.permissions}
     cache_dir.joinpath("privacy_rules.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
@@ -92,8 +95,14 @@ REASON_ALIASES: dict[str, list[str]] = {
     "document": ["备注（可选）", "备注", "Note (optional)", "Reason"],
 }
 
+PERMISSION_ALIASES: dict[str, list[str]] = {
+    "notebook": ["Permission", "权限"],
+    "document": ["Permission", "权限"],
+}
+
 ACTIVE_VALUES = frozenset({"是", "yes", "true", "1"})
 INACTIVE_VALUES = frozenset({"否", "no", "false", "0", ""})
+PERMISSION_VALUES = frozenset({"hidden", "read_only", "read_write"})
 
 
 class PrivacyRulesParseError(ValueError):
@@ -113,32 +122,35 @@ def parse_privacy_rules_markdown(
     """
     errors: list[str] = []
     ignore_rules: list[dict[str, Any]] = []
+    permission_rules: list[dict[str, Any]] = []
 
     # Parse notebook section
-    notebook_rules, notebook_errors = _parse_section(
+    notebook_rules, notebook_permissions, notebook_errors = _parse_section(
         markdown, "notebook", all_notebooks
     )
     ignore_rules.extend(notebook_rules)
+    permission_rules.extend(notebook_permissions)
     errors.extend(notebook_errors)
 
     # Parse document section
-    doc_rules, doc_errors = _parse_section(
+    doc_rules, doc_permissions, doc_errors = _parse_section(
         markdown, "document", all_docs
     )
     ignore_rules.extend(doc_rules)
+    permission_rules.extend(doc_permissions)
     errors.extend(doc_errors)
 
     if errors:
         raise PrivacyRulesParseError("\n".join(errors))
 
-    return PrivacyRules(ignore=ignore_rules, allow=[])
+    return PrivacyRules(ignore=ignore_rules, allow=[], permissions=permission_rules)
 
 
 def _parse_section(
     markdown: str,
     section_type: str,
     reference_list: list[dict[str, Any]] | None,
-) -> tuple[list[dict[str, Any]], list[str]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
     """Parse one section (notebook or document) of the Privacy Rules.
 
     Returns (rules, errors).
@@ -152,7 +164,7 @@ def _parse_section(
     heading_match = pattern.search(markdown)
     if heading_match is None:
         # Section missing — OK if there are no rules for it
-        return [], []
+        return [], [], []
 
     # Extract content after this heading until next ## heading or end
     start = heading_match.end()
@@ -165,12 +177,12 @@ def _parse_section(
     # Find the first markdown table in this section
     table_match = re.search(r"^\|.+\|[\s\S]*?(?=\n\n|\n##|\Z)", section_text, re.MULTILINE)
     if not table_match:
-        return [], []
+        return [], [], []
 
     table_text = table_match.group(0).strip()
     lines = [line.strip() for line in table_text.splitlines() if line.strip() and "|" in line]
     if len(lines) < 2:
-        return [], []
+        return [], [], []
 
     # Parse header row
     header_cells = _parse_table_row(lines[0])
@@ -181,6 +193,7 @@ def _parse_section(
     id_col = _find_column(header_cells, ID_ALIASES[section_type])
     name_col = _find_column(header_cells, NAME_ALIASES[section_type])
     reason_col = _find_column(header_cells, REASON_ALIASES[section_type])
+    permission_col = _find_column(header_cells, PERMISSION_ALIASES[section_type])
 
     # Validate header
     if active_col < 0:
@@ -188,14 +201,14 @@ def _parse_section(
             f"{section_label_en} 表头缺少 Hide/Enabled 列。"
             f"请确保表头包含 Hide 或 Enabled 列。"
         )
-        return [], errors
+        return [], [], errors
 
     if section_type == "document" and id_col < 0:
         errors.append(
             f"{section_label_en} 表头缺少 Document ID 列。"
             f"请确保表头包含 Document ID 列。"
         )
-        return [], errors
+        return [], [], errors
 
     # Build reference lookup
     ref_by_id: dict[str, dict[str, Any]] = {}
@@ -211,8 +224,36 @@ def _parse_section(
 
     # Parse data rows (skip header and separator)
     rules: list[dict[str, Any]] = []
+    permission_rules: list[dict[str, Any]] = []
     for row_idx, line in enumerate(lines[2:], start=3):  # 1-based, header=1, sep=2
         cells = _parse_table_row(line)
+
+        permission_raw = _get_cell(cells, permission_col) if permission_col >= 0 else ""
+        permission_clean = permission_raw.strip().casefold()
+        if permission_clean:
+            if permission_clean not in PERMISSION_VALUES:
+                errors.append(
+                    f"{section_label_en} 第 {row_idx} 行：Permission 只能填写 hidden/read_only/read_write。"
+                )
+                continue
+            base_rule = _parse_identity_rule(
+                section_type,
+                row_idx,
+                cells,
+                id_col,
+                name_col,
+                ref_by_id,
+                ref_by_name,
+                section_label_en,
+                errors,
+            )
+            if base_rule is None:
+                continue
+            if permission_clean == "hidden":
+                rules.append(base_rule)
+            else:
+                permission_rules.append({**base_rule, "permission": permission_clean})
+            continue
 
         active_raw = _get_cell(cells, active_col)
         # Check valid active value
@@ -225,56 +266,68 @@ def _parse_section(
             )
             continue
 
-        rule: dict[str, Any] = {"scope": section_type}
-
-        # Parse ID and validate
-        raw_id = _get_cell(cells, id_col) if id_col >= 0 else ""
-        rule_id = raw_id.strip()
-
-        if section_type == "document":
-            if not rule_id:
-                errors.append(
-                    f"{section_label_en} 第 {row_idx} 行：Document ID 为空。"
-                )
-                continue
-            # Validate document ID exists
-            if ref_by_id and rule_id not in ref_by_id:
-                errors.append(
-                    f"{section_label_en} 第 {row_idx} 行：Document ID 不存在或不可访问。"
-                )
-                continue
-            rule["id"] = rule_id
-
-        elif section_type == "notebook":
-            if rule_id:
-                # Validate notebook ID exists
-                if ref_by_id and rule_id not in ref_by_id:
-                    errors.append(
-                        f"{section_label_en} 第 {row_idx} 行：Notebook ID 不存在或不可访问。"
-                    )
-                    continue
-                rule["id"] = rule_id
-            else:
-                # Try notebook name
-                raw_name = _get_cell(cells, name_col) if name_col >= 0 else ""
-                rule_name = raw_name.strip()
-                if not rule_name:
-                    errors.append(
-                        f"{section_label_en} 第 {row_idx} 行：Notebook ID 和名称都为空。"
-                    )
-                    continue
-                matched = ref_by_name.get(rule_name.casefold(), []) if ref_by_name else []
-                if not matched and ref_by_name:
-                    errors.append(
-                        f"{section_label_en} 第 {row_idx} 行：笔记本名称未匹配到任何笔记本。"
-                    )
-                    continue
-                # If multiple notebooks share the name, hide all
-                rule["name"] = rule_name
+        rule = _parse_identity_rule(
+            section_type,
+            row_idx,
+            cells,
+            id_col,
+            name_col,
+            ref_by_id,
+            ref_by_name,
+            section_label_en,
+            errors,
+        )
+        if rule is None:
+            continue
 
         rules.append(rule)
 
-    return rules, errors
+    return rules, permission_rules, errors
+
+
+def _parse_identity_rule(
+    section_type: str,
+    row_idx: int,
+    cells: list[str],
+    id_col: int,
+    name_col: int,
+    ref_by_id: dict[str, dict[str, Any]],
+    ref_by_name: dict[str, list[dict[str, Any]]],
+    section_label_en: str,
+    errors: list[str],
+) -> dict[str, Any] | None:
+    rule: dict[str, Any] = {"scope": section_type}
+    raw_id = _get_cell(cells, id_col) if id_col >= 0 else ""
+    rule_id = raw_id.strip()
+
+    if section_type == "document":
+        if not rule_id:
+            errors.append(f"{section_label_en} 第 {row_idx} 行：Document ID 为空。")
+            return None
+        if ref_by_id and rule_id not in ref_by_id:
+            errors.append(f"{section_label_en} 第 {row_idx} 行：Document ID 不存在或不可访问。")
+            return None
+        rule["id"] = rule_id
+        return rule
+
+    if rule_id:
+        if ref_by_id and rule_id not in ref_by_id:
+            errors.append(f"{section_label_en} 第 {row_idx} 行：Notebook ID 不存在或不可访问。")
+            return None
+        rule["id"] = rule_id
+        return rule
+
+    raw_name = _get_cell(cells, name_col) if name_col >= 0 else ""
+    rule_name = raw_name.strip()
+    if not rule_name:
+        errors.append(f"{section_label_en} 第 {row_idx} 行：Notebook ID 和名称都为空。")
+        return None
+    matched = ref_by_name.get(rule_name.casefold(), []) if ref_by_name else []
+    if not matched and ref_by_name:
+        errors.append(f"{section_label_en} 第 {row_idx} 行：笔记本名称未匹配到任何笔记本。")
+        return None
+    rule["name"] = rule_name
+    return rule
 
 
 def _parse_table_row(line: str) -> list[str]:
@@ -376,6 +429,24 @@ def rule_matches_doc(rule: dict[str, Any], doc: dict[str, Any]) -> bool:
     if scope in ("document", "subtree"):
         return _matches_subtree(rule, doc)
     return False
+
+
+def document_permission(doc: dict[str, Any], rules: PrivacyRules, docs: list[dict[str, Any]]) -> str:
+    """Return hidden, read_only, or read_write for a document."""
+    compiled_ignore = compile_rules(rules.ignore, docs)
+    if any(rule_matches_doc(rule, doc) for rule in compiled_ignore):
+        return "hidden"
+    compiled_permissions = compile_rules(rules.permissions, docs)
+    matched = [
+        str(rule.get("permission") or "read_write").strip().casefold()
+        for rule in compiled_permissions
+        if rule_matches_doc(rule, doc)
+    ]
+    if "hidden" in matched:
+        return "hidden"
+    if "read_only" in matched:
+        return "read_only"
+    return "read_write"
 
 
 # ── Internal helpers ────────────────────────────────────────────────────

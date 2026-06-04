@@ -8,6 +8,7 @@ from pathlib import Path
 from source_code.ignore import (
     PrivacyRules,
     PrivacyRulesParseError,
+    document_permission,
     filter_documents,
     load_privacy_rules,
     parse_privacy_rules_markdown,
@@ -448,6 +449,36 @@ class PrivacyRulesParsingTests(unittest.TestCase):
         self.assertEqual(len(rules.ignore), 2)
         scopes = {r["scope"] for r in rules.ignore}
         self.assertEqual(scopes, {"notebook", "document"})
+
+    def test_permission_column_parses_read_only_document(self):
+        markdown = """## 隐藏文档
+
+| Hide | Permission | Document ID | Title |
+|------|------------|-------------|-------|
+| no | read_only | doc-1 | 文档1 |
+"""
+        rules = parse_privacy_rules_markdown(
+            markdown,
+            all_docs=[{"id": "doc-1", "title": "文档1"}],
+        )
+        self.assertEqual(rules.ignore, [])
+        self.assertEqual(rules.permissions[0]["permission"], "read_only")
+
+    def test_document_permission_returns_read_only(self):
+        docs = [
+            {
+                "id": "doc-1",
+                "notebook_id": "nb1",
+                "notebook_name": "Main",
+                "hpath": "/Doc",
+            }
+        ]
+        rules = PrivacyRules(
+            ignore=[],
+            allow=[],
+            permissions=[{"scope": "document", "id": "doc-1", "permission": "read_only"}],
+        )
+        self.assertEqual(document_permission(docs[0], rules, docs), "read_only")
 
     def test_active_values_compatibility(self):
         for active_val in ("是", "yes", "true", "1"):
