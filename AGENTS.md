@@ -85,7 +85,7 @@ pytest tests/ -v
 
 ## External Agent Test
 
-涉及 MCP 工具面、Skill、安装配置或跨 Agent 行为时，常规单元测试后还应调用 Claude Code 做一次外部验证。必须在当前项目目录 `D:\Github\siyuan-agent-bridge` 下运行，MCP 配置也必须指向当前项目的 `plugins/siyuan-agent-bridge/scripts/run_mcp.py`。优先用 Claude Code 非交互模式检查工具列表和关键工具 schema；如果 Claude Code 因登录、网络或 API 错误不可用，改用本地 JSON-RPC 探针直接调用 `initialize` 和 `tools/list`，确认工具数量和名称。
+涉及 MCP 工具面、Skill、安装配置或跨 Agent 行为时，常规单元测试后还应调用 Claude Code 做一次外部验证。必须在当前项目目录 `D:\Github\siyuan-agent-bridge` 下运行，项目级 MCP 名称为 `siyuan-bridge-dev`，配置文件是根目录 `.mcp.json`，并指向当前项目的 `plugins/siyuan-agent-bridge/scripts/run_mcp.py`。先用 `claude mcp list` / `claude mcp get siyuan-bridge-dev` 确认 Claude Code 已连接项目 MCP；再优先用 Claude Code 新会话检查工具列表和关键工具 schema。如果 `claude -p` 因登录、网络或 API 错误不可用，改用本地 JSON-RPC 探针直接调用 `initialize` 和 `tools/list`，确认工具数量和名称。
 
 ## Build & Release
 
