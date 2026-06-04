@@ -555,3 +555,27 @@ AI 想编辑文档时，最自然需要的是：
 `siyuan_edit` 当前已实现 `single_block_replace`、`multi_block_replace`、`insert_after`、`insert_before`、`append`、`delete`、`table_edit`。其中 `table_edit` 只支持普通 Markdown 表格；数据库/属性视图仍保持只读。
 
 旧的 exact text anchor 编辑入口已经移除，当前统一使用 `siyuan_edit`。
+
+## 2026-06-04：文档管理、导入与附件边界
+
+新增文档级管理工具命名为 `siyuan_doc_manage`，用于文档树操作，不处理正文内容。
+
+第一版 action：
+
+- `rename`
+- `move`
+- `delete`
+- `copy`
+- `export`
+
+权限边界：
+
+- `copy`、`export` 只需要文档可读。
+- `rename`、`move`、`delete` 需要文档可写，且仍需 `confirmed=true`。
+
+暂不放入 `siyuan_doc_manage`：
+
+- 外部文件导入为思源文档：后续单独设计 `siyuan_import`。
+- 在文档指定位置插入图片、Excel 等附件：属于正文编辑，后续通过 `siyuan_edit` 增强或单独设计 `siyuan_asset`。
+
+理由：文档树管理、外部导入、附件上传/插入是三类不同风险面。第一版保持 `siyuan_doc_manage` 聚焦，避免工具语义膨胀。

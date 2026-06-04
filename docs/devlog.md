@@ -2661,3 +2661,27 @@ siyuan_edit
 - 106 个单元测试全部通过。
 - MCP 端到端验证通过：另一个 Claude Code 实例通过 siyuan-bridge MCP 成功完成完整路径创建→默认拒绝→overwrite→确认覆盖 7 步测试，以及不传 if_exists 的默认行为测试（路径存在拒绝/路径不存在正常创建）。
 - 清理过时记忆文件，siyuan_create 路径统一问题已闭环。
+
+## 2026-06-04：siyuan_doc_manage 边界记录
+
+下一阶段新增文档级管理工具，命名为 `siyuan_doc_manage`。命名要求来自工具语义清晰原则：既说明操作对象是思源文档，也说明用途是管理，而不是正文读取或编辑。
+
+第一版 action：
+
+- `rename`
+- `move`
+- `delete`
+- `copy`
+- `export`
+
+权限规则：
+
+- `copy`、`export`：可读文档允许。
+- `rename`、`move`、`delete`：需要可写权限和 `confirmed=true`。
+
+暂缓：
+
+- 外部文件导入为思源文档：后续单独设计 `siyuan_import`。
+- 在指定块位置插入图片、Excel 等附件：后续增强 `siyuan_edit`，或在附件能力变复杂时单独设计 `siyuan_asset`。
+
+当前结论：`siyuan_doc_manage` 只做文档树管理，不混入导入和附件插入。
