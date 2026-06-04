@@ -1,87 +1,109 @@
-# SiYuan Agent Bridge — Developer Guide
+# SiYuan Agent Bridge — Agent Navigation
 
 Python 项目，MCP + Skill 架构。产品界面是 MCP 工具和 Skill，CLI 仅供开发诊断。
 
-## Project Structure
+本文件是入口导航，不替代架构文档和开发指南。它告诉 AI：项目有哪些部分、先读什么、不同任务该接到哪些文档和代码位置。详细规则放在 `docs/DEVELOPMENT_GUIDE.md`；真实架构和工具契约放在 `docs/ARCHITECTURE.md`。
 
-```
-source_code/         Python 适配层
-  client.py          → SiYuan HTTP API 封装（读写）
-  indexer.py         → 扫描笔记本 → 生成 tree.md + docs.jsonl
-  mcp_server.py      → MCP stdio server（8 个工具）
-  ignore.py          → 隐私规则解析（Markdown 表格）与过滤
-  i18n.py            → 多语言解析、系统名称映射、默认模板
-  agent_notebook.py  → 系统笔记本服务层
-  config.py          → 配置加载
-  cli.py             → 开发诊断 CLI
-plugins/             Skill 打包材料（供 CC Switch 导入）
-  siyuan-agent-bridge/
-    skills/          → siyuan-agent-bridge SKILL.md（使用者工作流）
-    scripts/         → run_mcp.py（MCP stdio 启动脚本）
-knowledge_base/      生成的索引（Git 忽略，仅本地存在）
-  tree.md            → 程序生成，每次 refresh 覆盖
-  docs.jsonl         → 结构化文档元数据
-  notebooks.json     → 笔记本索引
-  privacy_rules.json → 隐私规则缓存（从思源 Markdown 表格解析）
-思源系统笔记本        跟随工作空间，refresh 时自动确保
-  思源桥/（兼容旧名 思源代理桥/）
-    AI Guide            → AI 使用规则和用户偏好（确保存在，不覆盖）
-    Workspace Index     → AI 语义导航索引（siyuan-index-builder 维护）
-    About SiYuan Bridge → 给人看的工具说明（版本标识触发覆盖）
-    Privacy Rules       → 人类维护的隐藏规则（MCP 内部解析，AI 不可读）
-ai_workspace/        AI 工作区（Git 忽略）
-dist/                构建产物（Skill zip + MCP 配置）
-pack_skill.py        一键打包 Skill 压缩包到 dist/
-tests/               测试
-docs/                说明文档（PD.md 产品设计文档、devlog.md 工程日志、API 文档等）
-```
-
-## Documentation
-
-当前正在重整文档体系。新增文档先作为草案保留，旧 `docs/PD.md` 和 `docs/devlog.md` 暂不删除，确认后再迁移。
+## 必读流程
 
 开始改代码前必须完整阅读：
 
-1. 本文件 `AGENTS.md`
-2. `docs/ARCHITECTURE.md`
-3. `docs/DEVELOPMENT_GUIDE.md`
+1. `AGENTS.md`：入口导航、硬性安全规则、任务路由。
+2. `docs/ARCHITECTURE.md`：当前真实架构、数据流、MCP 工具契约、已知债务。
+3. `docs/DEVELOPMENT_GUIDE.md`：开发流程、同步清单、验证规则、外部 Agent 验证。
 
 不允许只读开头，不允许只 grep 局部，不允许跳过中间或后半段。没有完整阅读这三份文档，不准开始修改代码。
 
-文档职责：
+读完三份必读文档后，按任务类型追加阅读下面的对应入口。
 
-- `docs/ARCHITECTURE.md`：最重要的架构文档，记录当前真实状态、工具契约、数据流、设计取舍、已知实现债务和未来计划。
-- `docs/DEVELOPMENT_GUIDE.md`：开发流程、同步清单、工具契约验证、测试要求和已知真实错误模式。
-- `docs/devlog.md`：工程日志、排障记录和阶段性结果。后续应改为新记录写在最前面。重要架构结论必须同步到 `ARCHITECTURE.md`，开发规则必须同步到 `DEVELOPMENT_GUIDE.md`。
-- `docs/思源API.md`：底层思源 API 能力地图和本项目封装策略。
-- `docs/PD.md`：旧产品设计文档，确认迁移前保留；当前事实以 `ARCHITECTURE.md` 为准。
+## 任务路由
+
+| 任务类型 | 先读文档 | 再看代码/材料 |
+|---|---|---|
+| MCP 工具名称、schema、参数、返回格式、权限边界 | `docs/ARCHITECTURE.md` 的 “MCP 工具总览” 和各工具章节；`docs/DEVELOPMENT_GUIDE.md` 的 “修改工具面时必须同步” | `source_code/mcp_server.py` 的实现和 `tool_specs()`；`plugins/siyuan-agent-bridge/skills/siyuan-agent-bridge/SKILL.md`；`README.md`；`INSTALL_FOR_AI.md`；相关测试 |
+| `siyuan_create`、`siyuan_edit`、`siyuan_doc_manage` 写入行为 | `docs/ARCHITECTURE.md` 的 “写入模型”、对应工具章节；`docs/DEVELOPMENT_GUIDE.md` 的 “修改写入模型时必须验证” 和 “修改文档管理时必须验证” | `source_code/mcp_server.py`；`source_code/client.py`；`tests/test_mcp_server.py`；`tests/test_client.py` |
+| 隐私、权限、系统笔记本、Privacy Rules | `docs/ARCHITECTURE.md` 的 “系统笔记本”“隐私与权限模型”；`docs/DEVELOPMENT_GUIDE.md` 的 “修改隐私模型时必须验证” | `source_code/ignore.py`；`source_code/agent_notebook.py`；`source_code/indexer.py`；相关测试 |
+| 索引、列表、搜索、读取、附件、块窗口 | `docs/ARCHITECTURE.md` 的 “索引模型”“搜索模型”“阅读模型”；`docs/DEVELOPMENT_GUIDE.md` 的 “修改读取模型时必须验证” | `source_code/indexer.py`；`source_code/mcp_server.py`；`source_code/client.py`；相关测试 |
+| 思源底层 API 封装 | `docs/思源API.md`；`docs/ARCHITECTURE.md` 的 “底层 API 封装策略” | `source_code/client.py`；`tests/test_client.py` |
+| Workspace Index 工作流 | `docs/ARCHITECTURE.md` 的 “siyuan-index-builder Skill”；`plugins/siyuan-agent-bridge/skills/siyuan-index-builder/SKILL.md` | `plugins/siyuan-agent-bridge/skills/siyuan-agent-bridge/SKILL.md`；相关 MCP 工具实现 |
+| 安装、打包、发布材料 | `docs/DEVELOPMENT_GUIDE.md` 的发布/验证部分 | `pack_skill.py`；`pack_release.py`；`mcp_configs/`；`INSTALL_FOR_AI.md`；`README.md` |
+| 历史问题、排障、阶段性结论 | `docs/devlog.md`，优先读最新记录；不要把旧计划当当前事实 | 必要时同步回 `ARCHITECTURE.md` 或 `DEVELOPMENT_GUIDE.md` |
 
 涉及设计决策、工具契约、开发流程或排障结论时，不要只更新代码。必须同步更新对应文档。
 
-## Collaboration Rule
+## 项目地图
+
+```text
+source_code/         Python 适配层
+  client.py          思源 HTTP API 封装
+  indexer.py         扫描笔记本，生成 tree.md / docs.jsonl / notebooks.json
+  mcp_server.py      MCP stdio server，8 个工具的 schema 和实现
+  ignore.py          Privacy Rules Markdown 表格解析与过滤
+  i18n.py            多语言名称、系统文档名、默认模板
+  agent_notebook.py  系统笔记本服务层
+  config.py          配置加载和 profile 探测
+  cli.py             开发诊断 CLI
+
+plugins/
+  siyuan-agent-bridge/
+    skills/          给外部 AI 的 Skill 指令
+    scripts/         run_mcp.py，MCP stdio 启动脚本
+
+knowledge_base/      运行时缓存，Git 忽略，每次 refresh 可能覆盖
+  tree.md            程序生成的客观文档树
+  docs.jsonl         结构化文档元数据
+  notebooks.json     可见笔记本索引
+  privacy_rules.json Privacy Rules 解析缓存
+
+思源系统笔记本        跟随当前思源工作空间
+  思源桥/SiYuan Bridge
+    AI Guide            用户偏好和 AI 使用规则，确保存在但不覆盖
+    Workspace Index     AI 维护的语义导航索引，不自动创建
+    About SiYuan Bridge 给人看的说明，模板版本变化时覆盖
+    Privacy Rules       人类维护的隐私规则，AI 不可读
+
+ai_workspace/        AI 临时工作区，Git 忽略
+dist/                构建产物
+tests/               单元测试
+docs/                架构、开发指南、API、devlog、旧 PD
+```
+
+## 核心约束
+
+- MCP-first：用户功能通过 MCP 工具暴露，CLI 只作开发诊断。
+- 默认只读，确认后可写：写入工具必须要求用户明确写入意图和 `confirmed=true`，写入前创建思源快照。
+- 恢复要求：项目不提供 AI 自动回滚/checkout。写入后如需恢复，只能提示用户通过思源快照手动恢复；不要让 AI 调用高风险恢复接口。
+- 不自动启动思源：连接失败只提示用户手动打开思源，不查找程序路径，不模拟启动。
+- Privacy Rules 硬隔离：AI 不可读取、搜索或编辑 Privacy Rules 文档。
+- 系统笔记本由代码维护：AI Guide 确保存在不覆盖；Workspace Index 不自动创建；About 按模板版本维护。
+- 关闭笔记本透明打开：索引、搜索和写入前可临时打开关闭的笔记本，完成后恢复。
+- 工作区可能有用户改动：不要回滚、删除或重置非本任务改动。
+
+## 协作规则
 
 除非用户明确要求修复、实现、改代码、跑测试、提交或执行其他具体操作，否则只查看相关文档和代码，做分析说明，不要擅自行动。
 
-## Response Style
+回复必须精简、明确、直接。不要绕圈子，不要输出无关铺垫。
 
-回复必须精简、明确、直接。不要恭维用户，不要绕圈子，不要输出额外废话。不要为了显得完整而列出五、六、七、八、九、十个点；只保留完成任务所必需的信息。尤其在给建议、总结、解释时，优先短句和结论，避免 OpenAI / Codex 模型常见的冗长铺垫。
+## Windows 命令
 
-## Terminal Encoding
+Windows 上读取中文、输出中文、处理复杂引号或避免 PowerShell 编码问题时，优先使用 CMD UTF-8 包装：
 
-Windows 上需要通过命令行读取中文、输出中文、处理复杂引号或避免 PowerShell 编码问题时，优先统一使用 CMD UTF-8 包装：`cmd /d /s /c "chcp 65001 >nul && <command>"`。这应作为通用命令行入口，而不是默认依赖 PowerShell。示例：`cmd /d /s /c "chcp 65001 >nul && type AGENTS.md"`，`cmd /d /s /c "chcp 65001 >nul && rg -n ""关键词"" AGENTS.md"`，`cmd /d /s /c "chcp 65001 >nul && python -m pytest tests -v"`。注意：如果命令内部还有双引号，例如 `rg` 正则或 `python -c`，在外层 PowerShell 命令字符串里把内部双引号写成 `""...""`。不要使用默认 `Get-Content AGENTS.md`，不要把终端乱码误判为文件损坏。不要使用 `[Console]::OutputEncoding = ...` 作为通用方案，当前受限语言模式下可能报错。
+```bat
+cmd /d /s /c "chcp 65001 >nul && <command>"
+```
 
-## Architecture
+示例：
 
-- **MCP-first**：所有用户功能通过 MCP 工具暴露，CLI 只作为开发者诊断临时使用。
-- **参考 AI 编程工具**：设计 MCP 工具时优先参考现有 AI agent / AI 编程工具的接口思路，例如 Claude Code、Codex 等；本项目大量借鉴这类工具的 list / find / read / edit / create 心智模型。
-- **工具命名语义清晰**：工具名必须让 AI 和用户一眼看出操作对象和动作范围。避免过短、泛化或只暴露内部概念的名称。好例子：`siyuan_read`（读思源文档）、`siyuan_edit`（编辑正文）、`siyuan_create`（创建文档）、`siyuan_doc_manage`（管理文档级操作，如改名/移动/删除/复制/导出）。坏例子：`siyuan_doc`（只说对象，不说明用途）、`siyuan_file`（容易和本地文件/附件混淆）、`siyuan_op`（过泛）。
-- **默认只读，确认后可写**：AI 不应直接调用底层思源写 API。只有在用户明确要求写入时，才使用 `siyuan_create` 或 `siyuan_edit`。写入前自动创建思源工作空间快照。
-- **不自动启动思源**：MCP 工具只探测思源 API 是否可达，不尝试查找程序路径、启动进程或模拟双击。连接失败提示必须保留“请提示用户手动打开思源笔记后重试。”这句话，避免 AI 自行探索启动方案。
-- **隐私预过滤**：隐私规则由用户在思源系统笔记本的 `隐私规则` / `Privacy Rules` 文档中用 Markdown 表格维护。MCP server 内部解析后过滤所有索引导出和搜索结果。AI 不可读取、搜索或编辑隐私规则文档。
-- **关闭笔记本透明打开**：索引、搜索和写入前自动临时打开关闭的笔记本，完成后恢复。
-- **系统笔记本**：`思源桥` / `SiYuan Bridge` 笔记本（兼容旧名 `思源代理桥` / `SiYuan Agent Bridge`）随工作空间切换，存放 AI Guide、Workspace Index、About 和 Privacy Rules 四份文档。由 `ensure_system_notebook()` 在 refresh 时自动管理。
+```bat
+cmd /d /s /c "chcp 65001 >nul && type AGENTS.md"
+cmd /d /s /c "chcp 65001 >nul && rg -n ""关键词"" AGENTS.md"
+cmd /d /s /c "chcp 65001 >nul && python -m pytest tests -q"
+```
 
-## Common Commands
+不要使用默认 `Get-Content AGENTS.md` 读取中文，不要把终端乱码误判为文件损坏。
+
+## 常用入口
 
 ```bash
 # 诊断
@@ -90,7 +112,7 @@ python -m source_code notebooks
 
 # 索引
 python -m source_code refresh
-python -m source_code start    # 等价于 siyuan_start
+python -m source_code start
 
 # 搜索/阅读
 python -m source_code find <keyword>
@@ -98,29 +120,17 @@ python -m source_code tree
 python -m source_code read <doc-id>
 
 # 测试
-pytest tests/ -v
+python -m pytest tests -q
 ```
 
-## External Agent Test
+## 外部验证
 
-涉及 MCP 工具面、Skill、安装配置或跨 Agent 行为时，常规单元测试后还应调用 Claude Code 做一次外部验证。必须在当前项目目录 `D:\Github\siyuan-agent-bridge` 下运行，项目级 MCP 名称为 `siyuan-bridge-dev`，配置文件是根目录 `.mcp.json`，并指向当前项目的 `plugins/siyuan-agent-bridge/scripts/run_mcp.py`。先用 `claude mcp list` / `claude mcp get siyuan-bridge-dev` 确认 Claude Code 已连接项目 MCP；再优先用 Claude Code 新会话检查工具列表和关键工具 schema。如果 `claude -p` 因登录、网络或 API 错误不可用，改用本地 JSON-RPC 探针直接调用 `initialize` 和 `tools/list`，确认工具数量和名称。
+涉及 MCP 工具面、Skill、安装配置或跨 Agent 行为时，常规测试后必须做外部 Agent 验证。优先使用 Claude Code 实际调用项目 MCP。详细流程、宽授权 / bypass 模式、失败降级和各类改动的最低验证要求见 `docs/DEVELOPMENT_GUIDE.md` 的 “外部 Agent 验证”。
 
-## Build & Release
+## 发布入口
 
-- MCP server 通过 stdin/stdout JSON-RPC 通信，由 `plugins/…/scripts/run_mcp.py` 启动。
+- MCP server 通过 stdin/stdout JSON-RPC 通信，由 `plugins/siyuan-agent-bridge/scripts/run_mcp.py` 启动。
 - `config.local.json` 包含思源 API token，已被 Git 忽略。
-- Skill zip 打包：运行 `python pack_skill.py` 生成 `dist/siyuan-agent-bridge-skill-<时间戳>.zip`。
-- Release zip 打包：运行 `python pack_release.py` 生成 `dist/siyuan-agent-bridge-release-<时间戳>.zip`。
-  - Release ZIP 包含：source_code/、plugins/、mcp_configs/、README.md、config.example.json、INSTALL_FOR_AI.md、doctor.bat。
-  - Release ZIP 不包含：config.local.json、knowledge_base/、ai_workspace/、tests/、dist/、docs/、.git/。
-- 索引刷新时 `knowledge_base/tree.md` 和 `docs.jsonl` 会被覆盖。AI Guide 和 About 文档通过思源系统笔记本管理：AI Guide 确保存在但不覆盖，About 通过版本标识判断是否更新，Workspace Index 不自动创建。
-
-### Release 文件清单
-
-| 文件 | 用途 |
-|------|------|
-| `INSTALL_FOR_AI.md` | AI Agent 安装说明 |
-| `doctor.bat` | 诊断脚本 |
-| `mcp_configs/` | 多平台 MCP 配置模板（CC Switch、Claude Code、Codex、OpenClaw 等） |
-| `pack_release.py` | ZIP 发布包打包脚本 |
-| `pack_skill.py` | Skill ZIP 打包脚本 |
+- Skill ZIP：`python pack_skill.py`。
+- Release ZIP：`python pack_release.py`。
+- 发布和安装材料改动时，按 `docs/DEVELOPMENT_GUIDE.md` 的验证清单检查 `pack_skill.py --check`、`pack_release.py --check` 和外部 Agent 验证。

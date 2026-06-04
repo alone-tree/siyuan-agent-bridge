@@ -33,6 +33,7 @@ class FakeSearchClient:
         self._renamed_docs: list[tuple[str, str]] = []
         self._removed_docs: list[str] = []
         self._moved_docs: list[tuple[list[str], str]] = []
+        self._hpaths: dict[str, str] = {"doc1": "/Projects/Doc One", "doc2": "/Projects/Hidden", "doc3": "/Projects/Doc One/Child"}
 
     def version(self):
         return "3.0.0"
@@ -64,6 +65,19 @@ class FakeSearchClient:
                 if isinstance(blocks, list):
                     return blocks
             return []
+        if "from blocks" in stmt and ("type='d'" in stmt or "type = 'd'" in stmt):
+            return [
+                {
+                    "id": doc_id,
+                    "box": "nb1",
+                    "hpath": hpath,
+                    "path": f"/{doc_id}.sy",
+                    "name": hpath.strip("/").split("/")[-1],
+                    "type": "d",
+                    "updated": "20260501010101",
+                }
+                for doc_id, hpath in self._hpaths.items()
+            ]
         return [{"exists": 1}]
 
     def search_full_text(self, **payload):
@@ -80,19 +94,33 @@ class FakeSearchClient:
         self._created_docs.append((notebook, path, markdown))
         doc_id = f"new-doc-{len(self._docs)}"
         self._docs[doc_id] = markdown
+        self._hpaths[doc_id] = path
         return {"id": doc_id}
 
     def rename_doc_by_id(self, doc_id, title):
         self._renamed_docs.append((doc_id, title))
+        old = self._hpaths.get(doc_id, "")
+        parent = "/" + "/".join(old.strip("/").split("/")[:-1]) if "/" in old.strip("/") else ""
+        self._hpaths[doc_id] = mcp_server.normalize_display_path(f"{parent}/{title}")
         return {}
 
     def remove_doc_by_id(self, doc_id):
         self._removed_docs.append(doc_id)
+        self._hpaths.pop(doc_id, None)
         return {}
 
     def move_docs_by_id(self, doc_ids, target_id):
         self._moved_docs.append((doc_ids, target_id))
+        for doc_id in doc_ids:
+            title = self._hpaths.get(doc_id, f"/{doc_id}").strip("/").split("/")[-1]
+            self._hpaths[doc_id] = f"/{title}"
         return {}
+
+    def get_hpath_by_id(self, block_id):
+        hpath = self._hpaths.get(block_id, "")
+        if not hpath:
+            raise RuntimeError("not found")
+        return hpath
 
     def update_block(self, block_id, markdown):
         self._updated_blocks.append((block_id, markdown))
@@ -247,7 +275,6 @@ class McpServerTests(unittest.TestCase):
             "".join(json.dumps(doc, ensure_ascii=False) + "\n" for doc in docs),
             encoding="utf-8",
         )
-
     def test_list_without_args_lists_notebooks(self):
         server = mcp_server.McpServer(self.root)
         result = server.siyuan_list({})
@@ -522,6 +549,26 @@ class McpServerWriteTests(unittest.TestCase):
             "".join(json.dumps(doc, ensure_ascii=False) + "\n" for doc in docs),
             encoding="utf-8",
         )
+        self._original_ensure_agent_notebook = mcp_server.ensure_agent_notebook
+
+        def fake_ensure_agent_notebook(_client, _root, config_language=None):
+            return mcp_server.AgentNotebookState(
+                language=config_language or "zh-CN",
+                notebook_id="system-nb",
+                notebook_name="思源桥",
+                ai_guide_doc_id="system-guide",
+                ai_guide_markdown="",
+                workspace_index_doc_id=None,
+                workspace_index_markdown=None,
+                about_doc_id="system-about",
+                privacy_rules_doc_id="system-pr",
+                privacy_rules=PrivacyRules(ignore=[], allow=[]),
+            )
+
+        mcp_server.ensure_agent_notebook = fake_ensure_agent_notebook
+
+    def tearDown(self):
+        mcp_server.ensure_agent_notebook = self._original_ensure_agent_notebook
 
     def _make_client(self, query_sql_blocks=None):
         """Create a FakeSearchClient with optional block data for SQL queries."""
@@ -589,6 +636,30 @@ class McpServerWriteTests(unittest.TestCase):
             self.assertIn("New Doc", client._push_msgs[0])
         finally:
             mcp_server.detect_active_profile = original
+
+    def test_create_document_auto_refresh_uses_system_context(self):
+        server, _client, original_detect = self._server_and_client()
+        original_refresh = mcp_server.refresh_index
+        calls: list[dict[str, Any]] = []
+
+        def fake_refresh(_client, _root, **kwargs):
+            calls.append(kwargs)
+            return None
+
+        mcp_server.refresh_index = fake_refresh
+        try:
+            result = server.siyuan_create({
+                "notebook_id": "nb1",
+                "title": "New Doc",
+                "markdown": "Body",
+                "confirmed": True,
+            })
+            self.assertIn("路径已同步", result)
+            self.assertEqual(calls[-1]["system_notebook_id"], "system-nb")
+            self.assertEqual(calls[-1]["privacy_rules_doc_id"], "system-pr")
+        finally:
+            mcp_server.refresh_index = original_refresh
+            mcp_server.detect_active_profile = original_detect
 
     def test_create_document_uses_given_path(self):
         server, client, original = self._server_and_client()
@@ -733,6 +804,62 @@ class McpServerWriteTests(unittest.TestCase):
             self.assertIn("已重命名为", result)
         finally:
             mcp_server.detect_active_profile = original
+
+    def test_siyuan_doc_manage_auto_refresh_uses_system_context(self):
+        server, _client, original_detect = self._server_and_client()
+        original_refresh = mcp_server.refresh_index
+        calls: list[dict[str, Any]] = []
+
+        def fake_refresh(_client, _root, **kwargs):
+            calls.append(kwargs)
+            return None
+
+        mcp_server.refresh_index = fake_refresh
+        try:
+            result = server.siyuan_doc_manage({
+                "document": "/Main/Projects/Doc One",
+                "action": "rename",
+                "new_title": "Renamed",
+                "confirmed": True,
+            })
+            self.assertIn("路径已同步", result)
+            self.assertEqual(calls[-1]["system_notebook_id"], "system-nb")
+            self.assertEqual(calls[-1]["privacy_rules_doc_id"], "system-pr")
+        finally:
+            mcp_server.refresh_index = original_refresh
+            mcp_server.detect_active_profile = original_detect
+
+    def test_wait_for_hpath_requires_sql_index_source_sync(self):
+        server, client, _original = self._server_and_client()
+        client._hpaths["doc1"] = "/Projects/Renamed"
+
+        def stale_query_sql(stmt):
+            text = str(stmt).casefold()
+            if "from blocks" in text and ("type='d'" in text or "type = 'd'" in text):
+                return [{
+                    "id": "doc1",
+                    "box": "nb1",
+                    "hpath": "/Projects/Doc One",
+                    "path": "/doc1.sy",
+                    "name": "Doc One",
+                    "type": "d",
+                    "updated": "20260501010101",
+                }]
+            return FakeSearchClient.query_sql(client, stmt)
+
+        original_timeout = mcp_server.POST_WRITE_SYNC_TIMEOUT
+        original_interval = mcp_server.POST_WRITE_SYNC_INTERVAL
+        client.query_sql = stale_query_sql
+        mcp_server.POST_WRITE_SYNC_TIMEOUT = 0.01
+        mcp_server.POST_WRITE_SYNC_INTERVAL = 0.01
+        try:
+            status = server._wait_for_hpath(client, "doc1", "/Projects/Renamed")
+            self.assertFalse(status.ok)
+            self.assertIn("索引源：/Projects/Doc One", status.detail)
+        finally:
+            mcp_server.POST_WRITE_SYNC_TIMEOUT = original_timeout
+            mcp_server.POST_WRITE_SYNC_INTERVAL = original_interval
+            mcp_server.detect_active_profile = _original
 
     def test_siyuan_doc_manage_move_to_notebook(self):
         server, client, original = self._server_and_client()

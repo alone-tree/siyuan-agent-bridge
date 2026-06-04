@@ -197,6 +197,12 @@ class SiYuanClient:
             raise SiYuanApiError("Unexpected createDocWithMd response shape")
         return data
 
+    def get_hpath_by_id(self, block_id: str) -> str:
+        data = self._post("/api/filetree/getHPathByID", {"id": block_id})
+        if isinstance(data, str):
+            return data
+        raise SiYuanApiError("Unexpected getHPathByID response shape")
+
     def rename_doc_by_id(self, doc_id: str, title: str) -> dict[str, Any]:
         data = self._post("/api/filetree/renameDocByID", {"id": doc_id, "title": title})
         if data is None:

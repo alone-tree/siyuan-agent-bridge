@@ -544,14 +544,18 @@ scope：
 7. 去掉与 title 重复的首个 H1，避免重复标题。
 8. 创建文档或覆盖已有文档。
 9. 尝试 pushMsg。
-10. 尝试刷新索引。
-11. 返回写入结果和回滚提示。
+10. 用文档 ID 短轮询 `getHPathByID`，等待思源暴露目标人类可读路径。
+11. 用系统笔记本 ID 和 Privacy Rules 文档 ID 安全刷新索引。
+12. 返回写入结果、路径同步状态和回滚提示。
 
 当前实现差距：
 
 - 当前代码会尽量返回文档 ID：优先读取 `createDocWithMd` 返回的 `id/docID/doc_id`，失败后尝试按路径反查。若两者都失败，返回结果可能缺少文档 ID。短期应把“创建成功必须返回文档 ID”固化为工具契约和测试。
-- 自动刷新索引时未传系统笔记本 ID 和 Privacy Rules 文档 ID。短期应修复。
 - 如果 markdown 去重 H1 后为空，会在快照之后、写入之前失败。这不会修改思源，但会多产生一次快照。
+
+当前实现特点：
+
+- 写入成功后会短轮询路径同步，再带系统上下文自动刷新索引，避免 create 后新路径或 Privacy Rules 过滤状态滞后。
 
 历史踩坑：
 
@@ -706,17 +710,16 @@ scope：
    - `removeDocByID`
    - `exportMdContent` + `createDocWithMd`
 7. 尝试 pushMsg。
-8. 除 export 外尝试刷新索引。
+8. 除 export 外，用文档 ID 短轮询确认路径变化：rename/move/copy 等目标 hpath 可见，delete 等源 ID 不再可见。
+9. 除 export 外，带系统笔记本 ID 和 Privacy Rules 文档 ID 安全刷新索引。
 
-当前临时操作建议：
+当前实现特点：
 
-- 真实实测发现 rename/move 后路径索引可能存在同步延迟。
-- 连续操作同一文档时，当前建议优先沿用 `document_id`，或在 rename/move 后显式刷新再使用新路径。
-- 这只是过渡方案；后续应从实现层修补路径索引同步，不能把手动 refresh 当成长期最终设计。
+- rename/move/copy/delete 后会等待思源路径接口同步，再刷新本地索引。正常情况下返回的新路径可以直接用于后续 `siyuan_read` / `siyuan_list` / `siyuan_doc_manage`。
+- 如果等待超时，工具仍返回写入结果和同步状态；连续操作时可临时使用 `document_id` 继续，或显式调用 `siyuan_refresh_index`。
 
 当前实现差距：
 
-- 自动刷新索引时未传系统笔记本 ID 和 Privacy Rules 文档 ID，短期应修复。
 - move 的目标权限模型仍较粗，后续应明确目标父路径在 read_only/hidden 规则下的行为。
 
 ## `siyuan-index-builder` Skill
@@ -797,19 +800,17 @@ API 设计原则：
 | WinError 10054              | HTTP 请求加 `Connection: close`                |
 | 附件相对路径                | read 时提取并重写为绝对路径                      |
 | 数据库/属性视图             | 只读渲染为 Markdown 表格，不支持编辑             |
-| rename/move 路径同步延迟    | 当前用 document_id 或 refresh 过渡，后续应修实现 |
+| rename/move 路径同步延迟    | 写入后用 `getHPathByID` 短轮询，再带系统上下文刷新索引 |
 
 ## 短期开发计划
 
 优先修补会影响整体安全和文档一致性的点：
 
 1. 强制保护系统笔记本和系统文档不能被 Privacy Rules 隐藏。
-2. 修复所有写入后自动 refresh 调用，确保传入系统笔记本 ID 和 Privacy Rules 文档 ID。
-3. 迁移旧 devlog 和安装/使用说明时，删除“refresh 会清理 `ai_workspace`”的旧表述，明确只有 `siyuan_start` 清理。
-4. 清理 CLI 旧启动包逻辑，避免继续引用 `guide.md/index.md/START_HERE.md`。
-5. 更新 Codex 插件 manifest、安装指南异常链接和发布材料。
-6. 为 doc_manage rename/move 后路径索引同步设计更稳定的内部处理。
-7. 补充自动化验证入口，统一运行单元测试、MCP tools/list 探针和打包检查。
+2. 迁移旧 devlog 和安装/使用说明时，删除“refresh 会清理 `ai_workspace`”的旧表述，明确只有 `siyuan_start` 清理。
+3. 清理 CLI 旧启动包逻辑，避免继续引用 `guide.md/index.md/START_HERE.md`。
+4. 更新 Codex 插件 manifest、安装指南异常链接和发布材料。
+5. 补充自动化验证入口，统一运行单元测试、MCP tools/list 探针和打包检查。
 
 ## 长期升级方向
 

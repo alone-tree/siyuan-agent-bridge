@@ -1,5 +1,25 @@
 # SiYuan Agent Bridge 项目工程文档
 
+## 2026-06-04：写入后路径同步与安全刷新修复
+
+用户反馈 create 或 doc_manage 后，AI 立刻使用新路径读取时可能失败。复查本项目历史记录和官方 API 文档后确认：
+
+- `createDocWithMd` 返回文档 ID，path 对应数据库 `hpath`。
+- `renameDocByID` / `moveDocsByID` 返回 `null`，但可用 `getHPathByID` 按 ID 查询人类可读路径。
+- 项目历史实测已记录 rename/move 后路径索引可能有短暂同步延迟。
+
+实现：
+
+- `client.py` 新增 `get_hpath_by_id()`，封装 `/api/filetree/getHPathByID`。
+- `siyuan_create` 写入成功后，用文档 ID 等待目标 hpath 可见，再带系统笔记本 ID 和 Privacy Rules 文档 ID 自动刷新索引。
+- `siyuan_doc_manage` 的 rename/move/copy/delete 成功后分别等待目标路径可见或源 ID 不再可见，再安全刷新索引。
+- 返回结果新增“路径同步”状态。正常情况下，返回路径可立即用于后续 `siyuan_read` / `siyuan_list` / `siyuan_doc_manage`；若等待超时，仍提示可临时使用 `document_id` 或手动刷新。
+
+验证：
+
+- `python -m pytest tests\test_client.py tests\test_mcp_server.py -q`：139 passed。
+- `python -m pytest tests -q`：170 passed。
+
 > 2026-06-03 追加设计记录：[`table-edit-next-design.md`](./table-edit-next-design.md) 记录 table_edit 坐标网格与列操作；[`tool-surface-next-design.md`](./tool-surface-next-design.md) 记录工具精简、命名统一、文档文件操作和三档权限模型。
 
 长期规划：需要将整个程序重构一遍，做成可以直接上架思源商店的MCP，并且要求程序运行在电脑本地，MCP的注册、调用不依赖于思源的启动（思源没启动时返回思源未启动，但仍然可以正常调用，不会卡住）

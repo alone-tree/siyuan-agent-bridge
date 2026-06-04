@@ -4,6 +4,7 @@ import json
 import re
 import shutil
 import sys
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -46,6 +47,8 @@ from .i18n import build_language_config
 SERVER_NAME = "siyuan-agent-bridge"
 SERVER_VERSION = "0.2.0"
 DEFAULT_SNIPPETS_PER_DOC = 5
+POST_WRITE_SYNC_TIMEOUT = 5.0
+POST_WRITE_SYNC_INTERVAL = 0.25
 
 
 def normalize_new_document_markdown(title: str, markdown: str) -> str:
@@ -328,6 +331,12 @@ class CreateTarget:
     internal_path: str
     display_path: str
     existing_docs: list[dict[str, Any]]
+
+
+@dataclass
+class PostWriteSyncStatus:
+    ok: bool
+    detail: str
 
 
 def semantic_block_type(raw_type: str, subtype: str, markdown: str) -> str:
@@ -1111,6 +1120,62 @@ class McpServer:
                 {"content": [{"type": "text", "text": f"工具执行失败：{exc}"}], "isError": True},
             )
 
+    def _refresh_index_with_system_context(self, client: SiYuanClient) -> None:
+        config = load_config(self.root)
+        state = ensure_agent_notebook(client, self.root, config_language=config.language or None)
+        write_privacy_rules_cache(self.root, state.privacy_rules)
+        refresh_index(
+            client,
+            self.root,
+            system_notebook_id=state.notebook_id,
+            privacy_rules_doc_id=state.privacy_rules_doc_id,
+        )
+
+    def _wait_for_hpath(self, client: SiYuanClient, doc_id: str, expected_hpath: str) -> PostWriteSyncStatus:
+        expected = normalize_display_path(expected_hpath).casefold()
+        deadline = time.monotonic() + POST_WRITE_SYNC_TIMEOUT
+        last_seen_api = ""
+        last_seen_sql = ""
+        while time.monotonic() < deadline:
+            try:
+                current = normalize_display_path(client.get_hpath_by_id(doc_id))
+            except Exception:
+                current = ""
+            if current:
+                last_seen_api = current
+            try:
+                live_doc = next((doc for doc in load_live_docs(client) if str(doc.get("id", "")) == doc_id), None)
+                live_hpath = normalize_display_path(str(live_doc.get("hpath", ""))) if live_doc else ""
+            except Exception:
+                live_hpath = ""
+            if live_hpath:
+                last_seen_sql = live_hpath
+            if current and live_hpath and current.casefold() == expected and live_hpath.casefold() == expected:
+                return PostWriteSyncStatus(True, f"路径已同步：{current}")
+            time.sleep(POST_WRITE_SYNC_INTERVAL)
+        if last_seen_api or last_seen_sql:
+            details = []
+            if last_seen_api:
+                details.append(f"路径接口：{last_seen_api}")
+            if last_seen_sql:
+                details.append(f"索引源：{last_seen_sql}")
+            return PostWriteSyncStatus(False, f"路径尚未同步到目标；{'; '.join(details)}，目标路径：{expected_hpath}")
+        return PostWriteSyncStatus(False, f"路径尚未同步到目标：{expected_hpath}")
+
+    def _wait_for_deleted_doc(self, client: SiYuanClient, doc_id: str) -> PostWriteSyncStatus:
+        deadline = time.monotonic() + POST_WRITE_SYNC_TIMEOUT
+        last_seen = ""
+        while time.monotonic() < deadline:
+            try:
+                current = normalize_display_path(client.get_hpath_by_id(doc_id))
+            except Exception:
+                return PostWriteSyncStatus(True, "文档删除已同步")
+            if not current:
+                return PostWriteSyncStatus(True, "文档删除已同步")
+            last_seen = current
+            time.sleep(POST_WRITE_SYNC_INTERVAL)
+        return PostWriteSyncStatus(False, f"删除操作尚未从路径接口确认；当前仍可见：{last_seen}")
+
     def siyuan_start(self, _args: dict[str, Any]) -> str:
         config = load_config(self.root)
         profile, client = detect_active_profile(config)
@@ -1844,10 +1909,14 @@ class McpServer:
         except Exception:
             pass
 
+        sync_status: PostWriteSyncStatus | None = None
+        if doc_id:
+            sync_status = self._wait_for_hpath(client, doc_id, target.internal_path)
+
         # Auto-refresh index
         refresh_ok = False
         try:
-            refresh_index(client, self.root)
+            self._refresh_index_with_system_context(client)
             refresh_ok = True
         except Exception:
             pass
@@ -1867,6 +1936,8 @@ class McpServer:
             parts.append(f"**覆盖：**已清空并重写 {len(overwritten_blocks)} 个原块，保留当前文档 ID。")
         parts.append(f"**端点：**{client.base_url}")
         parts.append(f"**快照：**{snapshot_status}")
+        if sync_status is not None:
+            parts.append(f"**路径同步：**{sync_status.detail}")
         if refresh_ok:
             parts.append(f"**索引：**已自动刷新")
         else:
@@ -2205,6 +2276,8 @@ class McpServer:
         doc_id = str(doc.get("id", ""))
         doc_path = display_document_path(doc)
         notebook_id = str(doc.get("notebook_id", ""))
+        source_hpath = normalize_display_path(str(doc.get("hpath", "")))
+        source_title = str(doc.get("title") or source_hpath.strip("/").split("/")[-1] or doc_id)
         docs = load_docs(self.root)
         privacy = load_privacy_rules(self.root)
         permission = document_permission(doc, privacy, docs)
@@ -2278,21 +2351,34 @@ class McpServer:
                 raise ValueError("复制目标文档已存在，拒绝覆盖。\n" + choices)
 
         snapshot_status = self._create_snapshot_or_raise(client, "siyuan_doc_manage", doc_path)
+        sync_status: PostWriteSyncStatus | None = None
+        try:
+            operation_source_hpath = normalize_display_path(client.get_hpath_by_id(doc_id))
+        except Exception:
+            operation_source_hpath = source_hpath
+        operation_source_title = operation_source_hpath.strip("/").split("/")[-1] or source_title
 
         if action == "rename":
             with ensure_notebooks_open(client, [notebook_id]):
                 client.rename_doc_by_id(doc_id, new_title)
             result_line = f"已重命名为：{new_title}"
+            parent_hpath = "/" + "/".join(operation_source_hpath.strip("/").split("/")[:-1]) if "/" in operation_source_hpath.strip("/") else ""
+            expected_hpath = normalize_display_path(f"{parent_hpath}/{new_title}")
+            sync_status = self._wait_for_hpath(client, doc_id, expected_hpath)
 
         elif action == "move":
             with ensure_notebooks_open(client, [notebook_id]):
                 client.move_docs_by_id([doc_id], target_id)
             result_line = f"已移动到：{target_label}"
+            target_parent_hpath = "/" + "/".join(target_label.strip("/").split("/")[1:])
+            expected_hpath = normalize_display_path(f"{target_parent_hpath}/{operation_source_title}")
+            sync_status = self._wait_for_hpath(client, doc_id, expected_hpath)
 
         elif action == "delete":
             with ensure_notebooks_open(client, [notebook_id]):
                 client.remove_doc_by_id(doc_id)
             result_line = "已删除文档。可通过思源快照手动恢复。"
+            sync_status = self._wait_for_deleted_doc(client, doc_id)
 
         elif action == "copy":
             assert copy_target is not None
@@ -2301,6 +2387,8 @@ class McpServer:
                 result = client.create_doc_with_md(copy_target.notebook_id, copy_target.internal_path, markdown)
             new_doc_id = str(result.get("id") or result.get("docID") or result.get("doc_id") or "")
             result_line = f"已复制到：{copy_target.display_path}" + (f"（`{new_doc_id}`）" if new_doc_id else "")
+            if new_doc_id:
+                sync_status = self._wait_for_hpath(client, new_doc_id, copy_target.internal_path)
 
         try:
             client.push_msg(f"思源桥：文档管理已完成「{doc_path}」")
@@ -2310,7 +2398,7 @@ class McpServer:
         refresh_ok = False
         if action != "export":
             try:
-                refresh_index(client, self.root)
+                self._refresh_index_with_system_context(client)
                 refresh_ok = True
             except Exception:
                 pass
@@ -2323,6 +2411,8 @@ class McpServer:
             result_line,
             f"快照：{snapshot_status}",
         ]
+        if sync_status is not None:
+            parts.append(f"路径同步：{sync_status.detail}")
         if action != "export":
             parts.append("索引：已自动刷新" if refresh_ok else "索引：自动刷新失败，请手动运行 `siyuan_refresh_index`")
         if action == "delete":
@@ -2572,7 +2662,7 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_create",
-            "description": "Create or write a SiYuan document. Prefer path as the full readable path including notebook name, e.g. /Notebook/Folder/Doc; the server resolves the notebook ID and internal hpath. If the notebook name is ambiguous, use notebook_id plus an internal path like /Folder/Doc. Creates a SiYuan workspace snapshot before writing. Existing target behavior is controlled by if_exists: reject refuses by default, overwrite clears all blocks in the existing document and rewrites it while preserving the document ID, create_new asks SiYuan to create another same-name document.",
+            "description": "Create or write a SiYuan document. Prefer path as the full readable path including notebook name, e.g. /Notebook/Folder/Doc; the server resolves the notebook ID and internal hpath. If the notebook name is ambiguous, use notebook_id plus an internal path like /Folder/Doc. Creates a SiYuan workspace snapshot before writing. After writing, waits for SiYuan to expose the target path and refreshes the safe index. Existing target behavior is controlled by if_exists: reject refuses by default, overwrite clears all blocks in the existing document and rewrites it while preserving the document ID, create_new asks SiYuan to create another same-name document.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2626,7 +2716,7 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_doc_manage",
-            "description": "Manage visible SiYuan documents at the document-tree level, not document body editing. Actions: rename, move, delete, copy, export. copy/export are allowed for readable documents. rename/move/delete require read_write permission, confirmed=true, and create a SiYuan workspace snapshot before writing. copy also requires confirmed=true because it creates a new document. export writes Markdown to ai_workspace/exports and does not modify SiYuan.",
+            "description": "Manage visible SiYuan documents at the document-tree level, not document body editing. Actions: rename, move, delete, copy, export. copy/export are allowed for readable documents. rename/move/delete require read_write permission, confirmed=true, and create a SiYuan workspace snapshot before writing. copy also requires confirmed=true because it creates a new document. After rename/move/delete/copy, waits for SiYuan path sync and refreshes the safe index. export writes Markdown to ai_workspace/exports and does not modify SiYuan.",
             "inputSchema": {
                 "type": "object",
                 "properties": {

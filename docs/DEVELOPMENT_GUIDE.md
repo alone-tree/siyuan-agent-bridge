@@ -1,6 +1,6 @@
 # SiYuan Agent Bridge 开发指南
 
-> 草案状态：本文档用于补充和强化根目录 `AGENTS.md`。当前先新增，不删除旧文档；确认后再把稳定规则合并回入口文档。
+> 草案状态：当前先新增，不删除旧文档；确认后再把稳定规则合并回入口文档。
 
 ## 修改前必须完整阅读
 
@@ -85,7 +85,6 @@
 已知需要修补：
 
 - 系统笔记本不能被隐藏的承诺尚未由代码强制执行。
-- 写入后自动 refresh 没传系统笔记本 ID 和 Privacy Rules 文档 ID。
 - Privacy Rules 按 hpath 名称硬隔离可能误挡非系统同名文档。
 
 ## 修改读取模型时必须验证
@@ -121,7 +120,8 @@
 - 只读文档不可 edit/rename/move/delete。
 - copy/export 对只读文档的行为符合工具契约。
 - 写入后 pushMsg 失败不应影响主操作。
-- 写入后需要刷新的工具必须正确刷新索引。
+- 写入后需要刷新的工具必须带系统上下文刷新索引，且不得把 Privacy Rules 写入 AI 可见缓存。
+- create/rename/move/copy/delete 后必须等待思源路径接口同步，返回路径同步状态。
 - 返回信息必须让 AI 确认改了什么。
 
 `siyuan_edit` 特别要求：
@@ -148,12 +148,12 @@
 - copy 源文档可以是 `read_only`，但目标路径必须 `read_write`。
 - export 不创建快照、不写思源，只写 `ai_workspace/exports/`。
 - delete 返回中提示可通过思源快照恢复。
-- rename/move/copy/delete 后索引状态正确。
+- rename/move/copy/delete 后路径同步状态和索引状态正确。
 - 连续操作同一文档时，路径和 document_id 解析一致。
 
 已知真实问题：
 
-- rename/move 后路径索引存在同步延迟。当前操作建议是用 `document_id` 或 refresh 过渡；后续应修复实现，不应长期依赖手动刷新。
+- 思源文件树路径更新可能有短暂延迟。当前实现用 `getHPathByID` 短轮询后再刷新索引；若等待超时，仍应在返回中提示同步状态。
 
 ## MCP 工具契约清单
 
@@ -195,7 +195,60 @@ python pack_skill.py --check
 python pack_release.py --check
 ```
 
-涉及 MCP 工具面、Skill、安装配置或跨 Agent 行为时，按项目规则还应调用 Claude Code 做外部验证。如果 `claude -p` 因登录、网络或 API 错误不可用，改用本地 JSON-RPC 探针调用 `initialize` 和 `tools/list`。
+涉及 MCP 工具面、Skill、安装配置或跨 Agent 行为时，按项目规则还应调用 Claude Code 做外部验证。外部验证不是只看代码，而是让另一个 Agent 在真实 MCP 客户端环境里调用工具。
+
+### 外部 Agent 验证
+
+必须在当前项目目录运行：
+
+```bat
+cd /d D:\Github\siyuan-agent-bridge
+```
+
+项目级 MCP 名称固定为 `siyuan-bridge-dev`，配置文件是根目录 `.mcp.json`，启动脚本指向：
+
+```text
+plugins/siyuan-agent-bridge/scripts/run_mcp.py
+```
+
+先确认 Claude Code 能连接项目 MCP：
+
+```bat
+claude mcp list
+claude mcp get siyuan-bridge-dev
+```
+
+外部验证应优先使用 Claude Code 的宽授权 / bypass 模式，避免工具调用被权限弹窗或 `allowedTools` 限制截断：
+
+```bat
+claude --permission-mode bypassPermissions --dangerously-skip-permissions --print "<验证任务>"
+```
+
+原则：
+
+- 不要默认加 `--allowedTools`，除非本次就是要测试受限工具集；权限应尽可能接近真实 Agent 可自由调用 MCP 的状态。
+- 验证 MCP 工具面时，至少让 Claude Code 新会话列出工具名称，并检查关键工具 description/schema 是否包含本次改动。
+- 验证工具行为时，必须让 Claude Code 实际调用 `siyuan-bridge-dev` 的 MCP 工具完成最小端到端流程，而不是只复述工具说明。
+- 写入类验证只能操作明确的临时测试文档；测试结束后清理本轮创建的测试文档。
+- 如果验证过程中调用 `siyuan_start`，注意它会清理 `ai_workspace/` 中除 README 外的内容，不要把由此产生的本地导出文件删除误判成代码改动。
+
+推荐命令模板：
+
+```bat
+claude --permission-mode bypassPermissions --dangerously-skip-permissions --print "Use only MCP server siyuan-bridge-dev. Call siyuan_start, then ..."
+```
+
+不同修改范围的最低外部验证：
+
+| 修改范围 | Claude Code 外部验证 |
+|---|---|
+| 工具名称、schema、description | `tools/list` 可见 8 个工具；关键工具 description/schema 包含改动 |
+| `siyuan_create` | create 临时文档后立刻用返回路径 `siyuan_read` |
+| `siyuan_doc_manage` | 对临时文档依次验证 rename/move/copy/delete 后路径同步和索引刷新 |
+| 隐私/权限 | 用临时规则或测试文档验证 hidden/read_only/read_write 行为，不读取 Privacy Rules 正文 |
+| Skill/安装配置 | 让 Claude Code 按 Skill 指令调用 `siyuan_start` 并确认工具工作流可执行 |
+
+如果 `claude --print` 因登录、网络、API 错误或 MCP 客户端故障不可用，改用本地 JSON-RPC 探针调用 `initialize` 和 `tools/list`，至少确认 server 可启动、工具数量和名称正确。行为级验证缺失时，必须在最终说明中明确标注“未完成外部行为验证”。
 
 当前已经验证过的基线：
 
@@ -227,9 +280,9 @@ python scripts/verify.py
 1. 旧文档仍含旧工具名和旧 exact text anchor 方案，AI 只读 devlog 开头会被误导。
 2. `mcp_server.py` 体积过大，局部修改容易漏同步 `tool_specs()`、Skill 或测试。
 3. Privacy Rules 文档硬隔离和系统笔记本保护存在实现差距。
-4. 写入后自动 refresh 没有传系统文档排除参数，可能污染本地索引缓存。
+4. 写入后自动 refresh 必须保留系统文档排除参数，避免污染本地索引缓存。
 5. `siyuan_refresh_index` 不清理 `ai_workspace` 是当前设计；旧文档中“refresh 会清理 workspace”的表述需要迁移时删除。
-6. `siyuan_doc_manage` rename/move 后路径索引可能延迟。
+6. `siyuan_doc_manage` rename/move 后路径索引可能延迟，当前通过短轮询和安全刷新处理。
 7. `updateBlock` 多块 Markdown 会截断。
 8. `updateBlock` 会清空块样式属性，必须恢复 IAL custom attrs。
 9. 旧 `siyuan_create` 路径语义曾导致 AI 把完整路径误当内部路径。

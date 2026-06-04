@@ -116,6 +116,21 @@ class ClientTests(unittest.TestCase):
         result = client.create_doc_with_md("nb1", "/Test", "# Hi")
         self.assertEqual(result["id"], "20260503090000-newdoc-string")
 
+    def test_get_hpath_by_id_payload(self):
+        seen = {}
+
+        def transport(req, timeout):
+            seen["url"] = req.full_url
+            seen["body"] = json.loads(req.data.decode("utf-8"))
+            return FakeResponse({"code": 0, "data": "/Projects/Test"})
+
+        client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
+        result = client.get_hpath_by_id("doc1")
+
+        self.assertEqual(seen["url"], "http://127.0.0.1:6806/api/filetree/getHPathByID")
+        self.assertEqual(seen["body"], {"id": "doc1"})
+        self.assertEqual(result, "/Projects/Test")
+
     def test_rename_doc_by_id_payload(self):
         seen = {}
 
