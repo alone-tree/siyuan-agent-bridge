@@ -40,7 +40,7 @@ description: Use when the user wants to read, search, or write their private SiY
 - 编辑已有文档前，先用 `siyuan_read(include_block_ids=true)` 进行引用阅读，并把返回的块序号和块 ID 作为 `siyuan_edit` 定位参数。
 - `siyuan_doc_manage` —— 管理文档树。`rename/move/delete/copy` 需要用户明确要求和 `confirmed=true`；`rename/move/delete` 还需要可写权限。`export` 只导出可读文档到 `ai_workspace/exports/`。
 - 编辑普通 Markdown 表格时，使用引用阅读返回的网格坐标：`row=0` 是表头，`row>=1` 是数据行，`column_index` 从 1 开始。表格不是数据库，不要把表头、字段或多维表语义混在一起。
-- `siyuan_refresh_index` —— 会话中途刷新索引并清理 `ai_workspace/`（保留 README.md）。
+- `siyuan_refresh_index` —— 会话中途刷新安全索引，不清理 `ai_workspace/`。只有 `siyuan_start` 会在新会话启动时清理 workspace。
 - 系统笔记本 `思源桥` / `SiYuan Bridge` 及其文档会被自动创建和维护。
 
 ## Safety Rules

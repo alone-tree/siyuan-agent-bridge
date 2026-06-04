@@ -228,7 +228,7 @@ python scripts/verify.py
 2. `mcp_server.py` 体积过大，局部修改容易漏同步 `tool_specs()`、Skill 或测试。
 3. Privacy Rules 文档硬隔离和系统笔记本保护存在实现差距。
 4. 写入后自动 refresh 没有传系统文档排除参数，可能污染本地索引缓存。
-5. `siyuan_refresh_index` 是否清理 `ai_workspace` 的文档和实现不一致。
+5. `siyuan_refresh_index` 不清理 `ai_workspace` 是当前设计；旧文档中“refresh 会清理 workspace”的表述需要迁移时删除。
 6. `siyuan_doc_manage` rename/move 后路径索引可能延迟。
 7. `updateBlock` 多块 Markdown 会截断。
 8. `updateBlock` 会清空块样式属性，必须恢复 IAL custom attrs。
@@ -261,4 +261,3 @@ git status --short
 - 不要使用 `git reset --hard` 或 `git checkout --`，除非用户明确要求。
 - 与任务无关的未跟踪文件不要擅自删除。
 - 生成文件、缓存、导出文件要注意 `.gitignore`。
-
