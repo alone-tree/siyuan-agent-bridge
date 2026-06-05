@@ -1,0 +1,33 @@
+.siyuan-bridge {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.siyuan-bridge__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.siyuan-bridge__header,
+.siyuan-bridge__actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.siyuan-bridge__profile {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(120px, 1fr) minmax(180px, 2fr) auto;
+  margin-bottom: 8px;
+}
+
+.siyuan-bridge__json {
+  font-family: var(--b3-font-family-code);
+  min-height: 180px;
+  resize: vertical;
+}

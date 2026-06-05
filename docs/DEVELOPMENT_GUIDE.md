@@ -195,6 +195,18 @@ python pack_skill.py --check
 python pack_release.py --check
 ```
 
+涉及思源插件形态时，第一版不生成 ZIP 发布包，而是同步必要 Python Bridge 文件到插件开发目录：
+
+```bash
+python scripts/sync_siyuan_plugin_bridge.py
+```
+
+同步脚本只生成 `siyuan-plugin/bridge/`，该目录是开发/安装运行产物，不提交 Git。验证时必须确认：
+
+- `siyuan-plugin/bridge/source_code/mcp_server.py` 存在。
+- `siyuan-plugin/bridge/plugins/siyuan-agent-bridge/scripts/run_mcp.py` 存在。
+- `siyuan-plugin/bridge/config.local.json` 不会被同步脚本覆盖。
+
 涉及 MCP 工具面、Skill、安装配置或跨 Agent 行为时，按项目规则还应调用 Claude Code 做外部验证。外部验证不是只看代码，而是让另一个 Agent 在真实 MCP 客户端环境里调用工具。
 
 ### 外部 Agent 验证
@@ -289,6 +301,7 @@ python scripts/verify.py
 10. Windows keep-alive 曾触发 `WinError 10054`，HTTP client 必须保留 `Connection: close`。
 11. `docs/siyuan-api-doc.md` 是网页抓取噪音，不应作为开发参考。
 12. 插件和安装文档存在版本/链接漂移。
+13. 思源插件第一版的 `bridge/` 目录由同步脚本生成，不是发布 ZIP；不要把旧 ZIP 流程误当成当前插件实现路径。
 
 ## Windows 命令与编码
 

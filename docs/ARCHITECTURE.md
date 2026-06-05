@@ -67,6 +67,34 @@ tests/               单元测试
 
 `mcp_server.py` 当前承担过多职责：协议处理、工具 schema、文档定位、搜索富化、块展示、表格编辑、附件提取、写入操作都在同一文件中。后续会重构拆分，但重构必须保持 MCP 工具契约不变。
 
+当前 Python 代码只依赖标准库，没有 `requirements.txt`、`pyproject.toml` 或第三方运行时依赖。这一点影响发布形态：ZIP 和未来思源插件包可以直接携带 Python 源码，第一版只要求用户本机有可用 Python，不需要插件安装阶段创建虚拟环境或执行 `pip install`。
+
+## 思源插件形态
+
+思源插件形态是新的低安装门槛入口，不替代 Python MCP Bridge 的核心实现。第一版插件职责：
+
+- 提供设置页。
+- 写入插件内 `bridge/config.local.json`。
+- 生成可复制 MCP JSON。
+- 携带由同步脚本复制的 Python Bridge 运行文件。
+
+插件内运行目录：
+
+```text
+siyuan-plugin/
+  plugin.json
+  index.js
+  index.css
+  bridge/
+    source_code/
+    plugins/siyuan-agent-bridge/scripts/run_mcp.py
+    plugins/siyuan-agent-bridge/skills/
+```
+
+`siyuan-plugin/bridge/` 由 `python scripts/sync_siyuan_plugin_bridge.py` 生成，不提交 Git。同步脚本只复制必要 Python 运行文件和说明文件，不复制 `config.local.json`、`knowledge_base/`、`ai_workspace/`、`tests/`、`.mcp.json` 或 `dist/`。
+
+MCP JSON 只包含 Python 命令、`run_mcp.py` 绝对路径和 `PYTHONUTF8=1`。Token 只保存在 `bridge/config.local.json` 中，并继续使用现有 `profiles` 配置模型。
+
 ## 配置与工作空间连接
 
 配置入口：
