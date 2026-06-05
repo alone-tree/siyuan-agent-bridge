@@ -1,12 +1,10 @@
-# SiYuan Agent Bridge 架构文档
+# SiYuan Bridge 架构文档
 
-> 草案状态：本文档用于接替 `docs/PD.md` 成为主架构文档。当前先新增，不删除旧文档；确认后再决定是否重命名、归档或删除旧文档。
->
 > 当前事实基准：2026-06-04，MCP server 版本 `0.2.0`，实际暴露 8 个 MCP 工具。
 
 ## 项目定位
 
-SiYuan Agent Bridge 是一个本地 Python MCP 适配层，让外部 AI agent 安全读取、搜索和维护用户的思源笔记。它不是思源插件，也不是通用思源 API SDK；产品界面是 MCP 工具和 Skill，CLI 只作为开发诊断入口。
+思源桥（SiYuan Bridge）是一个本地 Python MCP 适配层，让外部 AI agent 安全读取、搜索和维护用户的思源笔记。它不是思源插件，也不是通用思源 API SDK；产品界面是 MCP 工具和 Skill，CLI 只作为开发诊断入口。
 
 核心目标：
 
