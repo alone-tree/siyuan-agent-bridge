@@ -28,6 +28,10 @@ export default class SiyuanBridgePlugin extends Plugin {
       hotkey: "",
       callback: () => this.openSettings(),
     });
+
+    ensureDefaultBridgeConfig().catch((error) => {
+      console.warn("Siyuan Bridge config init failed", error);
+    });
   }
 
   onLayoutReady() {
@@ -74,16 +78,22 @@ async function getPluginContext() {
 }
 
 async function loadBridgeConfig(context) {
+  const existing = await readBridgeConfig();
+  const config = existing.config || JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+  return applyCurrentWorkspaceDefaults(config, context);
+}
+
+async function readBridgeConfig() {
   try {
     const text = await getFile(CONFIG_PATH);
     const parsed = JSON.parse(text);
     if (parsed && typeof parsed === "object" && Array.isArray(parsed.profiles)) {
-      return applyCurrentWorkspaceDefaults(normalizeConfig(parsed), context);
+      return {config: normalizeConfig(parsed), exists: true};
     }
   } catch (_error) {
     // Missing config is normal for first-run setup.
   }
-  return applyCurrentWorkspaceDefaults(JSON.parse(JSON.stringify(DEFAULT_CONFIG)), context);
+  return {config: null, exists: false};
 }
 
 function normalizeConfig(config) {
@@ -111,6 +121,19 @@ function applyCurrentWorkspaceDefaults(config, context) {
     normalized.profiles[0].token = context.currentToken;
   }
   return normalized;
+}
+
+async function ensureDefaultBridgeConfig() {
+  const context = await getPluginContext();
+  if (!context.currentToken) {
+    return;
+  }
+  const existing = await readBridgeConfig();
+  const existingFirstToken = existing.config?.profiles?.[0]?.token || "";
+  const config = applyCurrentWorkspaceDefaults(existing.config || DEFAULT_CONFIG, context);
+  if (!existing.exists || !existingFirstToken) {
+    await saveBridgeConfig(config);
+  }
 }
 
 function renderSettings(config, context) {

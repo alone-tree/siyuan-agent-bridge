@@ -209,6 +209,8 @@ python scripts/sync_siyuan_plugin_bridge.py
 
 测试思源工作空间中的插件目录只能作为“用户安装后的落盘结果”。不要直接修改测试工作空间里的插件代码，例如 `D:\Siyuan2test\data\plugins\siyuan-bridge`。所有修复必须先改仓库工程文件，再把整个 `siyuan-plugin/` 重新导入测试工作空间。若测试目录中已有 `bridge/config.local.json`，导入时可以临时保留并恢复该配置，但不能把代码改动直接打在测试目录里。
 
+首次安装/启用插件的真实用户流程必须额外验证：删除测试插件目录中的 `bridge/config.local.json`，整体导入仓库 `siyuan-plugin/` 后，由用户在思源 UI 启用插件。插件启用后应自动创建 `bridge/config.local.json`，写入当前工作空间名称和 Token；在用户没有点开设置页、没有点击“保存配置”的情况下，外部 MCP 客户端也应能正常启动并调用工具。
+
 涉及 MCP 工具面、Skill、安装配置或跨 Agent 行为时，按项目规则还应调用 Claude Code 做外部验证。外部验证不是只看代码，而是让另一个 Agent 在真实 MCP 客户端环境里调用工具。
 
 ### 外部 Agent 验证
