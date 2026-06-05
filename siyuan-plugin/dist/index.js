@@ -1,4 +1,4 @@
-import {Dialog, Plugin, showMessage} from "siyuan";
+import {Dialog, Plugin, Setting, showMessage} from "siyuan";
 
 const PLUGIN_NAME = "siyuan-bridge";
 const CONFIG_PATH = `/data/plugins/${PLUGIN_NAME}/bridge/config.local.json`;
@@ -10,17 +10,32 @@ const DEFAULT_CONFIG = {
 
 export default class SiyuanBridgePlugin extends Plugin {
   onload() {
-    this.addTopBar({
-      icon: "iconSettings",
-      title: "思源桥",
-      position: "right",
-      callback: () => this.openSettings(),
+    const openButton = document.createElement("button");
+    openButton.className = "b3-button";
+    openButton.textContent = "打开设置";
+    openButton.addEventListener("click", () => this.openSettings());
+    this.setting = new Setting({
+      confirmCallback: () => this.openSettings(),
+    });
+    this.setting.addItem({
+      title: "思源桥配置",
+      description: "配置 Python MCP Bridge、工作空间 Token，并生成 MCP JSON。",
+      actionElement: openButton,
     });
 
     this.addCommand({
       langKey: "openSiyuanBridgeSettings",
       langText: "打开思源桥设置",
       hotkey: "",
+      callback: () => this.openSettings(),
+    });
+  }
+
+  onLayoutReady() {
+    this.addTopBar({
+      icon: "iconSettings",
+      title: "思源桥",
+      position: "right",
       callback: () => this.openSettings(),
     });
   }
@@ -58,8 +73,8 @@ function getPluginContext() {
 
 async function loadBridgeConfig() {
   try {
-    const data = await postJSON("/api/file/getFile", {path: CONFIG_PATH});
-    const parsed = typeof data === "string" ? JSON.parse(data) : data;
+    const text = await getFile(CONFIG_PATH);
+    const parsed = JSON.parse(text);
     if (parsed && typeof parsed === "object" && Array.isArray(parsed.profiles)) {
       return normalizeConfig(parsed);
     }
@@ -86,27 +101,27 @@ function renderSettings(config, context) {
   return `
     <div class="siyuan-bridge" data-config="${escapedConfig}">
       <div class="siyuan-bridge__section">
-        <label class="fn__flex-column">
-          <span class="b3-label__text">Python 命令</span>
+        <label class="siyuan-bridge__field">
+          <span class="siyuan-bridge__label">Python 命令</span>
           <input class="b3-text-field fn__block" data-field="pythonCommand" value="${escapeAttr(context.pythonCommand)}" placeholder="python" />
         </label>
-        <label class="fn__flex-column">
-          <span class="b3-label__text">MCP Server 名称</span>
+        <label class="siyuan-bridge__field">
+          <span class="siyuan-bridge__label">MCP Server 名称</span>
           <input class="b3-text-field fn__block" data-field="serverName" value="${escapeAttr(context.serverName)}" placeholder="siyuan-bridge" />
         </label>
       </div>
 
       <div class="siyuan-bridge__section">
-        <label class="fn__flex-column">
-          <span class="b3-label__text">插件目录</span>
+        <label class="siyuan-bridge__field">
+          <span class="siyuan-bridge__label">插件目录</span>
           <input class="b3-text-field fn__block" data-field="pluginDir" value="${escapeAttr(context.pluginDir)}" />
         </label>
-        <label class="fn__flex-column">
-          <span class="b3-label__text">Bridge 目录</span>
+        <label class="siyuan-bridge__field">
+          <span class="siyuan-bridge__label">Bridge 目录</span>
           <input class="b3-text-field fn__block" data-field="bridgeDir" value="${escapeAttr(context.bridgeDir)}" />
         </label>
-        <label class="fn__flex-column">
-          <span class="b3-label__text">MCP 启动脚本</span>
+        <label class="siyuan-bridge__field">
+          <span class="siyuan-bridge__label">MCP 启动脚本</span>
           <input class="b3-text-field fn__block" data-field="runMcpPath" value="${escapeAttr(context.runMcpPath)}" />
         </label>
       </div>
@@ -247,17 +262,25 @@ function buildMcpConfig(context) {
   };
 }
 
-async function postJSON(url, payload) {
-  const response = await fetch(url, {
+async function getFile(path) {
+  const response = await fetch("/api/file/getFile", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify(payload),
+    body: JSON.stringify({path}),
   });
-  const envelope = await response.json();
-  if (envelope.code !== 0) {
-    throw new Error(envelope.msg || `SiYuan API failed: ${url}`);
+  const text = await response.text();
+  try {
+    const envelope = JSON.parse(text);
+    if (envelope && typeof envelope === "object" && envelope.code !== undefined) {
+      if (envelope.code !== 0) {
+        throw new Error(envelope.msg || "读取配置失败");
+      }
+      return typeof envelope.data === "string" ? envelope.data : JSON.stringify(envelope.data || {});
+    }
+  } catch (_error) {
+    // getFile normally returns raw file content.
   }
-  return envelope.data;
+  return text;
 }
 
 async function putFile(path, content) {

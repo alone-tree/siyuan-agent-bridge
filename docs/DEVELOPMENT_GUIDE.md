@@ -207,6 +207,8 @@ python scripts/sync_siyuan_plugin_bridge.py
 - `siyuan-plugin/bridge/plugins/siyuan-agent-bridge/scripts/run_mcp.py` 存在。
 - `siyuan-plugin/bridge/config.local.json` 不会被同步脚本覆盖。
 
+测试思源工作空间中的插件目录只能作为“用户安装后的落盘结果”。不要直接修改测试工作空间里的插件代码，例如 `D:\Siyuan2test\data\plugins\siyuan-bridge`。所有修复必须先改仓库工程文件，再把整个 `siyuan-plugin/` 重新导入测试工作空间。若测试目录中已有 `bridge/config.local.json`，导入时可以临时保留并恢复该配置，但不能把代码改动直接打在测试目录里。
+
 涉及 MCP 工具面、Skill、安装配置或跨 Agent 行为时，按项目规则还应调用 Claude Code 做外部验证。外部验证不是只看代码，而是让另一个 Agent 在真实 MCP 客户端环境里调用工具。
 
 ### 外部 Agent 验证
@@ -302,6 +304,7 @@ python scripts/verify.py
 11. `docs/siyuan-api-doc.md` 是网页抓取噪音，不应作为开发参考。
 12. 插件和安装文档存在版本/链接漂移。
 13. 思源插件第一版的 `bridge/` 目录由同步脚本生成，不是发布 ZIP；不要把旧 ZIP 流程误当成当前插件实现路径。
+14. 测试空间里的思源插件目录不是源码，不得直接编辑。正确流程是修改仓库 `siyuan-plugin/`，再整体导入测试空间。
 
 ## Windows 命令与编码
 
