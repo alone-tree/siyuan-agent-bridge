@@ -207,9 +207,36 @@ python scripts/sync_siyuan_plugin_bridge.py
 - `siyuan-plugin/bridge/plugins/siyuan-agent-bridge/scripts/run_mcp.py` 存在。
 - `siyuan-plugin/bridge/config.local.json` 不会被同步脚本覆盖。
 
-测试思源工作空间中的插件目录只能作为“用户安装后的落盘结果”。不要直接修改测试工作空间里的插件代码，例如 `D:\Siyuan2test\data\plugins\siyuan-bridge`。所有修复必须先改仓库工程文件，再把整个 `siyuan-plugin/` 重新导入测试工作空间。若测试目录中已有 `bridge/config.local.json`，导入时可以临时保留并恢复该配置，但不能把代码改动直接打在测试目录里。
+## 插件导入测试流程
 
-首次安装/启用插件的真实用户流程必须额外验证：删除测试插件目录中的 `bridge/config.local.json`，整体导入仓库 `siyuan-plugin/` 后，由用户在思源 UI 启用插件。插件启用后应自动创建 `bridge/config.local.json`，写入当前工作空间名称和 Token；在用户没有点开设置页、没有点击“保存配置”的情况下，外部 MCP 客户端也应能正常启动并调用工具。
+测试思源工作空间中的插件目录只能作为”用户安装后的落盘结果”。不要直接修改测试工作空间里的插件代码，例如 `D:\Siyuan2test\data\plugins\siyuan-bridge`。所有修复必须先改仓库工程文件，再把整个 `siyuan-plugin/` 重新导入测试工作空间。
+
+### 首次安装（模拟新用户）
+
+模拟用户第一次从零安装插件的场景。预期：导入后没有 `config.local.json`，启用插件后自动创建。
+
+```bat
+:: 1. 杀旧进程（如果有残留 MCP 进程占用插件目录）
+python -c “import psutil; [p.kill() for p in psutil.process_iter(['pid','cmdline']) if 'run_mcp.py' in ' '.join(p.info['cmdline'] or [])]”
+
+:: 2. 删除整个插件目录（含配置，模拟从未安装过）
+python -c “import shutil; shutil.rmtree(r'D:\Siyuan2test\data\plugins\siyuan-bridge')”
+
+:: 3. 整体导入仓库 siyuan-plugin/
+python -c “import shutil; shutil.copytree(r'D:\Github\siyuan-agent-bridge\siyuan-plugin', r'D:\Siyuan2test\data\plugins\siyuan-bridge')”
+
+:: 4. 确认导入结果
+python -c “import os; plugins=sorted(os.listdir(r'D:\Siyuan2test\data\plugins\siyuan-bridge')); print(plugins); cfg=os.path.join(r'D:\Siyuan2test\data\plugins\siyuan-bridge','bridge','config.local.json'); print('NO_CONFIG' if not os.path.exists(cfg) else 'HAS_CONFIG')”
+```
+
+验证清单：
+- [x] `bridge/source_code/mcp_server.py` 存在
+- [x] `bridge/plugins/siyuan-agent-bridge/scripts/run_mcp.py` 存在
+- [x] `bridge/config.local.json` **不存在**
+- [x] 思源 UI 启用插件后自动创建 `config.local.json`
+- [x] 用户没有点开设置页、没有点击保存的情况下，外部 MCP 客户端能正常启动并调用工具
+
+首次安装/启用插件的真实用户流程必须额外验证：删除测试插件目录中的 `bridge/config.local.json`，整体导入仓库 `siyuan-plugin/` 后，由用户在思源 UI 启用插件。插件启用后应自动创建 `bridge/config.local.json`，写入当前工作空间名称和 Token；在用户没有点开设置页、没有点击”保存配置”的情况下，外部 MCP 客户端也应能正常启动并调用工具。
 
 涉及 MCP 工具面、Skill、安装配置或跨 Agent 行为时，按项目规则还应调用 Claude Code 做外部验证。外部验证不是只看代码，而是让另一个 Agent 在真实 MCP 客户端环境里调用工具。
 

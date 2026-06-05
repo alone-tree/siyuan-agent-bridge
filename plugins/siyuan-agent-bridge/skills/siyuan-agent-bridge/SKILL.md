@@ -25,7 +25,7 @@ description: Use when the user wants to read, search, or write their private SiY
 - 隐私规则完全由用户在思源中维护，通过系统笔记本中的 `隐私规则` / `Privacy Rules` 文档的 Markdown 表格控制。
 - `siyuan_privacy` 和 `siyuan_temporary_allow` 工具已被移除。AI 无法修改隐私规则。
 - AI 不能读取、搜索、总结或编辑隐私规则文档。该文档被系统硬编码隔离。
-- 如需临时开放隐藏内容，用户应在思源中手动将表格中的 `Hide` 改为 `no`，交流完毕后再改回 `yes`。
+- 如需临时开放隐藏或只读内容，用户在思源中手动将权限改为 读写 即可；交流完毕后再改回原权限。
 - 隐私规则文档修改后，告诉 AI"刷新一下"或在下次 `siyuan_start` / `siyuan_refresh_index` 时自动生效。
 - 如果隐私规则解析失败，AI 会收到可定位的错误信息（表格名、行号、字段名和错误类型），但不会包含具体隐藏的笔记本名称、文档 ID 或标题。
 

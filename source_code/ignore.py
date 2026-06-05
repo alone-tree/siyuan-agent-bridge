@@ -50,10 +50,12 @@ def write_privacy_rules_cache(root: Path, rules: PrivacyRules) -> None:
 
 SECTION_HEADERS = {
     "notebook": re.compile(
+        r"^##\s+笔记本权限\s*$|^##\s+Notebook\s+Permissions\s*$|"
         r"^##\s+隐藏笔记本\s*$|^##\s+Hide\s+Notebooks\s*$",
         re.IGNORECASE | re.MULTILINE,
     ),
     "document": re.compile(
+        r"^##\s+文档权限\s*$|^##\s+Document\s+Permissions\s*$|"
         r"^##\s+隐藏文档\s*$|^##\s+Hide\s+Documents\s*$",
         re.IGNORECASE | re.MULTILINE,
     ),
@@ -96,13 +98,18 @@ REASON_ALIASES: dict[str, list[str]] = {
 }
 
 PERMISSION_ALIASES: dict[str, list[str]] = {
-    "notebook": ["Permission", "权限"],
-    "document": ["Permission", "权限"],
+    "notebook": ["权限", "Permission"],
+    "document": ["权限", "Permission"],
 }
 
 ACTIVE_VALUES = frozenset({"是", "yes", "true", "1"})
 INACTIVE_VALUES = frozenset({"否", "no", "false", "0", ""})
-PERMISSION_VALUES = frozenset({"hidden", "read_only", "read_write"})
+PERMISSION_VALUES = frozenset({"hidden", "read_only", "read_write", "隐藏", "只读", "读写"})
+PERMISSION_VALUE_MAP: dict[str, str] = {
+    "隐藏": "hidden",
+    "只读": "read_only",
+    "读写": "read_write",
+}
 
 
 class PrivacyRulesParseError(ValueError):
@@ -156,8 +163,7 @@ def _parse_section(
     Returns (rules, errors).
     """
     errors: list[str] = []
-    section_label = "隐藏笔记本" if section_type == "notebook" else "隐藏文档"
-    section_label_en = "Hide Notebooks" if section_type == "notebook" else "Hide Documents"
+    section_label = "笔记本权限" if section_type == "notebook" else "文档权限"
 
     # Find the section heading
     pattern = SECTION_HEADERS[section_type]
@@ -195,18 +201,18 @@ def _parse_section(
     reason_col = _find_column(header_cells, REASON_ALIASES[section_type])
     permission_col = _find_column(header_cells, PERMISSION_ALIASES[section_type])
 
-    # Validate header
-    if active_col < 0:
+    # Validate header: need either 权限/Permission column (new model) or Hide/Enabled column (legacy)
+    if permission_col < 0 and active_col < 0:
         errors.append(
-            f"{section_label_en} 表头缺少 Hide/Enabled 列。"
-            f"请确保表头包含 Hide 或 Enabled 列。"
+            f"{section_label} 表头缺少 权限 列。"
+            f"请确保表头包含 权限 列（或兼容旧格式的 Hide 列）。"
         )
         return [], [], errors
 
     if section_type == "document" and id_col < 0:
         errors.append(
-            f"{section_label_en} 表头缺少 Document ID 列。"
-            f"请确保表头包含 Document ID 列。"
+            f"{section_label} 表头缺少 文档ID 列。"
+            f"请确保表头包含 文档ID（建议填）或 文档ID（必填）列。"
         )
         return [], [], errors
 
@@ -233,7 +239,7 @@ def _parse_section(
         if permission_clean:
             if permission_clean not in PERMISSION_VALUES:
                 errors.append(
-                    f"{section_label_en} 第 {row_idx} 行：Permission 只能填写 hidden/read_only/read_write。"
+                    f"{section_label} 第 {row_idx} 行：权限只能填写 读写/只读/隐藏。"
                 )
                 continue
             base_rule = _parse_identity_rule(
@@ -244,15 +250,16 @@ def _parse_section(
                 name_col,
                 ref_by_id,
                 ref_by_name,
-                section_label_en,
+                section_label,
                 errors,
             )
             if base_rule is None:
                 continue
-            if permission_clean == "hidden":
+            normalized_perm = PERMISSION_VALUE_MAP.get(permission_clean, permission_clean)
+            if normalized_perm == "hidden":
                 rules.append(base_rule)
             else:
-                permission_rules.append({**base_rule, "permission": permission_clean})
+                permission_rules.append({**base_rule, "permission": normalized_perm})
             continue
 
         active_raw = _get_cell(cells, active_col)
@@ -262,7 +269,8 @@ def _parse_section(
             continue  # Rule not active
         if active_clean not in ACTIVE_VALUES:
             errors.append(
-                f"{section_label_en} 第 {row_idx} 行：Hide 只能填写 yes/no。"
+                f"{section_label} 第 {row_idx} 行：旧 Hide 列只能填写 yes/no。"
+                f"建议改用 权限 列填写 读写/只读/隐藏。"
             )
             continue
 
@@ -274,7 +282,7 @@ def _parse_section(
             name_col,
             ref_by_id,
             ref_by_name,
-            section_label_en,
+            section_label,
             errors,
         )
         if rule is None:
@@ -293,7 +301,7 @@ def _parse_identity_rule(
     name_col: int,
     ref_by_id: dict[str, dict[str, Any]],
     ref_by_name: dict[str, list[dict[str, Any]]],
-    section_label_en: str,
+    section_label: str,
     errors: list[str],
 ) -> dict[str, Any] | None:
     rule: dict[str, Any] = {"scope": section_type}
@@ -302,17 +310,17 @@ def _parse_identity_rule(
 
     if section_type == "document":
         if not rule_id:
-            errors.append(f"{section_label_en} 第 {row_idx} 行：Document ID 为空。")
+            errors.append(f"{section_label} 第 {row_idx} 行：文档ID 为空。")
             return None
         if ref_by_id and rule_id not in ref_by_id:
-            errors.append(f"{section_label_en} 第 {row_idx} 行：Document ID 不存在或不可访问。")
+            errors.append(f"{section_label} 第 {row_idx} 行：文档ID 不存在或不可访问。")
             return None
         rule["id"] = rule_id
         return rule
 
     if rule_id:
         if ref_by_id and rule_id not in ref_by_id:
-            errors.append(f"{section_label_en} 第 {row_idx} 行：Notebook ID 不存在或不可访问。")
+            errors.append(f"{section_label} 第 {row_idx} 行：笔记本ID 不存在或不可访问。")
             return None
         rule["id"] = rule_id
         return rule
@@ -320,11 +328,11 @@ def _parse_identity_rule(
     raw_name = _get_cell(cells, name_col) if name_col >= 0 else ""
     rule_name = raw_name.strip()
     if not rule_name:
-        errors.append(f"{section_label_en} 第 {row_idx} 行：Notebook ID 和名称都为空。")
+        errors.append(f"{section_label} 第 {row_idx} 行：笔记本ID 和名称都为空。")
         return None
     matched = ref_by_name.get(rule_name.casefold(), []) if ref_by_name else []
     if not matched and ref_by_name:
-        errors.append(f"{section_label_en} 第 {row_idx} 行：笔记本名称未匹配到任何笔记本。")
+        errors.append(f"{section_label} 第 {row_idx} 行：笔记本名称未匹配到任何笔记本。")
         return None
     rule["name"] = rule_name
     return rule

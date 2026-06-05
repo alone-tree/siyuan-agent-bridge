@@ -351,7 +351,7 @@ class PrivacyRulesParsingTests(unittest.TestCase):
 """
         with self.assertRaises(PrivacyRulesParseError) as ctx:
             parse_privacy_rules_markdown(markdown)
-        self.assertIn("Document ID 为空", str(ctx.exception))
+        self.assertIn("文档ID 为空", str(ctx.exception))
 
     def test_invalid_hide_value_errors(self):
         markdown = """## 隐藏笔记本
@@ -362,7 +362,7 @@ class PrivacyRulesParsingTests(unittest.TestCase):
 """
         with self.assertRaises(PrivacyRulesParseError) as ctx:
             parse_privacy_rules_markdown(markdown)
-        self.assertIn("Hide 只能填写", str(ctx.exception))
+        self.assertIn("旧 Hide 列只能填写", str(ctx.exception))
 
     def test_document_id_not_found_errors(self):
         markdown = """## 隐藏文档
@@ -376,7 +376,7 @@ class PrivacyRulesParsingTests(unittest.TestCase):
                 markdown,
                 all_docs=[{"id": "other-id", "title": "其他文档"}],
             )
-        self.assertIn("Document ID 不存在", str(ctx.exception))
+        self.assertIn("文档ID 不存在", str(ctx.exception))
 
     def test_notebook_by_name_matching(self):
         markdown = """## 隐藏笔记本
@@ -415,7 +415,7 @@ class PrivacyRulesParsingTests(unittest.TestCase):
 """
         with self.assertRaises(PrivacyRulesParseError) as ctx:
             parse_privacy_rules_markdown(markdown)
-        self.assertIn("Hide/Enabled 列", str(ctx.exception))
+        self.assertIn("权限 列", str(ctx.exception))
 
     def test_missing_header_document_id_column_errors(self):
         markdown = """## 隐藏文档
@@ -426,7 +426,7 @@ class PrivacyRulesParsingTests(unittest.TestCase):
 """
         with self.assertRaises(PrivacyRulesParseError) as ctx:
             parse_privacy_rules_markdown(markdown)
-        self.assertIn("Document ID 列", str(ctx.exception))
+        self.assertIn("文档ID 列", str(ctx.exception))
 
     def test_both_sections_parsed(self):
         markdown = """## 隐藏笔记本
