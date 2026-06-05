@@ -95,6 +95,8 @@ siyuan-plugin/
 
 MCP JSON 只包含 Python 命令、`run_mcp.py` 绝对路径和 `PYTHONUTF8=1`。Token 只保存在 `bridge/config.local.json` 中，并继续使用现有 `profiles` 配置模型。
 
+插件设置页可通过思源本地 `/api/system/getConf` 获取当前工作空间的 `conf.api.token` 和 `conf.system.workspaceDir`。Token 在设置页中允许明文显示，方便用户确认工作空间；但不得写入 MCP JSON。若用户已有本地 profile Token，插件不自动覆盖。
+
 ## 配置与工作空间连接
 
 配置入口：

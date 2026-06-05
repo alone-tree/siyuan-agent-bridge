@@ -40,8 +40,8 @@ export default class SiyuanBridgePlugin extends Plugin {
   }
 
   async openSettings() {
-    const config = await loadBridgeConfig();
-    const context = getPluginContext();
+    const context = await getPluginContext();
+    const config = await loadBridgeConfig(context);
     const dialog = new Dialog({
       title: "思源桥设置",
       content: renderSettings(config, context),
@@ -53,14 +53,17 @@ export default class SiyuanBridgePlugin extends Plugin {
   }
 }
 
-function getPluginContext() {
-  const workspaceDir = window.siyuan?.config?.system?.workspaceDir || "";
+async function getPluginContext() {
+  const systemConf = await getSystemConf();
+  const workspaceDir = systemConf.workspaceDir || window.siyuan?.config?.system?.workspaceDir || "";
   const guessedPluginDir = workspaceDir ? joinPath(workspaceDir, "data", "plugins", PLUGIN_NAME) : "";
   const guessedBridgeDir = guessedPluginDir ? joinPath(guessedPluginDir, "bridge") : "";
   const guessedRunMcp = guessedBridgeDir
     ? joinPath(guessedBridgeDir, "plugins", "siyuan-agent-bridge", "scripts", "run_mcp.py")
     : "";
   return {
+    currentWorkspaceName: workspaceDir ? workspaceDir.split(/[\\/]/).filter(Boolean).pop() || "当前工作空间" : "当前工作空间",
+    currentToken: systemConf.token || "",
     workspaceDir,
     pluginDir: guessedPluginDir,
     bridgeDir: guessedBridgeDir,
@@ -70,17 +73,17 @@ function getPluginContext() {
   };
 }
 
-async function loadBridgeConfig() {
+async function loadBridgeConfig(context) {
   try {
     const text = await getFile(CONFIG_PATH);
     const parsed = JSON.parse(text);
     if (parsed && typeof parsed === "object" && Array.isArray(parsed.profiles)) {
-      return normalizeConfig(parsed);
+      return applyCurrentWorkspaceDefaults(normalizeConfig(parsed), context);
     }
   } catch (_error) {
     // Missing config is normal for first-run setup.
   }
-  return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+  return applyCurrentWorkspaceDefaults(JSON.parse(JSON.stringify(DEFAULT_CONFIG)), context);
 }
 
 function normalizeConfig(config) {
@@ -94,6 +97,20 @@ function normalizeConfig(config) {
     })),
     language: String(config.language || "zh-CN"),
   };
+}
+
+function applyCurrentWorkspaceDefaults(config, context) {
+  const normalized = normalizeConfig(config);
+  if (!normalized.profiles.length) {
+    normalized.profiles.push({name: context.currentWorkspaceName || "当前工作空间", token: context.currentToken || ""});
+  }
+  if (!normalized.profiles[0].name || normalized.profiles[0].name === "当前工作空间") {
+    normalized.profiles[0].name = context.currentWorkspaceName || "当前工作空间";
+  }
+  if (!normalized.profiles[0].token && context.currentToken) {
+    normalized.profiles[0].token = context.currentToken;
+  }
+  return normalized;
 }
 
 function renderSettings(config, context) {
@@ -154,7 +171,7 @@ function renderProfiles(profiles) {
   return profiles.map((profile, index) => `
     <div class="siyuan-bridge__profile" data-profile-index="${index}">
       <input class="b3-text-field" data-profile-field="name" value="${escapeAttr(profile.name)}" placeholder="${index === 0 ? "当前工作空间" : "工作空间名称"}" />
-      <input class="b3-text-field" data-profile-field="token" value="${escapeAttr(profile.token)}" placeholder="API Token" type="password" />
+      <input class="b3-text-field" data-profile-field="token" value="${escapeAttr(profile.token)}" placeholder="API Token" type="text" />
       <button class="b3-button b3-button--outline" data-action="remove-profile" ${index === 0 ? "disabled" : ""}>删除</button>
     </div>
   `).join("");
@@ -281,6 +298,24 @@ async function getFile(path) {
     // getFile normally returns raw file content.
   }
   return text;
+}
+
+async function getSystemConf() {
+  try {
+    const response = await fetch("/api/system/getConf", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: "{}",
+    });
+    const envelope = await response.json();
+    const conf = envelope?.data?.conf || {};
+    return {
+      token: String(conf?.api?.token || ""),
+      workspaceDir: String(conf?.system?.workspaceDir || ""),
+    };
+  } catch (_error) {
+    return {token: "", workspaceDir: ""};
+  }
 }
 
 async function putFile(path, content) {
