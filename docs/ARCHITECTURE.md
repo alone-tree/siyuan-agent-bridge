@@ -710,8 +710,7 @@ scope：
 | `action`        | enum    | 必填             | `rename` / `move` / `delete` / `copy` / `export` |
 | `new_title`     | string  | rename 必填      | 新标题                                                     |
 | `target_parent` | string  | move 必填        | 目标笔记本或父文档路径                                     |
-| `target_path`   | string  | copy 可用        | 复制目标完整路径                                           |
-| `target_title`  | string  | copy 可用        | 复制到源文档同级时的新标题                                 |
+| `target_path`   | string  | copy 必填        | 复制目标完整路径                                           |
 | `confirmed`     | boolean | 部分 action 必填 | rename/move/delete/copy 需要                               |
 
 权限：
@@ -719,8 +718,8 @@ scope：
 | action     | 源文档权限                      | 目标权限       | 快照 | 写思源 |
 | ---------- | ------------------------------- | -------------- | ---- | ------ |
 | `rename` | `read_write`                  | -              | 是   | 是     |
-| `move`   | `read_write`                  | 目标可见       | 是   | 是     |
-| `delete` | `read_write`                  | -              | 是   | 是     |
+| `move`   | 源子树全部 `read_write`       | 目标父路径 `read_write` | 是   | 是     |
+| `delete` | 源子树全部 `read_write`       | -              | 是   | 是     |
 | `copy`   | `read_only` 或 `read_write` | `read_write` | 是   | 是     |
 | `export` | `read_only` 或 `read_write` | 本地文件       | 否   | 否     |
 
@@ -728,14 +727,15 @@ scope：
 
 1. 解析可见源文档。
 2. 计算源文档权限。
-3. 根据 action 校验 confirmed 和参数。
+3. 根据 action 校验 confirmed 和参数；move/delete 写入前从思源 live SQL 拉取源文档子树并逐篇检查权限。
 4. `export` 直接导出 Markdown 到 `ai_workspace/exports/`，不创建快照。
 5. 其他 action 先创建快照。
 6. 调用对应思源 API：
    - `renameDocByID`
    - `moveDocsByID`
    - `removeDocByID`
-   - `exportMdContent` + `createDocWithMd`
+   - `duplicateDoc` + `renameDocByID` + `moveDocsByID`
+   - `exportMdContent`
 7. 尝试 pushMsg。
 8. 除 export 外，用文档 ID 短轮询确认路径变化：rename/move/copy 等目标 hpath 可见，delete 等源 ID 不再可见。
 9. 除 export 外，带系统笔记本 ID 和 Privacy Rules 文档 ID 安全刷新索引。
@@ -744,10 +744,7 @@ scope：
 
 - rename/move/copy/delete 后会等待思源路径接口同步，再刷新本地索引。正常情况下返回的新路径可以直接用于后续 `siyuan_read` / `siyuan_list` / `siyuan_doc_manage`。
 - 如果等待超时，工具仍返回写入结果和同步状态；连续操作时可临时使用 `document_id` 继续，或显式调用 `siyuan_refresh_index`。
-
-当前实现差距：
-
-- move 的目标权限模型仍较粗，后续应明确目标父路径在 read_only/hidden 规则下的行为。
+- copy 复制单篇源文档本身，不复制子文档；目标必须使用完整 `target_path`，目标路径已存在时拒绝覆盖。
 
 ## `siyuan-index-builder` Skill
 

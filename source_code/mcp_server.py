@@ -724,6 +724,30 @@ def descendant_count(doc: dict[str, Any], docs: list[dict[str, Any]]) -> int:
     )
 
 
+def document_subtree(doc: dict[str, Any], docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    doc_id = str(doc.get("id") or "")
+    notebook_id = str(doc.get("notebook_id") or "")
+    hpath = normalize_display_path(str(doc.get("hpath") or "")).rstrip("/")
+    result = []
+    for item in docs:
+        if str(item.get("id") or "") == doc_id:
+            result.append(item)
+            continue
+        if str(item.get("notebook_id") or "") != notebook_id:
+            continue
+        item_hpath = normalize_display_path(str(item.get("hpath") or "")).rstrip("/")
+        if hpath and item_hpath.startswith(hpath + "/"):
+            result.append(item)
+    return result
+
+
+def parent_display_path(document_path: str) -> str:
+    parts = normalize_display_path(document_path).strip("/").split("/")
+    if len(parts) <= 1:
+        return ""
+    return "/" + "/".join(parts[:-1])
+
+
 def format_int(value: Any) -> str:
     try:
         return f"{int(value):,}"
@@ -2318,6 +2342,7 @@ class McpServer:
         target_label = ""
         copy_target: CreateTarget | None = None
         copy_title = ""
+        copy_parent_id = ""
         if action == "rename":
             new_title = str(args.get("new_title") or "").strip()
             if not new_title:
@@ -2327,17 +2352,13 @@ class McpServer:
             if not target_parent:
                 raise ValueError("action=move 需要 target_parent，例如 /Notebook 或 /Notebook/Folder。")
             target_id, target_label = self.resolve_doc_manage_parent(target_parent)
+            self._ensure_doc_manage_target_parent_writable(target_label, privacy, docs, action="move")
+            self._ensure_doc_manage_subtree_writable(client, doc, privacy, action="move")
         elif action == "copy":
             target_path = str(args.get("target_path") or "").strip()
-            target_title = str(args.get("target_title") or "").strip()
-            if not target_path and not target_title:
-                raise ValueError("action=copy 需要 target_path 或 target_title。")
-            if target_path:
-                copy_title = target_path.strip("/").split("/")[-1]
-            else:
-                copy_title = target_title
-                source_parent = "/".join(doc_path.strip("/").split("/")[:-1])
-                target_path = normalize_display_path(f"{source_parent}/{target_title}")
+            if not target_path:
+                raise ValueError("action=copy 需要 target_path，例如 /Notebook/Folder/New Doc。")
+            copy_title = target_path.strip("/").split("/")[-1]
             if not copy_title:
                 raise ValueError("复制目标标题为空。")
             notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
@@ -2354,6 +2375,10 @@ class McpServer:
             if copy_target.existing_docs:
                 choices = "\n".join(f"- `{item.get('id', '')}` {display_document_path(item)}" for item in copy_target.existing_docs)
                 raise ValueError("复制目标文档已存在，拒绝覆盖。\n" + choices)
+            copy_parent = parent_display_path(copy_target.display_path)
+            copy_parent_id, _copy_parent_label = self.resolve_doc_manage_parent(copy_parent)
+        elif action == "delete":
+            self._ensure_doc_manage_subtree_writable(client, doc, privacy, action="delete")
 
         snapshot_status = self._create_snapshot_or_raise(client, "siyuan_doc_manage", doc_path)
         sync_status: PostWriteSyncStatus | None = None
@@ -2387,13 +2412,16 @@ class McpServer:
 
         elif action == "copy":
             assert copy_target is not None
+            duplicated_id = ""
             with ensure_notebooks_open(client, [notebook_id, copy_target.notebook_id]):
-                markdown = client.export_markdown(doc_id)
-                result = client.create_doc_with_md(copy_target.notebook_id, copy_target.internal_path, markdown)
-            new_doc_id = str(result.get("id") or result.get("docID") or result.get("doc_id") or "")
-            result_line = f"已复制到：{copy_target.display_path}" + (f"（`{new_doc_id}`）" if new_doc_id else "")
-            if new_doc_id:
-                sync_status = self._wait_for_hpath(client, new_doc_id, copy_target.internal_path)
+                result = client.duplicate_doc(doc_id)
+                duplicated_id = str(result.get("id") or result.get("docID") or result.get("doc_id") or "")
+                if not duplicated_id:
+                    raise ValueError("duplicateDoc 未返回新文档 ID，无法完成复制。")
+                client.rename_doc_by_id(duplicated_id, copy_title)
+                client.move_docs_by_id([duplicated_id], copy_parent_id)
+            result_line = f"已复制到：{copy_target.display_path}（`{duplicated_id}`）"
+            sync_status = self._wait_for_hpath(client, duplicated_id, copy_target.internal_path)
 
         try:
             client.push_msg(f"思源桥：文档管理已完成「{doc_path}」")
@@ -2423,6 +2451,63 @@ class McpServer:
         if action == "delete":
             parts.append("如需回滚，可通过思源快照手动恢复。")
         return "\n".join(parts)
+
+    def _ensure_doc_manage_subtree_writable(
+        self,
+        client: Any,
+        doc: dict[str, Any],
+        privacy: PrivacyRules,
+        *,
+        action: str,
+    ) -> None:
+        notebook_id = str(doc.get("notebook_id") or "")
+        with ensure_notebooks_open(client, [notebook_id]):
+            live_docs = load_live_docs(client)
+        indexed = {str(item.get("id") or ""): item for item in live_docs}
+        live_doc = indexed.get(str(doc.get("id") or ""), doc)
+        subtree = document_subtree(live_doc, live_docs)
+        blocked = [
+            (item, document_permission(item, privacy, live_docs))
+            for item in subtree
+            if document_permission(item, privacy, live_docs) != "read_write"
+        ]
+        if blocked:
+            permission_counts: dict[str, int] = {}
+            for _item, item_permission in blocked:
+                permission_counts[item_permission] = permission_counts.get(item_permission, 0) + 1
+            summary = ", ".join(f"{key}: {value}" for key, value in sorted(permission_counts.items()))
+            raise ValueError(
+                f"action={action} 会影响整棵子树，但子树中存在非 read_write 文档，拒绝操作。"
+                f"受限文档数量：{len(blocked)}（{summary}）。"
+            )
+
+    def _ensure_doc_manage_target_parent_writable(
+        self,
+        target_label: str,
+        privacy: PrivacyRules,
+        docs: list[dict[str, Any]],
+        *,
+        action: str,
+    ) -> None:
+        path = normalize_display_path(target_label)
+        notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
+        notebook = next(
+            (nb for nb in notebooks if normalize_display_path(str(nb.get("name", ""))).casefold() == path.casefold()),
+            None,
+        )
+        if notebook is not None:
+            probe = {
+                "id": "",
+                "notebook_id": str(notebook.get("id", "")),
+                "notebook_name": str(notebook.get("name", "")),
+                "hpath": "/__siyuan_bridge_permission_probe__",
+            }
+            permission = document_permission(probe, privacy, docs)
+        else:
+            matches = [doc for doc in docs if display_document_path(doc).casefold() == path.casefold()]
+            permission = document_permission(matches[0], privacy, docs) if len(matches) == 1 else "hidden"
+        if permission != "read_write":
+            raise ValueError(f"action={action} 的目标父路径权限为 {permission}，不允许写入。")
 
     def resolve_doc_manage_parent(self, target_parent: str) -> tuple[str, str]:
         path = normalize_display_path(target_parent)
@@ -2721,7 +2806,7 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_doc_manage",
-            "description": "Manage visible SiYuan documents at the document-tree level, not document body editing. Actions: rename, move, delete, copy, export. copy/export are allowed for readable documents. rename/move/delete require read_write permission, confirmed=true, and create a SiYuan workspace snapshot before writing. copy also requires confirmed=true because it creates a new document. After rename/move/delete/copy, waits for SiYuan path sync and refreshes the safe index. export writes Markdown to ai_workspace/exports and does not modify SiYuan.",
+            "description": "Manage visible SiYuan documents at the document-tree level, not document body editing. Actions: rename, move, delete, copy, export. copy/export are allowed for readable documents. rename/move/delete require read_write permission, confirmed=true, and create a SiYuan workspace snapshot before writing. delete and move affect the whole subtree and are rejected if any descendant is not read_write. copy uses SiYuan duplicateDoc for the source document only, requires target_path and confirmed=true, then renames/moves the duplicate. After rename/move/delete/copy, waits for SiYuan path sync and refreshes the safe index. export writes Markdown to ai_workspace/exports and does not modify SiYuan.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2730,8 +2815,7 @@ def tool_specs() -> list[dict[str, Any]]:
                     "action": {"type": "string", "enum": ["rename", "move", "delete", "copy", "export"], "description": "Document management action."},
                     "new_title": {"type": "string", "description": "Required for action=rename."},
                     "target_parent": {"type": "string", "description": "Required for action=move. Visible target notebook or parent document path, e.g. /Notebook or /Notebook/Folder."},
-                    "target_path": {"type": "string", "description": "For action=copy. Preferred full readable target path /Notebook/Folder/New Doc."},
-                    "target_title": {"type": "string", "description": "For action=copy when copying next to the source document."},
+                    "target_path": {"type": "string", "description": "Required for action=copy. Full readable target path /Notebook/Folder/New Doc. The target path must not already exist and must be read_write."},
                     "confirmed": {"type": "boolean", "description": "Required for rename/move/delete/copy. Not required for export."},
                 },
                 "required": ["action"],

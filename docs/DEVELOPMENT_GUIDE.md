@@ -146,6 +146,8 @@
 
 - rename/move/delete 需要 `read_write` 和 `confirmed=true`。
 - copy 源文档可以是 `read_only`，但目标路径必须 `read_write`。
+- move/delete 会影响整棵子树，必须验证子孙文档中存在 `read_only` 或 `hidden` 时拒绝操作。
+- copy 必须使用 `target_path`，通过 `duplicateDoc` 复制源文档本身；不应退回 export + create 作为主路径。
 - export 不创建快照、不写思源，只写 `ai_workspace/exports/`。
 - delete 返回中提示可通过思源快照恢复。
 - rename/move/copy/delete 后路径同步状态和索引状态正确。

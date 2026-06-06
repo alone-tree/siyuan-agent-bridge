@@ -33,6 +33,7 @@ class FakeSearchClient:
         self._renamed_docs: list[tuple[str, str]] = []
         self._removed_docs: list[str] = []
         self._moved_docs: list[tuple[list[str], str]] = []
+        self._duplicated_docs: list[str] = []
         self._hpaths: dict[str, str] = {"doc1": "/Projects/Doc One", "doc2": "/Projects/Hidden", "doc3": "/Projects/Doc One/Child"}
 
     def version(self):
@@ -115,6 +116,13 @@ class FakeSearchClient:
             title = self._hpaths.get(doc_id, f"/{doc_id}").strip("/").split("/")[-1]
             self._hpaths[doc_id] = f"/{title}"
         return {}
+
+    def duplicate_doc(self, doc_id):
+        self._duplicated_docs.append(doc_id)
+        new_id = f"duplicated-{len(self._duplicated_docs)}"
+        self._docs[new_id] = self._docs.get(doc_id, "")
+        self._hpaths[new_id] = self._hpaths.get(doc_id, f"/{doc_id}") + " (Duplicated)"
+        return {"id": new_id}
 
     def get_hpath_by_id(self, block_id):
         hpath = self._hpaths.get(block_id, "")
@@ -918,11 +926,78 @@ class McpServerWriteTests(unittest.TestCase):
             result = server.siyuan_doc_manage({
                 "document": "/Main/Projects/Doc One",
                 "action": "copy",
-                "target_path": "/Main/Projects/Doc Copy",
+                "target_path": "/Main/Doc Copy",
                 "confirmed": True,
             })
-            self.assertEqual(client._created_docs, [("nb1", "/Projects/Doc Copy", "# Source\n\nBody")])
+            self.assertEqual(client._duplicated_docs, ["doc1"])
+            self.assertEqual(client._renamed_docs, [("duplicated-1", "Doc Copy")])
+            self.assertEqual(client._moved_docs, [(["duplicated-1"], "nb1")])
+            self.assertFalse(client._created_docs)
             self.assertIn("已复制到", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_doc_manage_copy_requires_target_path(self):
+        server, client, original = self._server_and_client()
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_doc_manage({
+                    "document": "/Main/Projects/Doc One",
+                    "action": "copy",
+                    "target_title": "Doc Copy",
+                    "confirmed": True,
+                })
+            self.assertIn("target_path", str(ctx.exception))
+            self.assertFalse(client._duplicated_docs)
+            self.assertFalse(client._snapshots)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_doc_manage_delete_rejects_read_only_descendant(self):
+        write_privacy_rules_cache(
+            self.root,
+            PrivacyRules(
+                ignore=[],
+                allow=[],
+                permissions=[{"scope": "document", "id": "doc3", "permission": "read_only"}],
+            ),
+        )
+        server, client, original = self._server_and_client()
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_doc_manage({
+                    "document": "/Main/Projects/Doc One",
+                    "action": "delete",
+                    "confirmed": True,
+                })
+            self.assertIn("子树", str(ctx.exception))
+            self.assertIn("read_only", str(ctx.exception))
+            self.assertFalse(client._removed_docs)
+            self.assertFalse(client._snapshots)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_doc_manage_move_rejects_read_only_descendant(self):
+        write_privacy_rules_cache(
+            self.root,
+            PrivacyRules(
+                ignore=[],
+                allow=[],
+                permissions=[{"scope": "document", "id": "doc3", "permission": "read_only"}],
+            ),
+        )
+        server, client, original = self._server_and_client()
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                server.siyuan_doc_manage({
+                    "document": "/Main/Projects/Doc One",
+                    "action": "move",
+                    "target_parent": "/Main",
+                    "confirmed": True,
+                })
+            self.assertIn("子树", str(ctx.exception))
+            self.assertFalse(client._moved_docs)
+            self.assertFalse(client._snapshots)
         finally:
             mcp_server.detect_active_profile = original
 

@@ -227,6 +227,14 @@ class SiYuanClient:
             return {}
         return data
 
+    def duplicate_doc(self, doc_id: str) -> dict[str, Any]:
+        data = self._post("/api/filetree/duplicateDoc", {"id": doc_id})
+        if data is None:
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        return data
+
     def update_block(self, block_id: str, markdown: str, ial: str | None = None) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "id": block_id,

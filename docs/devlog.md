@@ -2,6 +2,20 @@
 
 该文档应该把最新内容放在最上，不要放到最下面，AI读不到。
 
+## 2026-06-06：DocManager 子树权限与 duplicateDoc 实现
+
+已按实测后的 DocManager 设计落地：
+
+- `client.py` 新增 `duplicate_doc()`，封装 `/api/filetree/duplicateDoc`。
+- `siyuan_doc_manage(action=copy)` 改为 `duplicateDoc` 复制源文档，再按 `target_path` 重命名并移动副本；`target_path` 现在必填，`target_title` 不再作为调用入口。
+- `siyuan_doc_manage(action=delete)` 写入前从思源 live 文档列表扫描源文档整棵子树；任何子孙权限不是 `read_write` 都拒绝删除。
+- `siyuan_doc_manage(action=move)` 写入前同样扫描源子树，并检查目标父路径权限必须是 `read_write`。
+- `copy` 仍允许只读源文档，目标路径必须可写；`export` 行为不变。
+
+验证：
+
+- `python -m pytest tests\test_client.py tests\test_mcp_server.py -q`：144 passed。
+
 ## 2026-06-06：三档权限模型实测、缓存排查与 DocManager 重设计
 
 ### 三档权限模型 MCP 实测
