@@ -16,6 +16,12 @@
 
 - `python -m pytest tests\test_client.py tests\test_mcp_server.py -q`：144 passed。
 
+### 补充分析：为何不直接用 `listDocsByPath` 遍历子树
+
+我们调研了 SiYuan 的 `/api/filetree/listDocsByPath` API，它能递归返回指定 notebook + path 下的所有文档（含 ID、名称、子文档数量等），看起来是收集子树文档的理想选择。但对该路径下的**隐藏文档**而言，`listDocsByPath` 仍受 SiYuan 权限模型的约束，可能不会返回 AI 无权查看的文档，因此无法可靠地用于子树权限扫描。
+
+当前基于 SQL 的全量文档查询（`load_live_docs` + hpath 前缀匹配）能覆盖隐藏和可见文档，是子树权限扫描的正确方式。
+
 ## 2026-06-06：DocManager 实现完成并实测验证
 
 ### Codex 实现回顾
