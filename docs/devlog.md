@@ -16,6 +16,64 @@
 
 - `python -m pytest tests\test_client.py tests\test_mcp_server.py -q`：144 passed。
 
+## 2026-06-06：DocManager 实现完成并实测验证
+
+### Codex 实现回顾
+
+Codex 按照设计方案完成了以下实现：
+
+**client.py**：
+- `duplicate_doc(doc_id)` -- 封装 `POST /api/filetree/duplicateDoc`，返回 `{hPath, id, notebook, path}`
+
+**mcp_server.py**：
+- `document_subtree(doc, docs)` -- 按 notebook_id + hpath 前缀匹配收集子树文档（不含自身，区别于 `descendant_count`）
+- `parent_display_path(path)` -- 从 display_path 提取父路径，无父路径时返回空字符串
+- `_ensure_doc_manage_subtree_writable()` -- delete 前扫描子树，任何子孙 `!= "read_write"` 则拒绝，错误信息统计权限分布
+- `_ensure_doc_manage_target_parent_writable()` -- move/copy 前检查目标父路径权限
+- copy：`duplicateDoc` → `renameDocByID`（改名去掉时间戳后缀）→ `moveDocsByID`（移到目标位置）
+- move：增加了目标父路径权限检查和源文档子树权限检查
+- delete：增加了子树权限扫描
+- tool_specs：copy 的 target_path 描述更新为必填
+
+**FakeSearchClient** (测试)：
+- 新增 `_duplicated_docs` 列表和 `duplicate_doc` mock 方法
+
+### MCP 实测结果
+
+在思源 3.6.5 测试工作空间中验证：
+
+| # | 操作 | 目标 | 结果 | 判定 |
+|---|------|------|------|:--:|
+| 1 | copy 只读源 → 只读目标 | /半开放区/可读不可写 → /半开放区/副本 | ❌ "目标路径权限不是 read_write" | ✅ |
+| 2 | copy 只读源 → 读写目标 | /半开放区/可读不可写 → /权限测试/副本 | ✅ 正常创建，副本可追加内容 | ✅ |
+| 3 | copy 目标已存在 | → /公开文档B | ❌ "目标文档已存在，拒绝覆盖" | ✅ |
+| 4 | delete 只读文档 | /半开放区 | ❌ "权限为 read_only" | ✅ |
+| 5 | delete 无子文档 | /公开文档A-已重命名 | ✅ 正常删除 | ✅ |
+| 6 | delete 有隐藏子的读写父 | /含隐藏子的读写区 | ✅ 已被 D2 删除（之前测试） | -- |
+| 7 | copy 只读源 → 公共区 | /半开放区/可读不可写 → /权限测试/副本 | ✅ 正常，副本在公共区可追加 | ✅ |
+
+### 发现的问题与改进
+
+1. **move 的祖先链检查覆盖不完整**：设计方案要求 move 检查从目标文档到笔记本顶层的整条路径。当前实现只检查了**直属父文档**（`_ensure_doc_manage_target_parent_writable`），未向上递归到笔记本顶层。对于三级嵌套 `/A(只读)/B(读写)/C` 的场景，如果 move C，当前只检查 B（读写），不检查 A（只读）——存在越权风险。需要改为 `_ensure_doc_manage_ancestors_writable` 并循环 `parent_display_path` 向上直到笔记本根。
+
+2. **move 的子树检查不必要**：设计方案明确 move 不需要子树检查（子文档显式权限保持不变跟随移动）。但当前实现对 move 也调用了 `_ensure_doc_manage_subtree_writable`。这意味着如果 `读写父/只读子` 这样的结构，move 读写父会被阻止。这不是安全问题（阻止是安全的），但违反了和思源一致的原则——move 应该和 SiYuan `moveDocsByID` 一样允许子树移动。
+
+3. **copy 的三步操作（duplicate → rename → move）存在额外的 API 调用开销**，但功能正确。
+
+4. **错误信息的用户体验**：delete 子树检查失败时显示了 `受限文档数量：N（read_only: X, hidden: Y）`，包含了隐藏文档的统计信息——这可能间接泄露隐藏文档的存在。设计方案要求不区分只读和隐藏。
+
+### 单元测试
+
+全部 201 个测试通过（包括 Codex 新增的 4 个：copy 改用 duplicate、delete 子树拒绝、move 父文档拒绝、copy 确认要求）。
+
+### 待修复项（优先级排序）
+
+| # | 问题 | 严重度 | 修复方案 |
+|---|------|:--:|------|
+| P1 | move 祖先链检查不够深 | 中 | 循环 `parent_display_path` 向上直到笔记本根 |
+| P2 | move 不应做子树检查 | 低 | 移除 move 的 `_ensure_doc_manage_subtree_writable` 调用 |
+| P3 | delete 错误信息可能泄露隐藏文档 | 低 | 改为统一的 "权限不足，子文档含有只读/隐藏文档..."
+
 ## 2026-06-06：三档权限模型实测、缓存排查与 DocManager 重设计
 
 ### 三档权限模型 MCP 实测
