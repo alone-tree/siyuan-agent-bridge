@@ -351,7 +351,7 @@ class PrivacyRulesParsingTests(unittest.TestCase):
 """
         with self.assertRaises(PrivacyRulesParseError) as ctx:
             parse_privacy_rules_markdown(markdown)
-        self.assertIn("Document ID 为空", str(ctx.exception))
+        self.assertIn("文档ID 为空", str(ctx.exception))
 
     def test_invalid_hide_value_errors(self):
         markdown = """## 隐藏笔记本
@@ -362,7 +362,7 @@ class PrivacyRulesParsingTests(unittest.TestCase):
 """
         with self.assertRaises(PrivacyRulesParseError) as ctx:
             parse_privacy_rules_markdown(markdown)
-        self.assertIn("Hide 只能填写", str(ctx.exception))
+        self.assertIn("旧 Hide 列只能填写", str(ctx.exception))
 
     def test_document_id_not_found_errors(self):
         markdown = """## 隐藏文档
@@ -376,7 +376,7 @@ class PrivacyRulesParsingTests(unittest.TestCase):
                 markdown,
                 all_docs=[{"id": "other-id", "title": "其他文档"}],
             )
-        self.assertIn("Document ID 不存在", str(ctx.exception))
+        self.assertIn("文档ID 不存在", str(ctx.exception))
 
     def test_notebook_by_name_matching(self):
         markdown = """## 隐藏笔记本
@@ -415,7 +415,7 @@ class PrivacyRulesParsingTests(unittest.TestCase):
 """
         with self.assertRaises(PrivacyRulesParseError) as ctx:
             parse_privacy_rules_markdown(markdown)
-        self.assertIn("Hide/Enabled 列", str(ctx.exception))
+        self.assertIn("权限 列", str(ctx.exception))
 
     def test_missing_header_document_id_column_errors(self):
         markdown = """## 隐藏文档
@@ -426,7 +426,7 @@ class PrivacyRulesParsingTests(unittest.TestCase):
 """
         with self.assertRaises(PrivacyRulesParseError) as ctx:
             parse_privacy_rules_markdown(markdown)
-        self.assertIn("Document ID 列", str(ctx.exception))
+        self.assertIn("文档ID 列", str(ctx.exception))
 
     def test_both_sections_parsed(self):
         markdown = """## 隐藏笔记本
@@ -538,6 +538,395 @@ class PrivacyRulesParsingTests(unittest.TestCase):
         with self.assertRaises(PrivacyRulesParseError) as ctx:
             parse_privacy_rules_markdown(markdown)
         self.assertIn("ID 和名称都为空", str(ctx.exception))
+
+
+# ── Permission Three-Tier Model Tests (subtree, conflict, DocManager safety) ──
+
+class PermissionTreeTests(unittest.TestCase):
+    """Tests for the three-tier permission model (hidden > read_only > read_write)
+    with subtree inheritance, notebook/document crossover, and conflict resolution."""
+
+    def _make_doc(self, id, notebook_id="nb1", notebook_name="Main", hpath="/Doc"):
+        return {"id": id, "notebook_id": notebook_id, "notebook_name": notebook_name, "hpath": hpath}
+
+    # ── Subtree inheritance ──
+
+    def test_subtree_inherits_parent_read_only(self):
+        """Child document under a read_only parent inherits read_only."""
+        docs = [
+            self._make_doc("parent-1", hpath="/ReadOnly"),
+            self._make_doc("child-1", hpath="/ReadOnly/Child"),
+            self._make_doc("unrelated", hpath="/Other"),
+        ]
+        rules = PrivacyRules(
+            ignore=[],
+            allow=[],
+            permissions=[{"scope": "document", "id": "parent-1", "permission": "read_only"}],
+        )
+        self.assertEqual(document_permission(docs[0], rules, docs), "read_only")
+        self.assertEqual(document_permission(docs[1], rules, docs), "read_only")
+        self.assertEqual(document_permission(docs[2], rules, docs), "read_write")
+
+    def test_subtree_parent_hidden_hides_all_children(self):
+        """All descendants of a hidden parent are hidden."""
+        docs = [
+            self._make_doc("parent-h", hpath="/Hidden"),
+            self._make_doc("child-h", hpath="/Hidden/Child"),
+            self._make_doc("grandchild-h", hpath="/Hidden/Child/Grandchild"),
+            self._make_doc("visible", hpath="/Other"),
+        ]
+        rules = PrivacyRules(
+            ignore=[],
+            allow=[],
+            permissions=[{"scope": "document", "id": "parent-h", "permission": "hidden"}],
+        )
+        self.assertEqual(document_permission(docs[0], rules, docs), "hidden")
+        self.assertEqual(document_permission(docs[1], rules, docs), "hidden")
+        self.assertEqual(document_permission(docs[2], rules, docs), "hidden")
+        self.assertEqual(document_permission(docs[3], rules, docs), "read_write")
+
+    def test_subtree_most_restrictive_wins(self):
+        """When parent=read_only and child=hidden, hidden wins."""
+        docs = [
+            self._make_doc("parent-ro", hpath="/RO"),
+            self._make_doc("child-h", hpath="/RO/ChildH"),
+        ]
+        rules = PrivacyRules(
+            ignore=[],
+            allow=[],
+            permissions=[
+                {"scope": "document", "id": "parent-ro", "permission": "read_only"},
+                {"scope": "document", "id": "child-h", "permission": "hidden"},
+            ],
+        )
+        self.assertEqual(document_permission(docs[0], rules, docs), "read_only")
+        # Most restrictive wins: hidden
+        self.assertEqual(document_permission(docs[1], rules, docs), "hidden")
+
+    def test_subtree_parent_read_write_child_read_only(self):
+        """Parent is read_write, child is read_only. Child should be read_only."""
+        docs = [
+            self._make_doc("parent-rw", hpath="/RW"),
+            self._make_doc("child-ro", hpath="/RW/ChildRO"),
+        ]
+        rules = PrivacyRules(
+            ignore=[],
+            allow=[],
+            permissions=[{"scope": "document", "id": "child-ro", "permission": "read_only"}],
+        )
+        self.assertEqual(document_permission(docs[0], rules, docs), "read_write")
+        self.assertEqual(document_permission(docs[1], rules, docs), "read_only")
+
+    def test_subtree_grandparent_three_levels_inheritance(self):
+        """Three-level decomposition: grandparent read_only → all descendants read_only."""
+        docs = [
+            self._make_doc("gp", hpath="/A"),
+            self._make_doc("p", hpath="/A/B"),
+            self._make_doc("c", hpath="/A/B/C"),
+            self._make_doc("unrelated", hpath="/X/Y/Z"),
+        ]
+        rules = PrivacyRules(
+            ignore=[],
+            allow=[],
+            permissions=[{"scope": "document", "id": "gp", "permission": "read_only"}],
+        )
+        for i in range(3):
+            self.assertEqual(document_permission(docs[i], rules, docs), "read_only", f"doc {i}")
+        self.assertEqual(document_permission(docs[3], rules, docs), "read_write")
+
+    # ── Notebook × Document crossover ──
+
+    def test_notebook_read_only_all_docs_read_only(self):
+        """Notebook-level read_only makes all docs in it read_only by default."""
+        docs = [
+            self._make_doc("d1", notebook_id="nb-ro", notebook_name="RO_NB", hpath="/Doc1"),
+            self._make_doc("d2", notebook_id="nb-ro", notebook_name="RO_NB", hpath="/Doc2"),
+            self._make_doc("d3", notebook_id="nb-other", notebook_name="OtherNB", hpath="/Doc3"),
+        ]
+        rules = PrivacyRules(
+            ignore=[],
+            allow=[],
+            permissions=[{"scope": "notebook", "id": "nb-ro", "permission": "read_only"}],
+        )
+        self.assertEqual(document_permission(docs[0], rules, docs), "read_only")
+        self.assertEqual(document_permission(docs[1], rules, docs), "read_only")
+        self.assertEqual(document_permission(docs[2], rules, docs), "read_write")
+
+    def test_notebook_hidden_overrides_doc_read_only(self):
+        """Notebook=hidden + document=read_only → hidden wins (more restrictive)."""
+        docs = [
+            self._make_doc("d1", notebook_id="nb-h", notebook_name="HiddenNB", hpath="/Doc1"),
+        ]
+        rules = PrivacyRules(
+            ignore=[],
+            allow=[],
+            permissions=[
+                {"scope": "notebook", "id": "nb-h", "permission": "hidden"},
+                {"scope": "document", "id": "d1", "permission": "read_only"},
+            ],
+        )
+        self.assertEqual(document_permission(docs[0], rules, docs), "hidden")
+
+    def test_notebook_read_only_doc_explicit_hidden(self):
+        """Notebook=read_only + document=hidden → hidden wins."""
+        docs = [
+            self._make_doc("d1", notebook_id="nb-ro", notebook_name="RO_NB", hpath="/Doc1"),
+        ]
+        rules = PrivacyRules(
+            ignore=[],
+            allow=[],
+            permissions=[
+                {"scope": "notebook", "id": "nb-ro", "permission": "read_only"},
+                {"scope": "document", "id": "d1", "permission": "hidden"},
+            ],
+        )
+        self.assertEqual(document_permission(docs[0], rules, docs), "hidden")
+
+    def test_notebook_read_only_doc_explicit_read_write(self):
+        """Notebook=read_only + document=read_write → most restrictive is read_only.
+        The document cannot escalate above its notebook's cap."""
+        docs = [
+            self._make_doc("d1", notebook_id="nb-ro", notebook_name="RO_NB", hpath="/Doc1"),
+        ]
+        rules = PrivacyRules(
+            ignore=[],
+            allow=[],
+            permissions=[
+                {"scope": "notebook", "id": "nb-ro", "permission": "read_only"},
+                {"scope": "document", "id": "d1", "permission": "read_write"},
+            ],
+        )
+        self.assertEqual(document_permission(docs[0], rules, docs), "read_only")
+
+    # ── Permission parsing (three-tier model) ──
+
+    def test_permission_column_parses_chinese_read_only(self):
+        markdown = """## 文档权限
+
+| 权限 | 文档ID（必填，不填会报错） | 标题（仅供确认） |
+|------|---------------------------|------------------|
+| 只读 | doc-1 | 测试文档 |
+"""
+        rules = parse_privacy_rules_markdown(
+            markdown,
+            all_docs=[{"id": "doc-1", "title": "测试文档"}],
+        )
+        self.assertEqual(rules.ignore, [])
+        self.assertEqual(len(rules.permissions), 1)
+        self.assertEqual(rules.permissions[0]["permission"], "read_only")
+
+    def test_permission_column_parses_chinese_hidden(self):
+        markdown = """## 文档权限
+
+| 权限 | 文档ID（必填，不填会报错） | 标题（仅供确认） |
+|------|---------------------------|------------------|
+| 隐藏 | doc-2 | 隐藏文档 |
+"""
+        rules = parse_privacy_rules_markdown(
+            markdown,
+            all_docs=[{"id": "doc-2", "title": "隐藏文档"}],
+        )
+        # hidden goes to ignore for backward compatibility (same effect via document_permission)
+        self.assertEqual(len(rules.ignore), 1)
+        self.assertEqual(rules.ignore[0]["id"], "doc-2")
+        self.assertEqual(len(rules.permissions), 0)
+
+    def test_permission_column_parses_chinese_read_write(self):
+        markdown = """## 文档权限
+
+| 权限 | 文档ID（必填，不填会报错） | 标题（仅供确认） |
+|------|---------------------------|------------------|
+| 读写 | doc-3 | 正常文档 |
+"""
+        rules = parse_privacy_rules_markdown(
+            markdown,
+            all_docs=[{"id": "doc-3", "title": "正常文档"}],
+        )
+        self.assertEqual(rules.ignore, [])
+        self.assertEqual(len(rules.permissions), 1)
+        self.assertEqual(rules.permissions[0]["permission"], "read_write")
+
+    def test_permission_column_parses_chinese_notebook(self):
+        markdown = """## 笔记本权限
+
+| 权限 | 笔记本ID（建议填） | 笔记本名称 | 备注（可选） |
+|------|---------------------|------------|--------------|
+| 只读 | nb-ro-id | 只读笔记 | 测试 |
+"""
+        rules = parse_privacy_rules_markdown(markdown)
+        self.assertEqual(len(rules.permissions), 1)
+        self.assertEqual(rules.permissions[0]["scope"], "notebook")
+        self.assertEqual(rules.permissions[0]["id"], "nb-ro-id")
+        self.assertEqual(rules.permissions[0]["permission"], "read_only")
+
+    def test_permission_column_rejects_invalid_value(self):
+        markdown = """## 文档权限
+
+| 权限 | 文档ID（必填，不填会报错） | 标题（仅供确认） |
+|------|---------------------------|------------------|
+| foobar | doc-1 | 测试文档 |
+"""
+        with self.assertRaises(PrivacyRulesParseError) as ctx:
+            parse_privacy_rules_markdown(
+                markdown,
+                all_docs=[{"id": "doc-1", "title": "测试文档"}],
+            )
+        self.assertIn("权限只能填写 读写/只读/隐藏", str(ctx.exception))
+
+    def test_permission_column_english_values(self):
+        markdown = """## Document Permissions
+
+| Permission | Document ID | Title |
+|---------------|-------------|-------|
+| hidden | doc-en-1 | English Hidden |
+| read_only | doc-en-2 | English Read Only |
+"""
+        rules = parse_privacy_rules_markdown(
+            markdown,
+            all_docs=[{"id": "doc-en-1", "title": "English Hidden"}, {"id": "doc-en-2", "title": "English Read Only"}],
+        )
+        # hidden goes to ignore, read_only goes to permissions
+        self.assertEqual(len(rules.ignore), 1)
+        self.assertEqual(rules.ignore[0]["id"], "doc-en-1")
+        self.assertEqual(len(rules.permissions), 1)
+        self.assertEqual(rules.permissions[0]["id"], "doc-en-2")
+        self.assertEqual(rules.permissions[0]["permission"], "read_only")
+
+    def test_permission_hidden_goes_to_ignore_not_permissions(self):
+        """A rule with permission=hidden is treated as ignore (not permissions list)."""
+        markdown = """## 文档权限
+
+| 权限 | 文档ID（必填，不填会报错） | 标题（仅供确认） |
+|------|---------------------------|------------------|
+| 隐藏 | doc-hidden | 隐藏文档 |
+"""
+        rules = parse_privacy_rules_markdown(
+            markdown,
+            all_docs=[{"id": "doc-hidden", "title": "隐藏文档"}],
+        )
+        # hidden goes to ignore array, not permissions array
+        self.assertEqual(len(rules.ignore), 1)
+        self.assertEqual(len(rules.permissions), 0)
+        self.assertEqual(rules.ignore[0]["id"], "doc-hidden")
+
+    def test_permission_mixed_hidden_and_read_only(self):
+        """Mixed: hidden goes to ignore, read_only goes to permissions."""
+        markdown = """## 文档权限
+
+| 权限 | 文档ID（必填，不填会报错） | 标题（仅供确认） |
+|------|---------------------------|------------------|
+| 隐藏 | doc-h | 隐藏 |
+| 只读 | doc-ro | 只读 |
+| 读写 | doc-rw | 读写 |
+"""
+        rules = parse_privacy_rules_markdown(
+            markdown,
+            all_docs=[
+                {"id": "doc-h", "title": "隐藏"},
+                {"id": "doc-ro", "title": "只读"},
+                {"id": "doc-rw", "title": "读写"},
+            ],
+        )
+        self.assertEqual(len(rules.ignore), 1)
+        self.assertEqual(len(rules.permissions), 2)
+        self.assertEqual(rules.ignore[0]["id"], "doc-h")
+        perm_ids = {r["id"] for r in rules.permissions}
+        self.assertEqual(perm_ids, {"doc-ro", "doc-rw"})
+
+    # ── document_permission with both ignore and permissions ──
+
+    def test_ignore_overrides_permissions(self):
+        """Legacy ignore rules still take effect (hidden > any permission)."""
+        docs = [
+            self._make_doc("d1", hpath="/Doc1"),
+        ]
+        rules = PrivacyRules(
+            ignore=[{"scope": "document", "id": "d1"}],
+            allow=[],
+            permissions=[{"scope": "document", "id": "d1", "permission": "read_write"}],
+        )
+        self.assertEqual(document_permission(docs[0], rules, docs), "hidden")
+
+    # ── Cache round-trip with permissions ──
+
+    def test_privacy_rules_cache_roundtrip_with_permissions(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            rules = PrivacyRules(
+                ignore=[{"scope": "notebook", "id": "nb-hidden"}],
+                allow=[],
+                permissions=[
+                    {"scope": "notebook", "id": "nb-ro", "permission": "read_only"},
+                    {"scope": "document", "id": "doc-ro", "permission": "read_only"},
+                ],
+            )
+            write_privacy_rules_cache(root, rules)
+            loaded = load_privacy_rules(root)
+            self.assertEqual(len(loaded.ignore), 1)
+            self.assertEqual(loaded.ignore[0]["id"], "nb-hidden")
+            self.assertEqual(len(loaded.permissions), 2)
+            perm_map = {(r["scope"], r["id"]): r["permission"] for r in loaded.permissions}
+            self.assertEqual(perm_map[("notebook", "nb-ro")], "read_only")
+            self.assertEqual(perm_map[("document", "doc-ro")], "read_only")
+
+    # ── DocManager subtree safety checks ──
+
+    def test_delete_parent_with_read_only_child_requires_subtree_check(self):
+        """If parent is read_write but has a read_only descendant, delete should be
+        rejected for the subtree as a whole. This test documents the desired behavior:
+        a helper function should collect all descendants and fail if any are non-read_write."""
+        docs = [
+            self._make_doc("parent-rw", hpath="/ParentRW"),
+            self._make_doc("child-ro", hpath="/ParentRW/ChildRO"),
+        ]
+        rules = PrivacyRules(
+            ignore=[],
+            allow=[],
+            permissions=[{"scope": "document", "id": "child-ro", "permission": "read_only"}],
+        )
+        self.assertEqual(document_permission(docs[0], rules, docs), "read_write")
+        self.assertEqual(document_permission(docs[1], rules, docs), "read_only")
+        # Demonstrating the gap: parent passes, but subtree has restricted descendants
+        # A subtree-aware check would scan descendants:
+        parent_hpath = "/ParentRW"
+        descendants_perms = [
+            document_permission(d, rules, docs)
+            for d in docs
+            if d["hpath"].startswith(parent_hpath + "/")
+        ]
+        self.assertIn("read_only", descendants_perms)
+        # The subtree is NOT safe for delete/move
+
+    def test_delete_parent_with_hidden_child_requires_subtree_check(self):
+        """If parent is read_write but has a hidden descendant, same safety gap."""
+        docs = [
+            self._make_doc("parent-rw", hpath="/ParentRW"),
+            self._make_doc("child-hidden", hpath="/ParentRW/ChildHidden"),
+        ]
+        rules = PrivacyRules(
+            ignore=[],
+            allow=[],
+            permissions=[{"scope": "document", "id": "child-hidden", "permission": "hidden"}],
+        )
+        self.assertEqual(document_permission(docs[0], rules, docs), "read_write")
+        self.assertEqual(document_permission(docs[1], rules, docs), "hidden")
+        # Gap: parent passes, hidden child is exposed through delete/move
+
+    def test_delete_parent_all_descendants_read_write_allowed(self):
+        """Parent is read_write and all descendants are read_write — safe to delete."""
+        docs = [
+            self._make_doc("parent-rw", hpath="/ParentRW"),
+            self._make_doc("child-rw", hpath="/ParentRW/ChildRW"),
+        ]
+        rules = PrivacyRules(ignore=[], allow=[])
+        parent_hpath = "/ParentRW"
+        all_ok = all(
+            document_permission(d, rules, docs) == "read_write"
+            for d in docs
+            if d["hpath"].startswith(parent_hpath + "/")
+        )
+        self.assertTrue(all_ok)
 
 
 if __name__ == "__main__":

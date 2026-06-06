@@ -146,6 +146,9 @@
 
 - rename/move/delete 需要 `read_write` 和 `confirmed=true`。
 - copy 源文档可以是 `read_only`，但目标路径必须 `read_write`。
+- delete 会影响整棵子树，必须验证子孙文档中存在 `read_only` 或 `hidden` 时拒绝操作，且错误信息不能泄露隐藏文档名称、数量或权限分布。
+- move 会移动整棵子树但不要求子孙全部可写；必须验证源文档祖先链和目标父路径都是 `read_write`。
+- copy 必须使用 `target_path`，通过 `duplicateDoc` 复制源文档本身；不应退回 export + create 作为主路径。
 - export 不创建快照、不写思源，只写 `ai_workspace/exports/`。
 - delete 返回中提示可通过思源快照恢复。
 - rename/move/copy/delete 后路径同步状态和索引状态正确。
@@ -194,6 +197,49 @@ JSON-RPC tools/list
 python pack_skill.py --check
 python pack_release.py --check
 ```
+
+涉及思源插件形态时，第一版不生成 ZIP 发布包，而是同步必要 Python Bridge 文件到插件开发目录：
+
+```bash
+python scripts/sync_siyuan_plugin_bridge.py
+```
+
+同步脚本只生成 `siyuan-plugin/bridge/`，该目录是开发/安装运行产物，不提交 Git。验证时必须确认：
+
+- `siyuan-plugin/bridge/source_code/mcp_server.py` 存在。
+- `siyuan-plugin/bridge/plugins/siyuan-agent-bridge/scripts/run_mcp.py` 存在。
+- `siyuan-plugin/bridge/config.local.json` 不会被同步脚本覆盖。
+
+## 插件导入测试流程
+
+测试思源工作空间中的插件目录只能作为”用户安装后的落盘结果”。不要直接修改测试工作空间里的插件代码，例如 `D:\Siyuan2test\data\plugins\siyuan-bridge`。所有修复必须先改仓库工程文件，再把整个 `siyuan-plugin/` 重新导入测试工作空间。
+
+### 首次安装（模拟新用户）
+
+模拟用户第一次从零安装插件的场景。预期：导入后没有 `config.local.json`，启用插件后自动创建。
+
+```bat
+:: 1. 杀旧进程（如果有残留 MCP 进程占用插件目录）
+python -c “import psutil; [p.kill() for p in psutil.process_iter(['pid','cmdline']) if 'run_mcp.py' in ' '.join(p.info['cmdline'] or [])]”
+
+:: 2. 删除整个插件目录（含配置，模拟从未安装过）
+python -c “import shutil; shutil.rmtree(r'D:\Siyuan2test\data\plugins\siyuan-bridge')”
+
+:: 3. 整体导入仓库 siyuan-plugin/
+python -c “import shutil; shutil.copytree(r'D:\Github\siyuan-agent-bridge\siyuan-plugin', r'D:\Siyuan2test\data\plugins\siyuan-bridge')”
+
+:: 4. 确认导入结果
+python -c “import os; plugins=sorted(os.listdir(r'D:\Siyuan2test\data\plugins\siyuan-bridge')); print(plugins); cfg=os.path.join(r'D:\Siyuan2test\data\plugins\siyuan-bridge','bridge','config.local.json'); print('NO_CONFIG' if not os.path.exists(cfg) else 'HAS_CONFIG')”
+```
+
+验证清单：
+- [x] `bridge/source_code/mcp_server.py` 存在
+- [x] `bridge/plugins/siyuan-agent-bridge/scripts/run_mcp.py` 存在
+- [x] `bridge/config.local.json` **不存在**
+- [x] 思源 UI 启用插件后自动创建 `config.local.json`
+- [x] 用户没有点开设置页、没有点击保存的情况下，外部 MCP 客户端能正常启动并调用工具
+
+首次安装/启用插件的真实用户流程必须额外验证：删除测试插件目录中的 `bridge/config.local.json`，整体导入仓库 `siyuan-plugin/` 后，由用户在思源 UI 启用插件。插件启用后应自动创建 `bridge/config.local.json`，写入当前工作空间名称和 Token；在用户没有点开设置页、没有点击”保存配置”的情况下，外部 MCP 客户端也应能正常启动并调用工具。
 
 涉及 MCP 工具面、Skill、安装配置或跨 Agent 行为时，按项目规则还应调用 Claude Code 做外部验证。外部验证不是只看代码，而是让另一个 Agent 在真实 MCP 客户端环境里调用工具。
 
@@ -289,6 +335,8 @@ python scripts/verify.py
 10. Windows keep-alive 曾触发 `WinError 10054`，HTTP client 必须保留 `Connection: close`。
 11. `docs/siyuan-api-doc.md` 是网页抓取噪音，不应作为开发参考。
 12. 插件和安装文档存在版本/链接漂移。
+13. 思源插件第一版的 `bridge/` 目录由同步脚本生成，不是发布 ZIP；不要把旧 ZIP 流程误当成当前插件实现路径。
+14. 测试空间里的思源插件目录不是源码，不得直接编辑。正确流程是修改仓库 `siyuan-plugin/`，再整体导入测试空间。
 
 ## Windows 命令与编码
 

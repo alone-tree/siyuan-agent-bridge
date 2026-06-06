@@ -724,6 +724,39 @@ def descendant_count(doc: dict[str, Any], docs: list[dict[str, Any]]) -> int:
     )
 
 
+def document_subtree(doc: dict[str, Any], docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    doc_id = str(doc.get("id") or "")
+    notebook_id = str(doc.get("notebook_id") or "")
+    hpath = normalize_display_path(str(doc.get("hpath") or "")).rstrip("/")
+    result = []
+    for item in docs:
+        if str(item.get("id") or "") == doc_id:
+            result.append(item)
+            continue
+        if str(item.get("notebook_id") or "") != notebook_id:
+            continue
+        item_hpath = normalize_display_path(str(item.get("hpath") or "")).rstrip("/")
+        if hpath and item_hpath.startswith(hpath + "/"):
+            result.append(item)
+    return result
+
+
+def parent_display_path(document_path: str) -> str:
+    parts = normalize_display_path(document_path).strip("/").split("/")
+    if len(parts) <= 1:
+        return ""
+    return "/" + "/".join(parts[:-1])
+
+
+def notebook_permission_probe(notebook: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": "",
+        "notebook_id": str(notebook.get("id", "")),
+        "notebook_name": str(notebook.get("name", "")),
+        "hpath": "/__siyuan_bridge_permission_probe__",
+    }
+
+
 def format_int(value: Any) -> str:
     try:
         return f"{int(value):,}"
@@ -1220,15 +1253,19 @@ class McpServer:
             overview,
         ]
 
-        # Privacy rules status (no specific rules exposed)
-        ignore_count = len(state.privacy_rules.ignore)
-        if ignore_count > 0:
-            notebook_rules = [r for r in state.privacy_rules.ignore if r.get("scope") == "notebook"]
-            doc_rules = [r for r in state.privacy_rules.ignore if r.get("scope") == "document"]
+        # Privacy rules status (no specific rule details exposed)
+        total_ignore = len(state.privacy_rules.ignore)
+        total_permissions = len(state.privacy_rules.permissions)
+        if total_ignore > 0 or total_permissions > 0:
+            nb_ignore = [r for r in state.privacy_rules.ignore if r.get("scope") == "notebook"]
+            doc_ignore = [r for r in state.privacy_rules.ignore if r.get("scope") == "document"]
+            nb_perm = [r for r in state.privacy_rules.permissions if r.get("scope") == "notebook"]
+            doc_perm = [r for r in state.privacy_rules.permissions if r.get("scope") == "document"]
+            total_nb = len(nb_ignore) + len(nb_perm)
+            total_doc = len(doc_ignore) + len(doc_perm)
             parts.append("")
             parts.append(
-                f"隐私规则：已加载，{len(notebook_rules)} 条笔记本规则，"
-                f"{len(doc_rules)} 条文档规则。"
+                f"隐私规则：已加载，{total_nb} 条笔记本规则，{total_doc} 条文档规则。"
             )
         else:
             parts.append("")
@@ -1274,12 +1311,13 @@ class McpServer:
             system_notebook_id=state.notebook_id,
             privacy_rules_doc_id=state.privacy_rules_doc_id,
         )
+        total_ignore = len(state.privacy_rules.ignore)
+        total_permissions = len(state.privacy_rules.permissions)
+        total_rules = total_ignore + total_permissions
         return (
             "# 索引已刷新\n\n"
-            f"共扫描 {result.total_notebook_count} 个笔记本、{result.total_document_count} 篇文档。\n"
             f"可见：{result.notebook_count} 个笔记本、{result.document_count} 篇文档。\n"
-            f"已隐藏：{result.hidden_notebook_count} 个笔记本、{result.hidden_document_count} 篇文档。\n\n"
-            "使用刷新后的索引前请先调用 `siyuan_start`。"
+            f"隐私规则：{total_rules} 条隐私规则已生效。"
         )
 
     def siyuan_list(self, args: dict[str, Any]) -> str:
@@ -1292,13 +1330,29 @@ class McpServer:
         if not path and not notebook_id and not notebook_name:
             # List all notebooks
             notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
+            docs = load_docs(self.root)
+            privacy = load_privacy_rules(self.root)
             lines = ["# 可见笔记本", ""]
+            lines.extend([
+                "| notebook | notebook_id | 权限 |",
+                "|---|---|---|",
+            ])
             for notebook in notebooks:
-                lines.append(f"- `{notebook.get('id', '')}` {notebook.get('name', '')}")
+                permission = document_permission(notebook_permission_probe(notebook), privacy, docs)
+                lines.append(
+                    "| "
+                    + " | ".join([
+                        str(notebook.get("name", "")),
+                        f"`{notebook.get('id', '')}`",
+                        permission,
+                    ])
+                    + " |"
+                )
             lines.append("")
             return "\n".join(lines)
 
         docs = load_docs(self.root)
+        privacy = load_privacy_rules(self.root)
         notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
 
         # Compatibility: old notebook_id/notebook_name args now list the notebook root.
@@ -1357,18 +1411,20 @@ class McpServer:
         lines = [
             f"# {path}",
             "",
-            "| document | document_id | 字数 | 块数 | 更新 | 子文档 |",
-            "|---|---|---:|---:|---|---:|",
+            "| document | document_id | 权限 | 字数 | 块数 | 更新 | 子文档 |",
+            "|---|---|---|---:|---:|---|---:|",
         ]
         if not page:
-            lines.append("| (无可见子文档) |  |  |  |  |  |")
+            lines.append("| (无可见子文档) |  |  |  |  |  |  |")
         for doc in page:
             doc_path = display_document_path(doc)
+            permission = document_permission(doc, privacy, docs)
             lines.append(
                 "| "
                 + " | ".join([
                     doc_path,
                     f"`{doc.get('id', '')}`",
+                    permission,
                     format_int(doc.get("word_count", 0)),
                     format_int(doc.get("block_count", 0)),
                     format_date(str(doc.get("updated", ""))),
@@ -2313,6 +2369,7 @@ class McpServer:
         target_label = ""
         copy_target: CreateTarget | None = None
         copy_title = ""
+        copy_parent_id = ""
         if action == "rename":
             new_title = str(args.get("new_title") or "").strip()
             if not new_title:
@@ -2322,17 +2379,13 @@ class McpServer:
             if not target_parent:
                 raise ValueError("action=move 需要 target_parent，例如 /Notebook 或 /Notebook/Folder。")
             target_id, target_label = self.resolve_doc_manage_parent(target_parent)
+            self._ensure_doc_manage_ancestors_writable(doc, privacy, docs, action="move")
+            self._ensure_doc_manage_target_parent_writable(target_label, privacy, docs, action="move")
         elif action == "copy":
             target_path = str(args.get("target_path") or "").strip()
-            target_title = str(args.get("target_title") or "").strip()
-            if not target_path and not target_title:
-                raise ValueError("action=copy 需要 target_path 或 target_title。")
-            if target_path:
-                copy_title = target_path.strip("/").split("/")[-1]
-            else:
-                copy_title = target_title
-                source_parent = "/".join(doc_path.strip("/").split("/")[:-1])
-                target_path = normalize_display_path(f"{source_parent}/{target_title}")
+            if not target_path:
+                raise ValueError("action=copy 需要 target_path，例如 /Notebook/Folder/New Doc。")
+            copy_title = target_path.strip("/").split("/")[-1]
             if not copy_title:
                 raise ValueError("复制目标标题为空。")
             notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
@@ -2349,6 +2402,10 @@ class McpServer:
             if copy_target.existing_docs:
                 choices = "\n".join(f"- `{item.get('id', '')}` {display_document_path(item)}" for item in copy_target.existing_docs)
                 raise ValueError("复制目标文档已存在，拒绝覆盖。\n" + choices)
+            copy_parent = parent_display_path(copy_target.display_path)
+            copy_parent_id, _copy_parent_label = self.resolve_doc_manage_parent(copy_parent)
+        elif action == "delete":
+            self._ensure_doc_manage_subtree_writable(client, doc, privacy, action="delete")
 
         snapshot_status = self._create_snapshot_or_raise(client, "siyuan_doc_manage", doc_path)
         sync_status: PostWriteSyncStatus | None = None
@@ -2382,13 +2439,16 @@ class McpServer:
 
         elif action == "copy":
             assert copy_target is not None
+            duplicated_id = ""
             with ensure_notebooks_open(client, [notebook_id, copy_target.notebook_id]):
-                markdown = client.export_markdown(doc_id)
-                result = client.create_doc_with_md(copy_target.notebook_id, copy_target.internal_path, markdown)
-            new_doc_id = str(result.get("id") or result.get("docID") or result.get("doc_id") or "")
-            result_line = f"已复制到：{copy_target.display_path}" + (f"（`{new_doc_id}`）" if new_doc_id else "")
-            if new_doc_id:
-                sync_status = self._wait_for_hpath(client, new_doc_id, copy_target.internal_path)
+                result = client.duplicate_doc(doc_id)
+                duplicated_id = str(result.get("id") or result.get("docID") or result.get("doc_id") or "")
+                if not duplicated_id:
+                    raise ValueError("duplicateDoc 未返回新文档 ID，无法完成复制。")
+                client.rename_doc_by_id(duplicated_id, copy_title)
+                client.move_docs_by_id([duplicated_id], copy_parent_id)
+            result_line = f"已复制到：{copy_target.display_path}（`{duplicated_id}`）"
+            sync_status = self._wait_for_hpath(client, duplicated_id, copy_target.internal_path)
 
         try:
             client.push_msg(f"思源桥：文档管理已完成「{doc_path}」")
@@ -2418,6 +2478,82 @@ class McpServer:
         if action == "delete":
             parts.append("如需回滚，可通过思源快照手动恢复。")
         return "\n".join(parts)
+
+    def _ensure_doc_manage_subtree_writable(
+        self,
+        client: Any,
+        doc: dict[str, Any],
+        privacy: PrivacyRules,
+        *,
+        action: str,
+    ) -> None:
+        notebook_id = str(doc.get("notebook_id") or "")
+        with ensure_notebooks_open(client, [notebook_id]):
+            live_docs = load_live_docs(client)
+        indexed = {str(item.get("id") or ""): item for item in live_docs}
+        live_doc = indexed.get(str(doc.get("id") or ""), doc)
+        subtree = document_subtree(live_doc, live_docs)
+        blocked = [
+            (item, document_permission(item, privacy, live_docs))
+            for item in subtree
+            if document_permission(item, privacy, live_docs) != "read_write"
+        ]
+        if blocked:
+            raise ValueError(
+                "权限不足，子文档中存在只读或隐藏文档，不允许删除整个文档树。"
+                "请让用户调整隐私规则后重试。"
+            )
+
+    def _ensure_doc_manage_ancestors_writable(
+        self,
+        doc: dict[str, Any],
+        privacy: PrivacyRules,
+        docs: list[dict[str, Any]],
+        *,
+        action: str,
+    ) -> None:
+        current = parent_display_path(display_document_path(doc))
+        while current:
+            matches = [item for item in docs if display_document_path(item).casefold() == current.casefold()]
+            if matches:
+                permission = document_permission(matches[0], privacy, docs)
+                if permission != "read_write":
+                    raise ValueError(
+                        f"权限不足，该文档的祖先路径权限不是 read_write，不允许 {action}。"
+                        "请让用户调整隐私规则后重试。"
+                    )
+            next_parent = parent_display_path(current)
+            if next_parent == current:
+                break
+            current = next_parent
+
+    def _ensure_doc_manage_target_parent_writable(
+        self,
+        target_label: str,
+        privacy: PrivacyRules,
+        docs: list[dict[str, Any]],
+        *,
+        action: str,
+    ) -> None:
+        path = normalize_display_path(target_label)
+        notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
+        notebook = next(
+            (nb for nb in notebooks if normalize_display_path(str(nb.get("name", ""))).casefold() == path.casefold()),
+            None,
+        )
+        if notebook is not None:
+            probe = {
+                "id": "",
+                "notebook_id": str(notebook.get("id", "")),
+                "notebook_name": str(notebook.get("name", "")),
+                "hpath": "/__siyuan_bridge_permission_probe__",
+            }
+            permission = document_permission(probe, privacy, docs)
+        else:
+            matches = [doc for doc in docs if display_document_path(doc).casefold() == path.casefold()]
+            permission = document_permission(matches[0], privacy, docs) if len(matches) == 1 else "hidden"
+        if permission != "read_write":
+            raise ValueError(f"action={action} 的目标父路径权限为 {permission}，不允许写入。")
 
     def resolve_doc_manage_parent(self, target_parent: str) -> tuple[str, str]:
         path = normalize_display_path(target_parent)
@@ -2614,7 +2750,7 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_list",
-            "description": "List visible notebooks or one level of visible documents. No arguments lists notebooks. Provide path=/Notebook or /Notebook/Folder to list only direct child documents at that path. Each row returns a full readable document path for siyuan_read/siyuan_edit, plus document_id fallback, word count, block count, update date, and descendant document count. Results are paginated with offset/limit. notebook_id/notebook_name are compatibility shortcuts for path=/Notebook.",
+            "description": "List visible notebooks or one level of visible documents. No arguments lists notebooks. Provide path=/Notebook or /Notebook/Folder to list only direct child documents at that path. Each row returns effective permission (read_write/read_only), a full readable document path for siyuan_read/siyuan_edit, plus document_id fallback, word count, block count, update date, and descendant document count. Hidden items are not listed. Results are paginated with offset/limit. notebook_id/notebook_name are compatibility shortcuts for path=/Notebook.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2716,7 +2852,7 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_doc_manage",
-            "description": "Manage visible SiYuan documents at the document-tree level, not document body editing. Actions: rename, move, delete, copy, export. copy/export are allowed for readable documents. rename/move/delete require read_write permission, confirmed=true, and create a SiYuan workspace snapshot before writing. copy also requires confirmed=true because it creates a new document. After rename/move/delete/copy, waits for SiYuan path sync and refreshes the safe index. export writes Markdown to ai_workspace/exports and does not modify SiYuan.",
+            "description": "Manage visible SiYuan documents at the document-tree level, not document body editing. Actions: rename, move, delete, copy, export. copy/export are allowed for readable documents. rename/move/delete require read_write permission, confirmed=true, and create a SiYuan workspace snapshot before writing. delete affects the whole subtree and is rejected if any descendant is not read_write. move preserves the moved subtree but is rejected if the source document inherits restrictions from any non-read_write ancestor or if the target parent is not read_write. copy uses SiYuan duplicateDoc for the source document only, requires target_path and confirmed=true, then renames/moves the duplicate. After rename/move/delete/copy, waits for SiYuan path sync and refreshes the safe index. export writes Markdown to ai_workspace/exports and does not modify SiYuan.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2725,8 +2861,7 @@ def tool_specs() -> list[dict[str, Any]]:
                     "action": {"type": "string", "enum": ["rename", "move", "delete", "copy", "export"], "description": "Document management action."},
                     "new_title": {"type": "string", "description": "Required for action=rename."},
                     "target_parent": {"type": "string", "description": "Required for action=move. Visible target notebook or parent document path, e.g. /Notebook or /Notebook/Folder."},
-                    "target_path": {"type": "string", "description": "For action=copy. Preferred full readable target path /Notebook/Folder/New Doc."},
-                    "target_title": {"type": "string", "description": "For action=copy when copying next to the source document."},
+                    "target_path": {"type": "string", "description": "Required for action=copy. Full readable target path /Notebook/Folder/New Doc. The target path must not already exist and must be read_write."},
                     "confirmed": {"type": "boolean", "description": "Required for rename/move/delete/copy. Not required for export."},
                 },
                 "required": ["action"],

@@ -28,7 +28,7 @@
 | 笔记本管理 | `/api/notebook/createNotebook`, rename/remove 类端点 | 创建、重命名、删除笔记本 | 不开放。笔记本管理是人工决策 |
 | 文档树读取 | `/api/filetree/listDocsByPath`, `/api/filetree/getHPathByID`, `/api/filetree/getIDsByHPath` | 解析文档路径、结构和 ID | 内部使用或现有只读工具间接使用 |
 | 文档创建 | `/api/filetree/createDocWithMd` | 创建新文档 | 暴露为 `siyuan_create` |
-| 文档结构变更 | `/api/filetree/renameDocByID`, `/api/filetree/removeDocByID`, `/api/filetree/moveDocsByID` | 重命名、删除、移动文档 | 通过 `siyuan_doc_manage` 封装，写前快照 |
+| 文档结构变更 | `/api/filetree/renameDocByID`, `/api/filetree/removeDocByID`, `/api/filetree/moveDocsByID`, `/api/filetree/duplicateDoc` | 重命名、删除、移动、复制文档 | 通过 `siyuan_doc_manage` 封装，写前快照 |
 | 块读取 | `/api/block/getBlockKramdown`, `/api/block/getChildBlocks` | 读取块内容、构建块窗口、引用阅读定位 | 内部使用 |
 | 块编辑 | `/api/block/updateBlock`, `/api/block/appendBlock`, `/api/block/insertBlock`, `/api/block/prependBlock` | 实现文档内增删改 | 只由 `siyuan_edit` 内部调用 |
 | 块删除/移动 | `/api/block/deleteBlock`, `/api/block/moveBlock` | 删除或移动块 | 删除由 `siyuan_edit` 的 `delete` 动作封装；移动暂不开放 |
@@ -52,7 +52,7 @@
 |----------|----------|---------------|
 | `siyuan_edit` | 在已有可见文档中替换、追加、删除、插入文本，或编辑普通 Markdown 表格 | 隐私检查；引用阅读定位校验；`repo/createSnapshot`；`block/updateBlock` / `appendBlock` / `insertBlock` / `deleteBlock`；`notification/pushMsg` |
 | `siyuan_create` | 通过完整可读路径创建、覆盖或新增同名文档 | 隐私和路径检查；`repo/createSnapshot`；`filetree/createDocWithMd` 或 `block/deleteBlock` + `block/appendBlock`；`notification/pushMsg`；`filetree/getHPathByID` 等待路径同步 |
-| `siyuan_doc_manage` | 管理文档树：改名、移动、删除、复制、导出 | 权限检查；`copy/export` 允许只读；`rename/move/delete` 需可写；写操作调用 `repo/createSnapshot`；内部使用 `renameDocByID` / `moveDocsByID` / `removeDocByID` / `createDocWithMd` / `exportMdContent`；写后用 `getHPathByID` 确认路径同步 |
+| `siyuan_doc_manage` | 管理文档树：改名、移动、删除、复制、导出 | 权限检查；`copy/export` 允许只读源文档；`rename/move/delete` 需可写；`delete` 写前扫描子孙权限；`move` 写前检查源文档祖先链和目标父路径权限；写操作调用 `repo/createSnapshot`；内部使用 `renameDocByID` / `moveDocsByID` / `removeDocByID` / `duplicateDoc` / `exportMdContent`；写后用 `getHPathByID` 确认路径同步 |
 
 AI 不需要知道这些底层端点。它只提供：
 

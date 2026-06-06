@@ -1,0 +1,48 @@
+.siyuan-bridge {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: calc(100vh - 180px);
+  overflow: auto;
+  padding: 24px;
+}
+
+.siyuan-bridge__section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.siyuan-bridge__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.siyuan-bridge__label {
+  color: var(--b3-theme-on-surface);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.siyuan-bridge__header,
+.siyuan-bridge__actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.siyuan-bridge__profile {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(180px, 1fr) minmax(260px, 2fr) auto;
+  margin-bottom: 8px;
+}
+
+.siyuan-bridge__json {
+  font-family: var(--b3-font-family-code);
+  min-height: 220px;
+  resize: vertical;
+}

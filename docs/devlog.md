@@ -1,5 +1,214 @@
 # SiYuan Agent Bridge 项目工程文档
 
+该文档应该把最新内容放在最上，不要放到最下面，AI读不到。
+
+## 2026-06-06：move 祖先链检查与 list 权限列
+
+本轮修复上一轮 MCP 实测后的 3 个待处理点，并补充 `siyuan_list` 权限展示：
+
+- `move` 移除子树全量 `read_write` 检查，保留思源 `moveDocsByID` 移动整棵子树的行为。
+- `move` 新增源文档祖先链检查：从源文档父路径向上到笔记本根，任何祖先不是 `read_write` 都拒绝，避免文档移出只读/隐藏祖先后权限提升。
+- `delete` 子树权限拒绝信息改为统一文案，不返回受限文档数量、权限分布、标题或路径。
+- `siyuan_list` 的笔记本列表和文档列表新增 `权限` 列，只显示可见项目的最终有效权限：`read_write` / `read_only`。隐藏内容不出现在 list 中。
+
+## 2026-06-06：DocManager 子树权限与 duplicateDoc 实现
+
+已按实测后的 DocManager 设计落地：
+
+- `client.py` 新增 `duplicate_doc()`，封装 `/api/filetree/duplicateDoc`。
+- `siyuan_doc_manage(action=copy)` 改为 `duplicateDoc` 复制源文档，再按 `target_path` 重命名并移动副本；`target_path` 现在必填，`target_title` 不再作为调用入口。
+- `siyuan_doc_manage(action=delete)` 写入前从思源 live 文档列表扫描源文档整棵子树；任何子孙权限不是 `read_write` 都拒绝删除。
+- `siyuan_doc_manage(action=move)` 写入前同样扫描源子树，并检查目标父路径权限必须是 `read_write`。
+- `copy` 仍允许只读源文档，目标路径必须可写；`export` 行为不变。
+
+验证：
+
+- `python -m pytest tests\test_client.py tests\test_mcp_server.py -q`：144 passed。
+
+### 补充分析：为何不直接用 `listDocsByPath` 遍历子树
+
+我们调研了 SiYuan 的 `/api/filetree/listDocsByPath` API，它能递归返回指定 notebook + path 下的所有文档（含 ID、名称、子文档数量等），看起来是收集子树文档的理想选择。但对该路径下的**隐藏文档**而言，`listDocsByPath` 仍受 SiYuan 权限模型的约束，可能不会返回 AI 无权查看的文档，因此无法可靠地用于子树权限扫描。
+
+当前基于 SQL 的全量文档查询（`load_live_docs` + hpath 前缀匹配）能覆盖隐藏和可见文档，是子树权限扫描的正确方式。
+
+## 2026-06-06：DocManager 实现完成并实测验证
+
+### Codex 实现回顾
+
+Codex 按照设计方案完成了以下实现：
+
+**client.py**：
+- `duplicate_doc(doc_id)` -- 封装 `POST /api/filetree/duplicateDoc`，返回 `{hPath, id, notebook, path}`
+
+**mcp_server.py**：
+- `document_subtree(doc, docs)` -- 按 notebook_id + hpath 前缀匹配收集子树文档（不含自身，区别于 `descendant_count`）
+- `parent_display_path(path)` -- 从 display_path 提取父路径，无父路径时返回空字符串
+- `_ensure_doc_manage_subtree_writable()` -- delete 前扫描子树，任何子孙 `!= "read_write"` 则拒绝，错误信息统计权限分布
+- `_ensure_doc_manage_target_parent_writable()` -- move/copy 前检查目标父路径权限
+- copy：`duplicateDoc` → `renameDocByID`（改名去掉时间戳后缀）→ `moveDocsByID`（移到目标位置）
+- move：增加了目标父路径权限检查和源文档子树权限检查
+- delete：增加了子树权限扫描
+- tool_specs：copy 的 target_path 描述更新为必填
+
+**FakeSearchClient** (测试)：
+- 新增 `_duplicated_docs` 列表和 `duplicate_doc` mock 方法
+
+### MCP 实测结果
+
+在思源 3.6.5 测试工作空间中验证：
+
+| # | 操作 | 目标 | 结果 | 判定 |
+|---|------|------|------|:--:|
+| 1 | copy 只读源 → 只读目标 | /半开放区/可读不可写 → /半开放区/副本 | ❌ "目标路径权限不是 read_write" | ✅ |
+| 2 | copy 只读源 → 读写目标 | /半开放区/可读不可写 → /权限测试/副本 | ✅ 正常创建，副本可追加内容 | ✅ |
+| 3 | copy 目标已存在 | → /公开文档B | ❌ "目标文档已存在，拒绝覆盖" | ✅ |
+| 4 | delete 只读文档 | /半开放区 | ❌ "权限为 read_only" | ✅ |
+| 5 | delete 无子文档 | /公开文档A-已重命名 | ✅ 正常删除 | ✅ |
+| 6 | delete 有隐藏子的读写父 | /含隐藏子的读写区 | ✅ 已被 D2 删除（之前测试） | -- |
+| 7 | copy 只读源 → 公共区 | /半开放区/可读不可写 → /权限测试/副本 | ✅ 正常，副本在公共区可追加 | ✅ |
+
+### 发现的问题与改进
+
+1. **move 的祖先链检查覆盖不完整**：设计方案要求 move 检查从目标文档到笔记本顶层的整条路径。当前实现只检查了**直属父文档**（`_ensure_doc_manage_target_parent_writable`），未向上递归到笔记本顶层。对于三级嵌套 `/A(只读)/B(读写)/C` 的场景，如果 move C，当前只检查 B（读写），不检查 A（只读）——存在越权风险。需要改为 `_ensure_doc_manage_ancestors_writable` 并循环 `parent_display_path` 向上直到笔记本根。
+
+2. **move 的子树检查不必要**：设计方案明确 move 不需要子树检查（子文档显式权限保持不变跟随移动）。但当前实现对 move 也调用了 `_ensure_doc_manage_subtree_writable`。这意味着如果 `读写父/只读子` 这样的结构，move 读写父会被阻止。这不是安全问题（阻止是安全的），但违反了和思源一致的原则——move 应该和 SiYuan `moveDocsByID` 一样允许子树移动。
+
+3. **copy 的三步操作（duplicate → rename → move）存在额外的 API 调用开销**，但功能正确。
+
+4. **错误信息的用户体验**：delete 子树检查失败时显示了 `受限文档数量：N（read_only: X, hidden: Y）`，包含了隐藏文档的统计信息——这可能间接泄露隐藏文档的存在。设计方案要求不区分只读和隐藏。
+
+### 单元测试
+
+全部 201 个测试通过（包括 Codex 新增的 4 个：copy 改用 duplicate、delete 子树拒绝、move 父文档拒绝、copy 确认要求）。
+
+### 待修复项（优先级排序）
+
+| # | 问题 | 严重度 | 修复方案 |
+|---|------|:--:|------|
+| P1 | move 祖先链检查不够深 | 中 | 循环 `parent_display_path` 向上直到笔记本根 |
+| P2 | move 不应做子树检查 | 低 | 移除 move 的 `_ensure_doc_manage_subtree_writable` 调用 |
+| P3 | delete 错误信息可能泄露隐藏文档 | 低 | 改为统一的 "权限不足，子文档含有只读/隐藏文档..."
+
+## 2026-06-06：三档权限模型实测、缓存排查与 DocManager 重设计
+
+### 三档权限模型 MCP 实测
+
+在测试工作空间中创建了 18 个文档构成三级嵌套树（7 顶级 + 8 子 + 3 孙），覆盖半开放区（只读）、禁区（隐藏）、冲突区（父只读+子隐藏）、读写父区（读写父+只读孙）、含隐藏子的读写区等场景。隐私规则 6 条（3 hidden → ignore，3 read_only → permissions）。
+
+MCP 实测结论：
+
+- **可见性**：`list`/`read`/`find` 正确按规则隐藏文档。父隐藏 → 子树全部不可见。父只读+子显式隐藏 → most-restrictive 隐藏胜出。
+- **写入拒绝**：`create`/`edit`/`doc_manage rename/move/delete` 对只读文档全部正确拒绝（错误信息 `权限不是 read_write` / `权限为 read_only`）。
+- **只读允许**：`copy`/`export` 对只读文档允许（正确）。
+- **笔记本级规则**：笔记本只读 → 文档默认只读，且文档级显式 `read_write` 无法"打洞"（most-restrictive-wins 保持只读）。
+- **❗ DocManager 子树安全缺陷**：对 `/读写父区`（自身读写但下有只读孙文档）执行 `delete` 成功，子树中的只读孙文档被连带删除。对 `/含隐藏子的读写区`（自身读写但下有隐藏子）执行 `delete` 同样成功，隐藏子被连带删除。结论：`delete` 和 `move` 缺少子树权限扫描。
+
+### 隐私规则缓存排查
+
+缓存文件路径是 `D:\siyuan2\workspace\data\plugins\siyuan-bridge\bridge\knowledge_base\privacy_rules.json`（插件桥的实际运行目录），而非仓库中的 `knowledge_base/`。运行时缓存完全正确，包括 permissions 数组。Git 仓库的 `knowledge_base/` 是本地开发残留，不影响 MCP 运行。
+
+修复了 `siyuan_start` 的隐私规则统计显示 bug：原来只统计 `ignore` 数组，现在同时统计 `ignore + permissions`。
+
+修复了 `siyuan_refresh_index` 的返回消息：
+- 删除冗余的「共扫描 X 个笔记本、Y 篇文档」和「已隐藏：X/Y」行。
+- 增加「隐私规则：X 条隐私规则已生效」行。
+- 删除误导性的「使用刷新后的索引前请先调用 `siyuan_start`」（因为 `refresh_index` 已完成所有缓存写入，后续工具可直接使用）。
+
+### 单元测试
+
+新增 22 个 `PermissionTreeTests` 覆盖子树继承、conflict resolution、notebook×document crossover、权限值解析和缓存 round-trip。
+全部测试 197 passed。
+
+### DocManager 重设计
+
+**核心原则**：和思源默认行为保持一致，不自己发明逻辑。
+
+思源各操作的实际 API 行为（`POST /api/filetree/*`）：
+
+| 操作 | 思源 API | 默认行为 | 影响范围 |
+|------|---------|---------|---------|
+| rename | `renameDocByID` | 仅重命名自身 | 内容不变，路径联动 |
+| move | `moveDocsByID` | 移动自身 + 子树 | 整棵树移动到新位置 |
+| delete | `removeDocByID` | 删除自身 + 子树 | **不可逆级联删除** |
+| copy | `duplicateDoc`（新发现） | 仅复制自身 | 纯单文档，不带子文档 |
+| export | `exportMdContent` | 导出自身 Markdown | 仅自身 |
+
+**关于 copy 的新发现**：
+
+思源有内部 API `POST /api/filetree/duplicateDoc`，参数 `{"id": "doc_id"}`，返回新文档的 `{hPath, id, notebook, path}`。仅复制单文档本身，不携带子文档。内容完整保留（包括 frontmatter / 块属性），自动生成文档名后缀 `(Duplicated YYYY-MM-DD HH:MM:SS)`。
+
+要优于当前「导出 Markdown 再 createDocWithMd」的实现（后者会丢失部分元数据）。
+
+**下一步**：将 `siyuan_doc_manage` 的 copy 改用 `duplicateDoc` API，并为 delete / move 增加子树权限扫描。行为完全对齐思源默认：copy 单文档，move / delete 整棵子树。所有操作不引入自定义 scope 参数。
+
+### DocManager 详细实现方案（已确认）
+
+#### copy：`duplicateDoc` + `moveDocsByID` 两步
+
+思源的 `duplicateDoc` 只能在原位创建副本。要实现"复制到指定位置"，需要两步：
+
+1. `duplicateDoc(source_id)` — 在同目录下创建副本，得到新文档 ID 和带时间戳后缀的文档名
+2. `moveDocsByID([new_id], target_parent_id)` — 将副本移动到目标路径下
+
+参数变更：
+- 移除 `target_title`
+- `target_path` 保持不变：必填，完整可读路径 `/Notebook/Folder/NewName`
+- 作为 breaking change，AI 调用方需要明确指定目标路径
+
+权限检查：
+- 源文档：visible 即可（`read_only` 或 `read_write`）
+- 目标路径：必须 `read_write`，否则报错：
+  > 权限不足，目标路径为只读权限，不允许将文档复制到该位置。请向人类用户说明，让用户调整权限设置后再尝试。
+
+#### delete：子树全量权限扫描
+
+思源 `removeDocByID` 会级联删除整棵子树。需要确保子树中没有受限制的文档：
+
+1. 加载全量文档（非 filtered，含隐藏，因为 `removeDocByID` 会删除一切）
+2. 找到 hpath 前缀匹配的所有子孙文档
+3. 对每个子孙调用 `document_permission()`
+4. 任何子孙 `!= "read_write"` → 拒绝
+
+未设置权限的文档默认即为 `read_write`，不会被拦截。
+
+错误信息（不区分只读/隐藏，避免泄露隐藏文档的存在）：
+> 权限不足，子文档含有只读/隐藏文档，不允许删除整个文档树。请向人类用户说明，让用户调整权限设置后再尝试。
+
+#### move：祖先链权限检查
+
+思源 `moveDocsByID` 将整棵子树移动到新位置，子文档的显式权限保持不变跟随移动。但如果父文档是只读的，子文档移动到读写区后脱离只读父文档，实际权限会从只读变为读写——这是越权。需要确保移动不会让受限文档脱离权限约束：
+
+1. 找到目标文档在文档树中的父文档（hpath 向上取父路径）
+2. 检查父文档的 `document_permission()` 是否为 `read_write`
+3. 如果父文档非 `read_write`，则该子文档被"锁"在只读区，不允许移出
+4. 一直向上检查到笔记本顶层
+
+关于隐藏子文档：AI 看不到隐藏文档，`moveDocsByID` 会自然地将它们一起移动。无需额外检查。
+
+错误信息：
+> 权限不足，该文档的父文档为只读/隐藏权限，不允许移动下方子文档。请向人类用户说明，让用户调整权限设置后再尝试。
+
+#### rename / export：不变
+
+#### 参考：行业惯例（Windows NTFS）
+
+Windows NTFS 的权限继承规则与我们的模型原理一致：
+- 文件/文件夹可以在父级继承的权限基础上叠加显式权限（组合中最严格者生效）。
+- **同卷内移动**：文件保留其显式权限，不自动从新父级继承。这意味着移动操作不会改变文件的显式权限。
+- **跨卷移动/复制**：文件丢失所有显式权限，重新从新父级继承。
+
+思源中 `moveDocByID` 保留文档 ID 不变，文档的隐私规则设置（基于 ID 匹配）自然跟随文档移动。我们的 move 祖先检查确保了：如果子文档被限制的原因是因为它位于只读父文档下面（通过 hpath 匹配），那么移出这个父文档会让限制规则不再匹配子文档，子文档权限会提升——所以必须阻止。
+
+#### 修改文件清单
+
+| 文件 | 改动 |
+|------|------|
+| `source_code/client.py` | 新增 `duplicate_doc(doc_id)` |
+| `source_code/mcp_server.py` | ① copy：改用 `duplicateDoc` + `moveDocsByID`，target_path 必填，检查目标路径权限；② delete：`_check_descendant_permissions()` 扫描子树；③ move：`_check_parent_permissions()` 祖先链检查；④ 新增辅助函数 `_collect_descendant_docs()` `_find_parent_doc()`；⑤ `tool_specs()`：copy 移除 target_title，target_path 变为必填 |
+| `tests/test_mcp_server.py` | 更新 copy 测试（不再走 export+create）；新增 delete 子树拒绝测试；新增 move 父文档拒绝测试 |
+| `tests/test_client.py` | 新增 `duplicate_doc` API 测试 |
+| `docs/devlog.md` | 本文档（已记录） |
+
 ## 2026-06-04：写入后路径同步与安全刷新修复
 
 用户反馈 create 或 doc_manage 后，AI 立刻使用新路径读取时可能失败。复查本项目历史记录和官方 API 文档后确认：
@@ -2763,3 +2972,8 @@ actions：
 - 新增 client API payload 测试。
 - 新增 `siyuan_doc_manage` rename / move / delete / copy / export 测试。
 - 新增 `Permission=read_only` 解析和权限判断测试。
+
+
+---
+
+早期文档按时间顺序追加到末尾，但这样会导致AI读不到最新内容，现在已经调整了日志编写规则，请把最新内容放到最上面。

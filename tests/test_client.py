@@ -173,6 +173,21 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(seen["url"], "http://127.0.0.1:6806/api/filetree/moveDocsByID")
         self.assertEqual(seen["body"], {"fromIDs": ["doc1"], "toID": "target"})
 
+    def test_duplicate_doc_payload(self):
+        seen = {}
+
+        def transport(req, timeout):
+            seen["url"] = req.full_url
+            seen["body"] = json.loads(req.data.decode("utf-8"))
+            return FakeResponse({"code": 0, "data": {"id": "copy1"}})
+
+        client = SiYuanClient("http://127.0.0.1:6806", transport=transport)
+        result = client.duplicate_doc("doc1")
+
+        self.assertEqual(seen["url"], "http://127.0.0.1:6806/api/filetree/duplicateDoc")
+        self.assertEqual(seen["body"], {"id": "doc1"})
+        self.assertEqual(result["id"], "copy1")
+
     def test_update_block_payload(self):
         seen = {}
 
