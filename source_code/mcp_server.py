@@ -1220,15 +1220,19 @@ class McpServer:
             overview,
         ]
 
-        # Privacy rules status (no specific rules exposed)
-        ignore_count = len(state.privacy_rules.ignore)
-        if ignore_count > 0:
-            notebook_rules = [r for r in state.privacy_rules.ignore if r.get("scope") == "notebook"]
-            doc_rules = [r for r in state.privacy_rules.ignore if r.get("scope") == "document"]
+        # Privacy rules status (no specific rule details exposed)
+        total_ignore = len(state.privacy_rules.ignore)
+        total_permissions = len(state.privacy_rules.permissions)
+        if total_ignore > 0 or total_permissions > 0:
+            nb_ignore = [r for r in state.privacy_rules.ignore if r.get("scope") == "notebook"]
+            doc_ignore = [r for r in state.privacy_rules.ignore if r.get("scope") == "document"]
+            nb_perm = [r for r in state.privacy_rules.permissions if r.get("scope") == "notebook"]
+            doc_perm = [r for r in state.privacy_rules.permissions if r.get("scope") == "document"]
+            total_nb = len(nb_ignore) + len(nb_perm)
+            total_doc = len(doc_ignore) + len(doc_perm)
             parts.append("")
             parts.append(
-                f"隐私规则：已加载，{len(notebook_rules)} 条笔记本规则，"
-                f"{len(doc_rules)} 条文档规则。"
+                f"隐私规则：已加载，{total_nb} 条笔记本规则，{total_doc} 条文档规则。"
             )
         else:
             parts.append("")
@@ -1274,12 +1278,13 @@ class McpServer:
             system_notebook_id=state.notebook_id,
             privacy_rules_doc_id=state.privacy_rules_doc_id,
         )
+        total_ignore = len(state.privacy_rules.ignore)
+        total_permissions = len(state.privacy_rules.permissions)
+        total_rules = total_ignore + total_permissions
         return (
             "# 索引已刷新\n\n"
-            f"共扫描 {result.total_notebook_count} 个笔记本、{result.total_document_count} 篇文档。\n"
             f"可见：{result.notebook_count} 个笔记本、{result.document_count} 篇文档。\n"
-            f"已隐藏：{result.hidden_notebook_count} 个笔记本、{result.hidden_document_count} 篇文档。\n\n"
-            "使用刷新后的索引前请先调用 `siyuan_start`。"
+            f"隐私规则：{total_rules} 条隐私规则已生效。"
         )
 
     def siyuan_list(self, args: dict[str, Any]) -> str:
