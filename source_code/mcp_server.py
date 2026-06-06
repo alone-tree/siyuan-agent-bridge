@@ -748,6 +748,15 @@ def parent_display_path(document_path: str) -> str:
     return "/" + "/".join(parts[:-1])
 
 
+def notebook_permission_probe(notebook: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": "",
+        "notebook_id": str(notebook.get("id", "")),
+        "notebook_name": str(notebook.get("name", "")),
+        "hpath": "/__siyuan_bridge_permission_probe__",
+    }
+
+
 def format_int(value: Any) -> str:
     try:
         return f"{int(value):,}"
@@ -1321,13 +1330,29 @@ class McpServer:
         if not path and not notebook_id and not notebook_name:
             # List all notebooks
             notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
+            docs = load_docs(self.root)
+            privacy = load_privacy_rules(self.root)
             lines = ["# 可见笔记本", ""]
+            lines.extend([
+                "| notebook | notebook_id | 权限 |",
+                "|---|---|---|",
+            ])
             for notebook in notebooks:
-                lines.append(f"- `{notebook.get('id', '')}` {notebook.get('name', '')}")
+                permission = document_permission(notebook_permission_probe(notebook), privacy, docs)
+                lines.append(
+                    "| "
+                    + " | ".join([
+                        str(notebook.get("name", "")),
+                        f"`{notebook.get('id', '')}`",
+                        permission,
+                    ])
+                    + " |"
+                )
             lines.append("")
             return "\n".join(lines)
 
         docs = load_docs(self.root)
+        privacy = load_privacy_rules(self.root)
         notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
 
         # Compatibility: old notebook_id/notebook_name args now list the notebook root.
@@ -1386,18 +1411,20 @@ class McpServer:
         lines = [
             f"# {path}",
             "",
-            "| document | document_id | 字数 | 块数 | 更新 | 子文档 |",
-            "|---|---|---:|---:|---|---:|",
+            "| document | document_id | 权限 | 字数 | 块数 | 更新 | 子文档 |",
+            "|---|---|---|---:|---:|---|---:|",
         ]
         if not page:
-            lines.append("| (无可见子文档) |  |  |  |  |  |")
+            lines.append("| (无可见子文档) |  |  |  |  |  |  |")
         for doc in page:
             doc_path = display_document_path(doc)
+            permission = document_permission(doc, privacy, docs)
             lines.append(
                 "| "
                 + " | ".join([
                     doc_path,
                     f"`{doc.get('id', '')}`",
+                    permission,
                     format_int(doc.get("word_count", 0)),
                     format_int(doc.get("block_count", 0)),
                     format_date(str(doc.get("updated", ""))),
@@ -2352,8 +2379,8 @@ class McpServer:
             if not target_parent:
                 raise ValueError("action=move 需要 target_parent，例如 /Notebook 或 /Notebook/Folder。")
             target_id, target_label = self.resolve_doc_manage_parent(target_parent)
+            self._ensure_doc_manage_ancestors_writable(doc, privacy, docs, action="move")
             self._ensure_doc_manage_target_parent_writable(target_label, privacy, docs, action="move")
-            self._ensure_doc_manage_subtree_writable(client, doc, privacy, action="move")
         elif action == "copy":
             target_path = str(args.get("target_path") or "").strip()
             if not target_path:
@@ -2472,14 +2499,33 @@ class McpServer:
             if document_permission(item, privacy, live_docs) != "read_write"
         ]
         if blocked:
-            permission_counts: dict[str, int] = {}
-            for _item, item_permission in blocked:
-                permission_counts[item_permission] = permission_counts.get(item_permission, 0) + 1
-            summary = ", ".join(f"{key}: {value}" for key, value in sorted(permission_counts.items()))
             raise ValueError(
-                f"action={action} 会影响整棵子树，但子树中存在非 read_write 文档，拒绝操作。"
-                f"受限文档数量：{len(blocked)}（{summary}）。"
+                "权限不足，子文档中存在只读或隐藏文档，不允许删除整个文档树。"
+                "请让用户调整隐私规则后重试。"
             )
+
+    def _ensure_doc_manage_ancestors_writable(
+        self,
+        doc: dict[str, Any],
+        privacy: PrivacyRules,
+        docs: list[dict[str, Any]],
+        *,
+        action: str,
+    ) -> None:
+        current = parent_display_path(display_document_path(doc))
+        while current:
+            matches = [item for item in docs if display_document_path(item).casefold() == current.casefold()]
+            if matches:
+                permission = document_permission(matches[0], privacy, docs)
+                if permission != "read_write":
+                    raise ValueError(
+                        f"权限不足，该文档的祖先路径权限不是 read_write，不允许 {action}。"
+                        "请让用户调整隐私规则后重试。"
+                    )
+            next_parent = parent_display_path(current)
+            if next_parent == current:
+                break
+            current = next_parent
 
     def _ensure_doc_manage_target_parent_writable(
         self,
@@ -2704,7 +2750,7 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_list",
-            "description": "List visible notebooks or one level of visible documents. No arguments lists notebooks. Provide path=/Notebook or /Notebook/Folder to list only direct child documents at that path. Each row returns a full readable document path for siyuan_read/siyuan_edit, plus document_id fallback, word count, block count, update date, and descendant document count. Results are paginated with offset/limit. notebook_id/notebook_name are compatibility shortcuts for path=/Notebook.",
+            "description": "List visible notebooks or one level of visible documents. No arguments lists notebooks. Provide path=/Notebook or /Notebook/Folder to list only direct child documents at that path. Each row returns effective permission (read_write/read_only), a full readable document path for siyuan_read/siyuan_edit, plus document_id fallback, word count, block count, update date, and descendant document count. Hidden items are not listed. Results are paginated with offset/limit. notebook_id/notebook_name are compatibility shortcuts for path=/Notebook.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -2806,7 +2852,7 @@ def tool_specs() -> list[dict[str, Any]]:
         },
         {
             "name": "siyuan_doc_manage",
-            "description": "Manage visible SiYuan documents at the document-tree level, not document body editing. Actions: rename, move, delete, copy, export. copy/export are allowed for readable documents. rename/move/delete require read_write permission, confirmed=true, and create a SiYuan workspace snapshot before writing. delete and move affect the whole subtree and are rejected if any descendant is not read_write. copy uses SiYuan duplicateDoc for the source document only, requires target_path and confirmed=true, then renames/moves the duplicate. After rename/move/delete/copy, waits for SiYuan path sync and refreshes the safe index. export writes Markdown to ai_workspace/exports and does not modify SiYuan.",
+            "description": "Manage visible SiYuan documents at the document-tree level, not document body editing. Actions: rename, move, delete, copy, export. copy/export are allowed for readable documents. rename/move/delete require read_write permission, confirmed=true, and create a SiYuan workspace snapshot before writing. delete affects the whole subtree and is rejected if any descendant is not read_write. move preserves the moved subtree but is rejected if the source document inherits restrictions from any non-read_write ancestor or if the target parent is not read_write. copy uses SiYuan duplicateDoc for the source document only, requires target_path and confirmed=true, then renames/moves the duplicate. After rename/move/delete/copy, waits for SiYuan path sync and refreshes the safe index. export writes Markdown to ai_workspace/exports and does not modify SiYuan.",
             "inputSchema": {
                 "type": "object",
                 "properties": {

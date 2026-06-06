@@ -426,14 +426,15 @@ siyuan_doc_manage
 
 数据流：
 
-- 无参数时读取 `knowledge_base/notebooks.json`，返回可见笔记本。
+- 无参数时读取 `knowledge_base/notebooks.json`，返回可见笔记本和有效权限。
 - 有 path / notebook 参数时读取 `docs.jsonl` 和 `notebooks.json`，按完整可读路径计算直接子文档。
-- 返回每个子文档的完整 `document` 路径、`document_id`、字数、块数、更新时间、子文档数量（剔除隐藏文档）。
+- 返回每个子文档的完整 `document` 路径、`document_id`、有效权限、字数、块数、更新时间、子文档数量（剔除隐藏文档）。
 
 设计约束：
 
 - 只列一层，不递归展开全树。
 - 返回的 `document` 路径应可直接传给 `siyuan_read` 和 `siyuan_edit`。
+- 权限列只显示可见项目的最终有效权限：`read_write` 或 `read_only`；隐藏内容不出现在列表中。
 - 大结果必须分页。
 
 风险点：
@@ -718,7 +719,7 @@ scope：
 | action     | 源文档权限                      | 目标权限       | 快照 | 写思源 |
 | ---------- | ------------------------------- | -------------- | ---- | ------ |
 | `rename` | `read_write`                  | -              | 是   | 是     |
-| `move`   | 源子树全部 `read_write`       | 目标父路径 `read_write` | 是   | 是     |
+| `move`   | 源文档和祖先链 `read_write`   | 目标父路径 `read_write` | 是   | 是     |
 | `delete` | 源子树全部 `read_write`       | -              | 是   | 是     |
 | `copy`   | `read_only` 或 `read_write` | `read_write` | 是   | 是     |
 | `export` | `read_only` 或 `read_write` | 本地文件       | 否   | 否     |
@@ -727,7 +728,7 @@ scope：
 
 1. 解析可见源文档。
 2. 计算源文档权限。
-3. 根据 action 校验 confirmed 和参数；move/delete 写入前从思源 live SQL 拉取源文档子树并逐篇检查权限。
+3. 根据 action 校验 confirmed 和参数；delete 写入前从思源 live SQL 拉取源文档子树并逐篇检查权限；move 写入前检查源文档祖先链和目标父路径权限。
 4. `export` 直接导出 Markdown 到 `ai_workspace/exports/`，不创建快照。
 5. 其他 action 先创建快照。
 6. 调用对应思源 API：
@@ -745,6 +746,7 @@ scope：
 - rename/move/copy/delete 后会等待思源路径接口同步，再刷新本地索引。正常情况下返回的新路径可以直接用于后续 `siyuan_read` / `siyuan_list` / `siyuan_doc_manage`。
 - 如果等待超时，工具仍返回写入结果和同步状态；连续操作时可临时使用 `document_id` 继续，或显式调用 `siyuan_refresh_index`。
 - copy 复制单篇源文档本身，不复制子文档；目标必须使用完整 `target_path`，目标路径已存在时拒绝覆盖。
+- move 按思源行为移动整棵子树，但不要求子孙全部 `read_write`；显式文档权限会随文档 ID 保留。为避免文档脱离只读/隐藏祖先后权限提升，源文档到笔记本根之间的祖先路径必须都是 `read_write`。
 
 ## `siyuan-index-builder` Skill
 

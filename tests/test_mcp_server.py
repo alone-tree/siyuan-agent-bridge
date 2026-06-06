@@ -287,7 +287,8 @@ class McpServerTests(unittest.TestCase):
         server = mcp_server.McpServer(self.root)
         result = server.siyuan_list({})
         self.assertIn("# 可见笔记本", result)
-        self.assertIn("`nb1` Main", result)
+        self.assertIn("| notebook | notebook_id | 权限 |", result)
+        self.assertIn("| Main | `nb1` | read_write |", result)
 
     def test_tool_call_detects_siyuan_before_local_list(self):
         server = mcp_server.McpServer(self.root)
@@ -311,15 +312,41 @@ class McpServerTests(unittest.TestCase):
     def test_list_path_returns_direct_children_with_full_paths(self):
         server = mcp_server.McpServer(self.root)
         result = server.siyuan_list({"path": "/Main/Projects"})
-        self.assertIn("| document | document_id | 字数 | 块数 | 更新 | 子文档 |", result)
-        self.assertIn("| /Main/Projects/Doc One | `doc1` | 123 | 4 | 2026-05-01 | 1 |", result)
-        self.assertIn("| /Main/Projects/Hidden | `doc2` | 50 | 2 | 2026-05-01 | 0 |", result)
+        self.assertIn("| document | document_id | 权限 | 字数 | 块数 | 更新 | 子文档 |", result)
+        self.assertIn("| /Main/Projects/Doc One | `doc1` | read_write | 123 | 4 | 2026-05-01 | 1 |", result)
+        self.assertIn("| /Main/Projects/Hidden | `doc2` | read_write | 50 | 2 | 2026-05-01 | 0 |", result)
         self.assertNotIn("/Main/Projects/Doc One/Child", result)
 
     def test_list_path_can_descend_one_level(self):
         server = mcp_server.McpServer(self.root)
         result = server.siyuan_list({"path": "/Main/Projects/Doc One"})
-        self.assertIn("| /Main/Projects/Doc One/Child | `doc3` | 30 | 1 | 2026-05-01 | 0 |", result)
+        self.assertIn("| /Main/Projects/Doc One/Child | `doc3` | read_write | 30 | 1 | 2026-05-01 | 0 |", result)
+
+    def test_list_notebooks_shows_effective_permission(self):
+        write_privacy_rules_cache(
+            self.root,
+            PrivacyRules(
+                ignore=[],
+                allow=[],
+                permissions=[{"scope": "notebook", "id": "nb1", "permission": "read_only"}],
+            ),
+        )
+        server = mcp_server.McpServer(self.root)
+        result = server.siyuan_list({})
+        self.assertIn("| Main | `nb1` | read_only |", result)
+
+    def test_list_documents_shows_effective_permission(self):
+        write_privacy_rules_cache(
+            self.root,
+            PrivacyRules(
+                ignore=[],
+                allow=[],
+                permissions=[{"scope": "document", "id": "doc1", "permission": "read_only"}],
+            ),
+        )
+        server = mcp_server.McpServer(self.root)
+        result = server.siyuan_list({"path": "/Main/Projects"})
+        self.assertIn("| /Main/Projects/Doc One | `doc1` | read_only |", result)
 
     def test_list_paginates_direct_children(self):
         server = mcp_server.McpServer(self.root)
@@ -551,6 +578,18 @@ class McpServerWriteTests(unittest.TestCase):
                 "word_count": 123,
                 "block_count": 2,
                 "updated": "20260501010101",
+            },
+            {
+                "id": "doc3",
+                "notebook_id": "nb1",
+                "notebook_name": "Main",
+                "hpath": "/Projects/Doc One/Child",
+                "title": "Child",
+                "path": "/doc3.sy",
+                "tags": [],
+                "word_count": 30,
+                "block_count": 1,
+                "updated": "20260501010103",
             },
         ]
         (base / "docs.jsonl").write_text(
@@ -970,14 +1009,15 @@ class McpServerWriteTests(unittest.TestCase):
                     "action": "delete",
                     "confirmed": True,
                 })
-            self.assertIn("子树", str(ctx.exception))
-            self.assertIn("read_only", str(ctx.exception))
+            self.assertIn("子文档中存在只读或隐藏文档", str(ctx.exception))
+            self.assertNotIn("doc3", str(ctx.exception))
+            self.assertNotIn("read_only:", str(ctx.exception))
             self.assertFalse(client._removed_docs)
             self.assertFalse(client._snapshots)
         finally:
             mcp_server.detect_active_profile = original
 
-    def test_siyuan_doc_manage_move_rejects_read_only_descendant(self):
+    def test_siyuan_doc_manage_move_allows_read_only_descendant(self):
         write_privacy_rules_cache(
             self.root,
             PrivacyRules(
@@ -988,18 +1028,53 @@ class McpServerWriteTests(unittest.TestCase):
         )
         server, client, original = self._server_and_client()
         try:
+            result = server.siyuan_doc_manage({
+                "document": "/Main/Projects/Doc One",
+                "action": "move",
+                "target_parent": "/Main",
+                "confirmed": True,
+            })
+            self.assertEqual(client._moved_docs, [(["doc1"], "nb1")])
+            self.assertIn("已移动到", result)
+        finally:
+            mcp_server.detect_active_profile = original
+
+    def test_siyuan_doc_manage_move_rejects_read_only_ancestor(self):
+        write_privacy_rules_cache(
+            self.root,
+            PrivacyRules(
+                ignore=[],
+                allow=[],
+                permissions=[{"scope": "document", "id": "doc1", "permission": "read_only"}],
+            ),
+        )
+        server, client, original = self._server_and_client()
+        try:
             with self.assertRaises(ValueError) as ctx:
                 server.siyuan_doc_manage({
-                    "document": "/Main/Projects/Doc One",
+                    "document": "/Main/Projects/Doc One/Child",
                     "action": "move",
                     "target_parent": "/Main",
                     "confirmed": True,
                 })
-            self.assertIn("子树", str(ctx.exception))
+            self.assertIn("read_only", str(ctx.exception))
             self.assertFalse(client._moved_docs)
             self.assertFalse(client._snapshots)
         finally:
             mcp_server.detect_active_profile = original
+
+    def test_doc_manage_ancestor_helper_rejects_read_only_parent(self):
+        privacy = PrivacyRules(
+            ignore=[],
+            allow=[],
+            permissions=[{"scope": "document", "id": "doc1", "permission": "read_only"}],
+        )
+        docs = mcp_server.load_docs(self.root)
+        doc = next(item for item in docs if str(item.get("id")) == "doc3")
+        server = mcp_server.McpServer(self.root)
+        with self.assertRaises(ValueError) as ctx:
+            server._ensure_doc_manage_ancestors_writable(doc, privacy, docs, action="move")
+        self.assertIn("祖先路径权限不是 read_write", str(ctx.exception))
 
     def test_siyuan_doc_manage_rename_rejects_read_only_source(self):
         write_privacy_rules_cache(
