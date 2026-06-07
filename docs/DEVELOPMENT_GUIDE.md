@@ -413,3 +413,84 @@ git status --short
 - 不要使用 `git reset --hard` 或 `git checkout --`，除非用户明确要求。
 - 与任务无关的未跟踪文件不要擅自删除。
 - 生成文件、缓存、导出文件要注意 `.gitignore`。
+
+## 构建与发布
+
+### 导入测试：`scripts/import_siyuan_plugin.py`
+
+把插件导入到本地思源数据目录，用于开发测试。自动执行 bridge 同步。
+
+```bash
+# 导入到思源工作空间（写完后在思源集市 → 已下载启用插件）
+python scripts/import_siyuan_plugin.py --workspace "D:\SiYuan"
+
+# 首次导入 / 清空重装（删除旧插件目录，不留旧配置）
+python scripts/import_siyuan_plugin.py --workspace "D:\SiYuan" --fresh
+
+# 直接用插件目录路径
+python scripts/import_siyuan_plugin.py --plugin-dir "D:\SiYuan\data\plugins\siyuan-bridge"
+```
+
+数据流：`sync` 生成 `bridge/` → 把 `siyuan-plugin/` 整个复制到 `{workspace}/data/plugins/siyuan-bridge/`。
+
+`--fresh` 会先删除目标目录再复制。不带 `--fresh` 时保留已有 `config.local.json` 和 `telemetry.json` 不动。
+
+### 打包发布：`scripts/build_package.py`
+
+生成思源集市上架的 `package.zip`。自动执行 bridge 同步。
+
+```bash
+python scripts/build_package.py
+```
+
+输出：`dist/package.zip`。
+
+zip 包含：`plugin.json`、`icon.png`、`preview.png`、`index.js`、`index.css`、`README*.md`、`bridge/`、`dist/`、`src/`。`bridge/` 由 sync 脚本生成，包含完整 Python 运行文件。
+
+### 文件去向
+
+```
+source_code/          ─┐
+plugins/siyuan-bridge/  ┤  手写源文件（你改的）
+siyuan-plugin/*         ┤  (plugin.json, index.js, 图标等)
+                        ─┘
+         ↓  sync_siyuan_plugin_bridge.py
+siyuan-plugin/bridge/  ←  自动生成（不提交 Git，不要手动改）
+         ↓  import_siyuan_plugin.py               ↓  build_package.py
+{workspace}/data/plugins/siyuan-bridge/       dist/package.zip
+      (本地测试用)                               (集市发布用)
+```
+
+### 版本发布流程
+
+集市发布走 GitHub Release，bazaar 每 1-3 小时自动拉取最新 release。
+
+**首次发布（仅一次）**：
+
+1. Fork `siyuan-note/bazaar`
+2. 在 `plugins.txt` 加一行 `alone-tree/siyuan-bridge`
+3. 提 PR 到 bazaar 主仓库
+4. 合并后，集市索引自动更新
+
+**后续更新**，每次只需：
+
+```bash
+# 1. 修改 siyuan-plugin/plugin.json 里的 version 号（遵循 semver）
+
+# 2. 打包
+python scripts/build_package.py
+
+# 3. 提交、打 tag、推送
+git add -A
+git commit -m "release: vX.Y.Z — <简述>"
+git push origin main
+git tag -a vX.Y.Z -m "vX.Y.Z"
+git push origin vX.Y.Z
+
+# 4. 创建 GitHub Release，上传 dist/package.zip
+gh release create vX.Y.Z dist/package.zip --title "vX.Y.Z" --notes "<更新说明>"
+```
+
+之后 bazaar 会在 1-3 小时内自动拉取新版本，**无需再提 PR**。用户重启思源可看到更新。
+
+如果 Stage 工作流长时间未更新，检查 <https://github.com/siyuan-note/bazaar/actions/workflows/stage.yml> 的日志。
