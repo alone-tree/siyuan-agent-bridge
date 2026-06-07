@@ -1,4 +1,4 @@
-# SiYuan Agent Bridge 项目工程文档
+# SiYuan Bridge 项目工程文档
 
 > **2026-06-07**：项目已更名为 **SiYuan Bridge（思源桥）**。本文档中 `siyuan-agent-bridge` 均为历史旧名记录，不反映当前项目名称。
 
