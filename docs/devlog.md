@@ -4,6 +4,107 @@
 
 该文档应该把最新内容放在最上，不要放到最下面，AI读不到。
 
+## 2026-06-07：遥测与反馈 — Cloudflare 后端基础设施搭建
+
+### 账号
+
+- 使用 GitHub 直接登录 Cloudflare（863271839@qq.com 账号）
+- Account ID：1357097b3ec07a53c16ea1458f231cd0
+- 计划：Free 免费计划（Worker 10 万请求/天，D1 5GB / 500 万行读/天）
+- Wrangler CLI：v4.98.0（全局安装）
+
+### D1 数据库 siyuan_bridge
+
+- 已通过 Cloudflare Dashboard 图形化创建
+- UUID：142b11e4-52a9-4050-bbaf-073433b52c70
+- 位置：自动选择
+
+三张表 + 三个索引（已通过 Console SQL 创建）：
+
+```sql
+-- 遥测事件
+CREATE TABLE events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts TEXT NOT NULL,
+  anonymous_id TEXT NOT NULL,
+  platform TEXT,
+  siyuan_ver TEXT,
+  mcp_ver TEXT,
+  session_id TEXT,
+  tool TEXT NOT NULL,
+  action TEXT,
+  ok INTEGER NOT NULL,
+  error_type TEXT,
+  dur_ms INTEGER
+);
+CREATE INDEX idx_events_date ON events(ts);
+CREATE INDEX idx_events_tool ON events(tool);
+CREATE INDEX idx_events_anon ON events(anonymous_id);
+
+-- 用户反馈
+CREATE TABLE feedbacks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts TEXT NOT NULL,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  contact TEXT
+);
+
+-- 通知
+CREATE TABLE notifications (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  url TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+```
+
+### Worker siyuan-bridge-telemetry
+
+- 代码：`worker/index.js`（已提交 Git）
+- 配置：`worker/wrangler.toml`（D1 绑定 DB → siyuan_bridge）
+- 环境变量：`worker/.env`（Git 忽略，含 CLOUDFLARE_API_TOKEN）
+- URL：`https://siyuan-bridge-telemetry.864271839.workers.dev`
+
+三个端点：
+
+| 方法 | 路径 | 用途 |
+|------|------|------|
+| POST | /api/telemetry | 遥测事件写入 events 表 |
+| POST | /api/feedback | 反馈写入 feedbacks 表 |
+| GET | /api/notifications | 通知列表 |
+
+### API Token（本地 Wrangler CLI 凭证）
+
+- 名称：siyuan-bridge-wrangler
+- 类型：Account API Token（用户手动创建）
+- 权限：Workers Scripts Read/Write、D1 Read/Write、Account Settings Read
+- 存储：`worker/.env`，已在 `.gitignore` 添加 `worker/.env`
+
+### 验证结果
+
+| 项目 | 结果 |
+|------|------|
+| Wrangler whoami | ✅ |
+| d1 list 列出 siyuan_bridge | ✅ |
+| d1 execute 建表/SELECT/INSERT | ✅ |
+| Worker deploy | ✅ |
+| 测试通知数据写入 | ✅ |
+
+### 中国访问
+
+- `workers.dev` 域名被 GFW DNS 污染，解析到 Cloudflare sinkhole IP (198.18.0.x / 2a03:2880::)
+- 命令行 curl 超时（exit 28/35），Worker 端点无法从国内直接访问
+- 解决方案：绑定自定义域名，后续处理
+
+### 后续待办
+
+1. 绑定自定义域名，解决 workers.dev 被墙
+2. 在 Python 端新建 `source_code/telemetry.py`（参考 `docs/telemetry-design.md` 第一阶段实现计划）
+3. 在 `mcp_server.py` 工具外层包遥测装饰器
+4. 插件前端反馈表单与通知拉取
+
 ## 2026-06-06：确认产品定位与块引用保留优化方向
 
 ### 命名统一
