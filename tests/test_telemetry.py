@@ -19,9 +19,8 @@ from source_code.telemetry import (
     get_effective_endpoint,
     load_anonymous_id,
     load_telemetry_config,
-    record_event,
     set_siyuan_version,
-    should_collect,
+    should_keep_local,
     should_upload,
     submit_feedback,
 )
@@ -111,40 +110,49 @@ class TestTelemetryConfig(unittest.TestCase):
         cfg = load_telemetry_config(self.root)
         self.assertEqual(cfg["telemetry"], "off")
 
-    def test_local_mode(self):
+    def test_local_mode_treated_as_off(self):
         (self.root / "telemetry.json").write_text(
             json.dumps({"telemetry": "local"}), encoding="utf-8"
         )
-        self.assertTrue(should_collect(self.root))
         self.assertFalse(should_upload(self.root))
+        self.assertFalse(should_keep_local(self.root))
 
     def test_upload_mode(self):
         (self.root / "telemetry.json").write_text(
             json.dumps({"telemetry": "upload", "telemetry_endpoint": "https://example.com"}),
             encoding="utf-8",
         )
-        self.assertTrue(should_collect(self.root))
         self.assertTrue(should_upload(self.root))
 
     def test_upload_mode_no_endpoint(self):
         (self.root / "telemetry.json").write_text(
             json.dumps({"telemetry": "upload"}), encoding="utf-8"
         )
-        self.assertTrue(should_collect(self.root))
         self.assertTrue(should_upload(self.root))
 
     def test_off_mode(self):
         (self.root / "telemetry.json").write_text(
             json.dumps({"telemetry": "off"}), encoding="utf-8"
         )
-        self.assertFalse(should_collect(self.root))
         self.assertFalse(should_upload(self.root))
 
     def test_invalid_mode_treated_as_off(self):
         (self.root / "telemetry.json").write_text(
             json.dumps({"telemetry": "invalid"}), encoding="utf-8"
         )
-        self.assertFalse(should_collect(self.root))
+        self.assertFalse(should_upload(self.root))
+
+    def test_local_copy_default_false(self):
+        (self.root / "telemetry.json").write_text(
+            json.dumps({"telemetry": "upload"}), encoding="utf-8"
+        )
+        self.assertFalse(should_keep_local(self.root))
+
+    def test_local_copy_enabled(self):
+        (self.root / "telemetry.json").write_text(
+            json.dumps({"telemetry": "upload", "local_copy": True}), encoding="utf-8"
+        )
+        self.assertTrue(should_keep_local(self.root))
 
     def test_proxy_field_preserved(self):
         (self.root / "telemetry.json").write_text(
@@ -214,7 +222,7 @@ class TestRecordEvent(unittest.TestCase):
         shutil.rmtree(self.root, ignore_errors=True)
         self.root.mkdir(parents=True, exist_ok=True)
         (self.root / "telemetry.json").write_text(
-            json.dumps({"telemetry": "local"}), encoding="utf-8"
+            json.dumps({"telemetry": "upload", "local_copy": True}), encoding="utf-8"
         )
         telemetry._anonymous_id = None
         telemetry._session_id = None
@@ -245,7 +253,7 @@ class TestRecordEvent(unittest.TestCase):
 
     def test_writes_to_daily_jsonl(self):
         event = self._make_event()
-        record_event(self.root, event)
+        telemetry.record_event(self.root, event)
         date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         jsonl_file = self.root / "stats" / "events" / f"{date_str}.jsonl"
         self.assertTrue(jsonl_file.exists())
@@ -258,7 +266,7 @@ class TestRecordEvent(unittest.TestCase):
     def test_multiple_events_same_file(self):
         for i in range(3):
             event = self._make_event(tool=f"tool_{i}")
-            record_event(self.root, event)
+            telemetry.record_event(self.root, event)
         date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         jsonl_file = self.root / "stats" / "events" / f"{date_str}.jsonl"
         lines = jsonl_file.read_text(encoding="utf-8").strip().split("\n")
@@ -269,7 +277,7 @@ class TestRecordEvent(unittest.TestCase):
             json.dumps({"telemetry": "off"}), encoding="utf-8"
         )
         event = self._make_event()
-        record_event(self.root, event)
+        telemetry.record_event(self.root, event)
         events_dir = self.root / "stats" / "events"
         self.assertFalse(events_dir.exists())
 
@@ -280,7 +288,7 @@ class TestWithTelemetry(unittest.TestCase):
         shutil.rmtree(self.root, ignore_errors=True)
         self.root.mkdir(parents=True, exist_ok=True)
         (self.root / "telemetry.json").write_text(
-            json.dumps({"telemetry": "local"}), encoding="utf-8"
+            json.dumps({"telemetry": "upload", "local_copy": True}), encoding="utf-8"
         )
         telemetry._anonymous_id = None
         telemetry._session_id = None
@@ -304,6 +312,16 @@ class TestWithTelemetry(unittest.TestCase):
     def test_no_record_when_off(self):
         (self.root / "telemetry.json").write_text(
             json.dumps({"telemetry": "off"}), encoding="utf-8"
+        )
+        events_dir = self.root / "stats" / "events"
+        if events_dir.exists():
+            shutil.rmtree(events_dir)
+        _with_telemetry(self.root, "test_tool", None, lambda: "ok")
+        self.assertFalse(events_dir.exists())
+
+    def test_no_local_when_upload_only(self):
+        (self.root / "telemetry.json").write_text(
+            json.dumps({"telemetry": "upload"}), encoding="utf-8"
         )
         events_dir = self.root / "stats" / "events"
         if events_dir.exists():

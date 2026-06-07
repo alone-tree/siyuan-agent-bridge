@@ -31,7 +31,7 @@
 | 调用方 | 端点 | 说明 |
 |--------|------|------|
 | 插件前端 JS | `POST /api/feedback`, `GET /api/notifications` | 用户在思源笔记内提交反馈、查看通知 |
-| Python `telemetry.py` | `POST /api/telemetry`, `POST /api/feedback` | MCP 工具调用时 fire-and-forget 上传遥测；`siyuan_bridge_feedback` 提交反馈 |
+| Python `telemetry.py` | `POST /api/telemetry`, `POST /api/feedback` | MCP 工具调用时 fire-and-forget 上传遥测（可选择在本地保留副本）；`siyuan_bridge_feedback` 提交反馈 |
 
 ---
 

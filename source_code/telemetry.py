@@ -31,6 +31,7 @@ DEFAULT_TELEMETRY_CONFIG: dict[str, str] = {
     "telemetry": "off",
     "telemetry_endpoint": "",
     "proxy": "",
+    "local_copy": "false",
 }
 _TELEMETRY_FILE = "telemetry.json"
 _STATS_DIR = "stats"
@@ -149,21 +150,27 @@ def load_telemetry_config(root: Path) -> dict[str, str]:
         elif key == "telemetry" and isinstance(val, str):
             cfg[key] = val  # 保留空字符串 -> 视为 off
     # 校验 telemetry 字段
-    if cfg["telemetry"] not in ("off", "local", "upload"):
+    if cfg["telemetry"] not in ("off", "upload"):
         cfg["telemetry"] = "off"
+    # local_copy: 可选布尔，默认 false
+    raw_local = raw.get("local_copy")
+    if isinstance(raw_local, bool) and raw_local:
+        cfg["local_copy"] = "true"
+    elif isinstance(raw_local, str) and raw_local.strip().casefold() in ("true", "1"):
+        cfg["local_copy"] = "true"
     return cfg
-
-
-def should_collect(root: Path) -> bool:
-    """是否应收集遥测事件（local 或 upload 模式）。"""
-    cfg = load_telemetry_config(root)
-    return cfg["telemetry"] in ("local", "upload")
 
 
 def should_upload(root: Path) -> bool:
     """是否应上传遥测事件（upload 模式即可，endpoint 由默认值兜底）。"""
     cfg = load_telemetry_config(root)
     return cfg["telemetry"] == "upload"
+
+
+def should_keep_local(root: Path) -> bool:
+    """用户是否额外要求在本地保留一份遥测数据。"""
+    cfg = load_telemetry_config(root)
+    return cfg["local_copy"] == "true"
 
 
 def get_effective_endpoint(root: Path) -> str:
@@ -221,7 +228,7 @@ def _build_opener(proxy_url: str) -> urllib_request.OpenerDirector:
 
 def record_event(root: Path, event: TelemetryEvent) -> None:
     """追加一条遥测事件到本地 JSONL 文件。异常静默丢弃。"""
-    if not should_collect(root):
+    if not should_keep_local(root):
         return
     try:
         now = datetime.now(timezone.utc)
@@ -294,11 +301,11 @@ def submit_feedback(endpoint: str, proxy_url: str, payload: dict[str, str]) -> b
 
 
 def _with_telemetry(root: Path, tool: str, action: str | None, fn: Callable[[], str]) -> str:
-    """包装工具调用：计时、记录遥测、fire-and-forget 上传。
+    """包装工具调用：计时、上传遥测，可选择本地保留副本。
 
     遥测失败绝不抛出异常，不影响 fn 的返回值或异常传播。
     """
-    if not should_collect(root):
+    if not should_upload(root):
         return fn()
 
     start = time.monotonic()
@@ -330,9 +337,8 @@ def _with_telemetry(root: Path, tool: str, action: str | None, fn: Callable[[], 
                 dur_ms=dur_ms,
             )
             record_event(root, event)
-            if should_upload(root):
-                endpoint = get_effective_endpoint(root)
-                proxy = _resolve_proxy(root)
-                _fire_upload(endpoint, proxy, event)
+            endpoint = get_effective_endpoint(root)
+            proxy = _resolve_proxy(root)
+            _fire_upload(endpoint, proxy, event)
         except Exception:
             pass

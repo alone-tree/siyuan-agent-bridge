@@ -125,7 +125,8 @@
 {
   "telemetry": "off",
   "telemetry_endpoint": "",
-  "proxy": ""
+  "proxy": "",
+  "local_copy": false
 }
 ```
 
@@ -133,17 +134,18 @@
 
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `telemetry` | `"off"` \| `"local"` \| `"upload"` | `"off"` | 遥测模式 |
-| `telemetry_endpoint` | string | `""` | 远端端点地址。`upload` 模式下可选；不填则使用项目默认端点 |
-| `proxy` | string | `""` | HTTP 代理地址。为空时自动探测环境变量和系统代理。示例：`http://127.0.0.1:7897` |
+| `telemetry` | `"off"` \| `"upload"` | `"off"` | 遥测模式。`off` 关闭；`upload` 开启并上传到远端 |
+| `telemetry_endpoint` | string | `""` | 远端端点地址。不填则使用项目默认端点 |
+| `proxy` | string | `""` | HTTP 代理地址。为空时自动探测环境变量和系统代理 |
+| `local_copy` | bool | `false` | 是否在本地 `stats/events/` 保留一份遥测数据。开启后用户可自行查看上传内容，打消隐私顾虑 |
 
 ### 模式行为
 
-| mode | 本地写入 `stats/` | 上传到远端 | 性能开销 |
+| mode | 上传到远端 | 本地写入 `stats/` | 性能开销 |
 |------|:---:|:---:|:---:|
 | `off`（默认） | 否 | 否 | 无 |
-| `local` | 是 | 否 | 极小（JSONL append） |
-| `upload` | 是 | 是 | 小（本地写入 + fire-and-forget POST） |
+| `upload` + `local_copy: false`（默认） | 是 | 否 | 小（fire-and-forget POST） |
+| `upload` + `local_copy: true` | 是 | 是 | 小（fire-and-forget POST + JSONL append） |
 
 ### 与 `config.local.json` 的关系
 
@@ -168,7 +170,7 @@
 
 ## 本地数据
 
-当 telemetry 为 `local` 或 `upload` 时，遥测数据同时写入本地 `stats/` 目录：
+当开启 `local_copy` 时，遥测数据在云端上传之外，额外写入本地 `stats/` 目录。默认不写入本地。
 
 ```
 bridge/stats/
@@ -177,7 +179,7 @@ bridge/stats/
     2026-06-06.jsonl    每天一个文件，JSONL 格式
 ```
 
-本地文件用于数据备份和用户自查。
+本地文件供用户自查上传内容，打消隐私顾虑。
 
 ---
 
