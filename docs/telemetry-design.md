@@ -95,7 +95,7 @@
 |   (工具装饰器自动采集)       |       |                            |
 |                             |       | /api/feedback  ──> D1      |
 | mcp_server.py               |       |                            |
-|   siyuan_feedback 工具 ── POST ────>│ /api/notifications <── D1  |
+|   siyuan_bridge_feedback 工具 ── POST ────>│ /api/notifications <── D1  |
 |                             |       |                            |
 | siyuan-plugin/              |       +----------------------------+
 |   首页表单 ──── POST ───────┼──────>│ /api/feedback               |
@@ -124,7 +124,8 @@
 ```json
 {
   "telemetry": "off",
-  "telemetry_endpoint": ""
+  "telemetry_endpoint": "",
+  "proxy": ""
 }
 ```
 
@@ -134,6 +135,7 @@
 |------|------|--------|------|
 | `telemetry` | `"off"` \| `"local"` \| `"upload"` | `"off"` | 遥测模式 |
 | `telemetry_endpoint` | string | `""` | 远端端点地址。`upload` 模式下可选；不填则使用项目默认端点 |
+| `proxy` | string | `""` | HTTP 代理地址。为空时自动探测环境变量和系统代理。示例：`http://127.0.0.1:7897` |
 
 ### 模式行为
 
@@ -244,7 +246,7 @@ VALUES ('v0.3.0', '思源桥 v0.3.0 已发布', 'https://github.com/alone-tree/s
 | 方法 | 路径 | 用途 | 调用方 |
 |------|------|------|--------|
 | POST | `/api/telemetry` | 接收遥测事件，写入 D1 `events` 表 | Python `telemetry.py` |
-| POST | `/api/feedback` | 接收用户反馈，写入 D1 `feedbacks` 表 | 插件前端表单 或 MCP `siyuan_feedback` |
+| POST | `/api/feedback` | 接收用户反馈，写入 D1 `feedbacks` 表 | 插件前端表单 或 MCP `siyuan_bridge_feedback` |
 | GET | `/api/notifications` | 返回通知列表 `{ "notifications": [...] }` | 插件前端首页 |
 
 ### POST /api/telemetry
@@ -300,7 +302,7 @@ VALUES ('v0.3.0', '思源桥 v0.3.0 已发布', 'https://github.com/alone-tree/s
 
 ---
 
-## MCP 工具：`siyuan_feedback`
+## MCP 工具：`siyuan_bridge_feedback`
 
 除了插件前端的反馈表单，还应提供一个 MCP 工具，让 AI 也能通过对话提交反馈。
 
@@ -380,7 +382,7 @@ ORDER BY day;
    - 组装遥测事件
    - fire-and-forget 写入（本地 + 远端）
 
-4. **在 `mcp_server.py` 新增 `siyuan_feedback` 工具**
+4. **在 `mcp_server.py` 新增 `siyuan_bridge_feedback` 工具**
 
 5. **Config 加载 `telemetry.json`**
 
@@ -411,4 +413,6 @@ ORDER BY day;
 
 ## 当前状态
 
-设计阶段。尚未实现任何代码。第一、二阶段在时间充裕时实施。
+**第一阶段（Python 端基础框架）已实现。** 遥测收集、本地存储、代理上传、反馈提交（`siyuan_bridge_feedback` MCP 工具）、CLI 状态命令均已就绪并测试通过（238 tests）。
+
+CF Worker 后端已部署并验证可通过代理正常通信。第二阶段（自定义域名）待推进。

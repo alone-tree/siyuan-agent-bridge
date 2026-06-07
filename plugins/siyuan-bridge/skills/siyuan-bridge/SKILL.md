@@ -43,6 +43,7 @@ description: Use when the user wants to read, search, or write their private SiY
 - `siyuan_doc_manage` 的 rename/move/copy/delete 成功后会等待路径同步并自动刷新安全索引；如果返回提示路径同步超时，临时改用 `document_id` 或显式调用 `siyuan_refresh_index`。
 - 编辑普通 Markdown 表格时，使用引用阅读返回的网格坐标：`row=0` 是表头，`row>=1` 是数据行，`column_index` 从 1 开始。表格不是数据库，不要把表头、字段或多维表语义混在一起。
 - `siyuan_refresh_index` —— 会话中途刷新安全索引，不清理 `ai_workspace/`。只有 `siyuan_start` 会在新会话启动时清理 workspace。
+- `siyuan_bridge_feedback` —— 通过对话提交对思源桥 MCP 的反馈。type 为 bug/feature/idea，title 和 description 必填，contact 可选。不修改思源内容，不需要 confirmed=true，即使思源未启动也可使用（只要配置了遥测端点）。
 - 系统笔记本 `思源桥` / `SiYuan Bridge` 及其文档会被自动创建和维护。
 
 ## Safety Rules

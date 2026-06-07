@@ -1,6 +1,6 @@
 # 插件前端页面设计（未实现）
 
-> 后端基础设施（Worker + D1 表结构、`siyuan_feedback` MCP 工具）见 `docs/telemetry-design.md`。
+> 后端基础设施（Worker + D1 表结构、`siyuan_bridge_feedback` MCP 工具）见 `docs/telemetry-design.md`。
 
 ## 动机
 
@@ -75,7 +75,7 @@
 - 成功后 `showMessage("反馈已提交，感谢你的建议")`
 - 失败时 `showMessage("提交失败，请稍后重试")`
 - 反馈存储到 D1 `feedbacks` 表（表结构见 `docs/telemetry-design.md`）
-- MCP 工具 `siyuan_feedback` 也使用完全相同的端点，让 AI 可以通过对话替用户提交反馈
+- MCP 工具 `siyuan_bridge_feedback` 也使用完全相同的端点，让 AI 可以通过对话替用户提交反馈
 
 ---
 

@@ -32,3 +32,7 @@ Thumbs.db
 /dist
 /siyuan-plugin/bridge
 /.codegraph
+
+# Telemetry local data (opt-in, never committed)
+/stats/
+/telemetry.json

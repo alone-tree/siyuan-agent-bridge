@@ -42,10 +42,19 @@ from .agent_notebook import (
     is_system_notebook_name,
 )
 from .i18n import build_language_config
+from .telemetry import (
+    _resolve_proxy,
+    _with_telemetry,
+    ensure_session_id,
+    load_anonymous_id,
+    load_telemetry_config,
+    set_siyuan_version,
+    submit_feedback as _telemetry_submit_feedback,
+)
 
 
 SERVER_NAME = "siyuan-bridge"
-SERVER_VERSION = "0.2.0"
+SERVER_VERSION = "0.3.0"
 DEFAULT_SNIPPETS_PER_DOC = 5
 POST_WRITE_SYNC_TIMEOUT = 5.0
 POST_WRITE_SYNC_INTERVAL = 0.25
@@ -1091,6 +1100,20 @@ def main() -> int:
     return 0
 
 
+def _extract_tool_action(tool_name: str, args: dict[str, Any]) -> str | None:
+    """Extract the sub-action from tool arguments for telemetry grouping."""
+    if tool_name == "siyuan_edit":
+        action = args.get("action")
+        return str(action) if action else None
+    if tool_name == "siyuan_create":
+        if_exists = args.get("if_exists")
+        return str(if_exists) if if_exists else None
+    if tool_name == "siyuan_doc_manage":
+        action = args.get("action")
+        return str(action) if action else None
+    return None
+
+
 class McpServer:
     def __init__(self, root: Path):
         self.root = root.resolve()
@@ -1132,12 +1155,24 @@ class McpServer:
             "siyuan_create": self.siyuan_create,
             "siyuan_edit": self.siyuan_edit,
             "siyuan_doc_manage": self.siyuan_doc_manage,
+            "siyuan_bridge_feedback": self.siyuan_bridge_feedback,
         }
         if name not in tools:
             return make_error(request_id, -32602, f"Unknown tool: {name}")
         try:
-            detect_active_profile(load_config(self.root))
-            text = tools[name](args)
+            action = _extract_tool_action(name, args)
+
+            if name == "siyuan_bridge_feedback":
+                # Feedback does not require SiYuan to be running
+                text = _with_telemetry(
+                    self.root, name, action,
+                    lambda: tools[name](args),
+                )
+            else:
+                text = _with_telemetry(
+                    self.root, name, action,
+                    lambda: (detect_active_profile(load_config(self.root)), tools[name](args))[1],
+                )
             return make_result(request_id, {"content": [{"type": "text", "text": text}]})
         except SiYuanConnectionError as exc:
             reason = str(exc).strip()
@@ -1213,6 +1248,11 @@ class McpServer:
         config = load_config(self.root)
         profile, client = detect_active_profile(config)
         version = client.version()
+
+        # Initialize telemetry session
+        set_siyuan_version(version)
+        load_anonymous_id(self.root)
+        ensure_session_id()
 
         # Ensure system notebook and parse privacy rules
         state = ensure_agent_notebook(client, self.root, config_language=config.language or None)
@@ -2590,6 +2630,46 @@ class McpServer:
             raise ValueError("笔记本名称存在歧义，请使用 notebook_id")
         raise ValueError(f"未匹配到可见笔记本：{notebook_name}")
 
+    def siyuan_bridge_feedback(self, args: dict[str, Any]) -> str:
+        """Submit feedback to the SiYuan Bridge developer."""
+        feedback_type = str(args.get("type", "")).strip()
+        if feedback_type not in ("bug", "feature", "idea"):
+            raise ValueError("type must be one of: bug, feature, idea")
+        title = str(args.get("title", "")).strip()
+        if not title:
+            raise ValueError("title is required")
+        description = str(args.get("description", "")).strip()
+        if not description:
+            raise ValueError("description is required")
+        contact = str(args.get("contact", "")).strip() or None
+
+        config = load_telemetry_config(self.root)
+        endpoint = str(config.get("telemetry_endpoint", "")).strip()
+        if not endpoint:
+            return (
+                "反馈端点未配置（telemetry_endpoint 为空）。"
+                "请在运行目录下创建 telemetry.json 文件并设置 telemetry_endpoint。\n"
+                '格式示例：{"telemetry": "upload", "telemetry_endpoint": "https://your-worker.workers.dev"}'
+            )
+
+        proxy = _resolve_proxy(self.root)
+        payload: dict[str, str] = {
+            "type": feedback_type,
+            "title": title,
+            "description": description,
+        }
+        if contact:
+            payload["contact"] = contact
+
+        success = _telemetry_submit_feedback(endpoint, proxy, payload)
+        if success:
+            return "反馈已提交，感谢你的反馈！"
+        else:
+            return (
+                "反馈提交失败，无法连接到反馈端点。请检查 telemetry_endpoint 配置是否正确、"
+                "本地代理是否已开启，或稍后重试。你也可以通过 GitHub Issues 提交反馈。"
+            )
+
 
 def _read_optional(path: Path) -> str:
     if not path.exists():
@@ -2865,6 +2945,34 @@ def tool_specs() -> list[dict[str, Any]]:
                     "confirmed": {"type": "boolean", "description": "Required for rename/move/delete/copy. Not required for export."},
                 },
                 "required": ["action"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "siyuan_bridge_feedback",
+            "description": "Submit feedback about SiYuan Bridge directly through the AI conversation. Use this to report bugs, request features, or share ideas. This does NOT modify SiYuan notes, does NOT require confirmed=true, and works even when SiYuan is not running (as long as a telemetry endpoint is configured). The feedback is sent to the SiYuan Bridge developer.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": ["bug", "feature", "idea"],
+                        "description": "Feedback type: bug = problem report, feature = feature request, idea = suggestion or general idea.",
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "Short summary of the feedback (required).",
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Detailed description of the issue, request, or idea (required).",
+                    },
+                    "contact": {
+                        "type": "string",
+                        "description": "Optional contact information (email, GitHub handle, etc.) for follow-up.",
+                    },
+                },
+                "required": ["type", "title", "description"],
                 "additionalProperties": False,
             },
         },

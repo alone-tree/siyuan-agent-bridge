@@ -4,6 +4,56 @@
 
 该文档应该把最新内容放在最上，不要放到最下面，AI读不到。
 
+## 2026-06-07：遥测与反馈 Phase 1 — Python 端实现
+
+### 目标
+
+按 `docs/telemetry-design.md` 第一阶段计划，建立遥测基础框架：匿名 ID、本地 JSONL 记录、工具包装器、`siyuan_bridge_feedback` MCP 工具、代理支持。
+
+### 新增文件
+
+- `source_code/telemetry.py`：遥测核心模块（~310 行），含：
+  - `TelemetryEvent` 数据类
+  - 匿名 ID / session ID / 思源版本管理
+  - `load_telemetry_config(root)` 读取 `telemetry.json`
+  - `_resolve_proxy(root)` 三级代理探测（显式配置 → 环境变量 → 系统代理）
+  - `record_event()` 本地 JSONL 追加写入
+  - `_upload_event()` / `_fire_upload()` 后台线程 fire-and-forget 上传
+  - `submit_feedback()` POST 到 Worker `/api/feedback`
+  - `_with_telemetry(root, tool, action, fn)` 工具调用包装器
+- `tests/test_telemetry.py`：33 个单元测试（6 个 TestCase 类），覆盖匿名 ID、配置、代理探测、本地记录、包装器、反馈提交
+
+### 修改文件
+
+- `source_code/mcp_server.py`：
+  - 新增 `_extract_tool_action()` 辅助函数
+  - `siyuan_start` 中初始化遥测会话
+  - `call_tool` 改用 `_with_telemetry` 包装所有工具调用
+  - 新增 `siyuan_bridge_feedback` 方法（第 9 个工具）
+  - `tool_specs()` 新增 `siyuan_bridge_feedback` 定义
+  - 版本号 `0.2.0` → `0.3.0`
+- `source_code/__init__.py`：版本号 → `0.3.0`
+- `source_code/cli.py`：新增 `telemetry` 子命令（显示模式/匿名 ID/事件数/端点/代理）
+- `.gitignore`：新增 `stats/`、`telemetry.json`
+
+### 代理连通性测试
+
+- 国内直连 `workers.dev`：DNS 污染 + IP 阻断，超时
+- 通过 `127.0.0.1:7897` HTTP 代理（Clash）：`/api/notifications` GET 200，`/api/feedback` POST 200，`/api/telemetry` POST 200
+- Cloudflare 拦截 Python 默认 User-Agent（403），设置 `siyuan-bridge/0.3.0` 后正常
+
+### 验证
+
+- `python -m pytest tests -q`：238 passed（基线 167 + 遥测 33 + 其他新增）
+- 本地 JSON-RPC `tools/list`：9 个工具，含 `siyuan_bridge_feedback`
+- 通过代理实际测试 feedback 提交 → Worker D1 写入成功
+
+### 待办
+
+- 绑定自定义域名（`workers.dev` 国内被墙）
+- 插件前端反馈表单与通知拉取（Phase 3）
+- 插件设置页遥测开关（Phase 3）
+
 ## 2026-06-07：遥测与反馈 — Cloudflare 后端基础设施搭建
 
 ### 账号

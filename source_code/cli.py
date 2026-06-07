@@ -87,6 +87,9 @@ def build_parser() -> argparse.ArgumentParser:
     read.add_argument("locator", help="Document id, exact hpath, title, or unique partial match.")
     read.set_defaults(func=cmd_read)
 
+    telemetry_cmd = sub.add_parser("telemetry", help="Show telemetry status.")
+    telemetry_cmd.set_defaults(func=cmd_telemetry_status)
+
     return parser
 
 
@@ -253,6 +256,42 @@ def print_document_candidates(matches: list[dict[str, object]], *, file=sys.stdo
             f"{doc.get('id', '')}\t{doc.get('notebook_name', '')}\t{doc.get('hpath', '')}{tag_text}",
             file=file,
         )
+
+
+def cmd_telemetry_status(args: argparse.Namespace, config: Config) -> int:
+    from .telemetry import load_anonymous_id, load_telemetry_config
+
+    root = config.root
+    tele_cfg = load_telemetry_config(root)
+    mode = tele_cfg["telemetry"]
+    endpoint = tele_cfg.get("telemetry_endpoint", "")
+    proxy = tele_cfg.get("proxy", "")
+    anon_id = load_anonymous_id(root)
+
+    events_dir = root / "stats" / "events"
+    event_count = 0
+    if events_dir.exists():
+        for file in sorted(events_dir.glob("*.jsonl")):
+            try:
+                with file.open("r", encoding="utf-8") as fh:
+                    event_count += sum(1 for _ in fh)
+            except OSError:
+                pass
+
+    lines = [
+        f"遥测模式：{mode}",
+        f"匿名 ID：{anon_id}",
+        f"本地事件数：{event_count}（stats/events/）",
+    ]
+    if mode == "upload":
+        lines.append(f"远端端点：{endpoint or '（未配置，上传无效）'}")
+    if proxy:
+        lines.append(f"代理：{proxy}")
+    elif mode == "upload":
+        lines.append("代理：（未显式配置，使用系统/环境变量代理）")
+
+    print("\n".join(lines))
+    return 0
 
 
 def format_refresh_summary(result: object) -> str:
