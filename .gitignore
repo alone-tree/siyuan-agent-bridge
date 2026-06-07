@@ -36,3 +36,6 @@ Thumbs.db
 # Telemetry local data (opt-in, never committed)
 /stats/
 /telemetry.json
+
+# Wrangler local state
+worker/.wrangler/
