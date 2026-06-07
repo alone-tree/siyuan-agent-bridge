@@ -283,7 +283,6 @@ plugins/siyuan-bridge/scripts/run_mcp.py
 plugins/siyuan-bridge/skills/
 config.example.json
 README.md
-INSTALL_FOR_AI.md
 LICENSE
 ```
 

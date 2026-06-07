@@ -64,7 +64,7 @@ async function getPluginContext() {
   const guessedPluginDir = workspaceDir ? joinPath(workspaceDir, "data", "plugins", PLUGIN_NAME) : "";
   const guessedBridgeDir = guessedPluginDir ? joinPath(guessedPluginDir, "bridge") : "";
   const guessedRunMcp = guessedBridgeDir
-    ? joinPath(guessedBridgeDir, "plugins", "siyuan-bridge", "scripts", "run_mcp.py")
+    ? joinPath(guessedBridgeDir, "scripts", "run_mcp.py")
     : "";
   return {
     currentWorkspaceName: workspaceDir ? workspaceDir.split(/[\\/]/).filter(Boolean).pop() || "当前工作空间" : "当前工作空间",

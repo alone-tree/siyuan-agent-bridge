@@ -12,18 +12,17 @@ SOURCE_DIRS = [
     (ROOT / "source_code", BRIDGE_ROOT / "source_code"),
     (
         ROOT / "plugins" / "siyuan-bridge" / "scripts",
-        BRIDGE_ROOT / "plugins" / "siyuan-bridge" / "scripts",
+        BRIDGE_ROOT / "scripts",
     ),
     (
         ROOT / "plugins" / "siyuan-bridge" / "skills",
-        BRIDGE_ROOT / "plugins" / "siyuan-bridge" / "skills",
+        BRIDGE_ROOT / "skills",
     ),
 ]
 
 ROOT_FILES = [
     "config.example.json",
     "README.md",
-    "INSTALL_FOR_AI.md",
     "LICENSE",
 ]
 
@@ -33,10 +32,14 @@ PROTECTED_FILES = [
 
 
 def remove_generated_bridge_paths() -> None:
+    # Clean legacy container layer if it exists from an older sync
+    legacy_container = BRIDGE_ROOT / "plugins"
+    if legacy_container.exists():
+        shutil.rmtree(legacy_container)
     for path in (
         BRIDGE_ROOT / "source_code",
-        BRIDGE_ROOT / "plugins" / "siyuan-bridge" / "scripts",
-        BRIDGE_ROOT / "plugins" / "siyuan-bridge" / "skills",
+        BRIDGE_ROOT / "scripts",
+        BRIDGE_ROOT / "skills",
     ):
         if path.exists():
             shutil.rmtree(path)

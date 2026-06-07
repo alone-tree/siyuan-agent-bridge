@@ -810,7 +810,6 @@ API 设计原则：
 4. 写入后的自动 refresh 没有传系统笔记本 ID 和 Privacy Rules 文档 ID。
 5. `cli.py start` 仍读取旧 `knowledge_base/guide.md/index.md/START_HERE.md`，和系统笔记本方案不一致。
 6. `docs/siyuan-api-doc.md` 是网页抓取噪音，需要删掉。
-7. `INSTALL_FOR_AI.md` 需要重写，以便让AI更清晰地操作。兼容更多情形。
 8. Codex 插件 manifest 仍有 `0.1.0` 和偏只读描述。
 9. `mcp_server.py` 文件过大，后续维护风险高。需要拆分为模块。
 10. 测试也需要模块化拆分。并需要系统性的覆盖。

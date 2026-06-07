@@ -16,12 +16,12 @@
 
 | 修改范围 | 还必须阅读 |
 |---|---|
-| MCP 工具 schema、参数、返回格式 | `plugins/siyuan-bridge/skills/siyuan-bridge/SKILL.md`、`README.md`、`INSTALL_FOR_AI.md` |
+| MCP 工具 schema、参数、返回格式 | `plugins/siyuan-bridge/skills/siyuan-bridge/SKILL.md`、`README.md` |
 | Workspace Index 工作流 | `plugins/siyuan-bridge/skills/siyuan-index-builder/SKILL.md` |
 | 思源 API 封装 | `docs/思源API.md`、`source_code/client.py` |
 | 隐私和权限 | `source_code/ignore.py`、`source_code/agent_notebook.py`、相关测试 |
 | 阅读、编辑、表格、文档管理 | `source_code/mcp_server.py`、相关测试 |
-| 发布和安装 | `pack_skill.py`、`pack_release.py`、`mcp_configs/`、`INSTALL_FOR_AI.md` |
+| 发布和安装 | `mcp_configs/` |
 | 历史问题排查 | `docs/devlog.md`，优先读最近日期；不要把旧计划当当前事实 |
 
 如果没有完整阅读这些材料，不准开始改代码。
@@ -55,7 +55,6 @@
 - `plugins/siyuan-bridge/skills/siyuan-bridge/SKILL.md`
 - `plugins/siyuan-bridge/skills/siyuan-index-builder/SKILL.md`，如果影响索引工作流
 - `README.md`
-- `INSTALL_FOR_AI.md`
 - `docs/ARCHITECTURE.md`
 - `docs/思源API.md`，如果涉及底层 API 封装
 - `docs/devlog.md`，记录实现过程和验证结果
