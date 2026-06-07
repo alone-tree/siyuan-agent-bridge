@@ -1,4 +1,4 @@
-const {Dialog, Plugin, showMessage} = require("siyuan");
+import {Dialog, Plugin, showMessage} from "siyuan";
 
 const PLUGIN_NAME = "siyuan-bridge";
 const CONFIG_PATH = `/data/plugins/${PLUGIN_NAME}/bridge/config.local.json`;
@@ -9,7 +9,7 @@ const DEFAULT_CONFIG = {
   language: "zh-CN",
 };
 
-class SiyuanBridgePlugin extends Plugin {
+export default class SiyuanBridgePlugin extends Plugin {
   onload() {
     this.setting = {
       open: () => this.openHome(),
@@ -120,6 +120,15 @@ function renderHome() {
         <p class="siyuan-bridge-home__hint">
           匿名收集工具使用数据（功能调用、成功率等），帮助我们改进思源桥。不包含任何笔记内容或个人身份信息。
         </p>
+        <div data-telemetry="local-copy-area" style="display:none">
+          <label class="siyuan-bridge-home__checkbox-row">
+            <input class="b3-switch" type="checkbox" data-telemetry="local-copy" />
+            <span class="siyuan-bridge-home__checkbox-label">遥测数据保留本地副本</span>
+          </label>
+          <p class="siyuan-bridge-home__hint">
+            在 stats/events/ 目录保留每日 JSONL 文件，方便自行查看上传内容，打消隐私顾虑。
+          </p>
+        </div>
       </div>
     </div>
   `;
@@ -127,18 +136,38 @@ function renderHome() {
 
 function bindHome(root, plugin) {
   loadAndRenderNotifications(root);
-  loadTelemetryCheckbox(root);
+  loadTelemetryConfig(root);
 
-  const checkbox = root.querySelector("[data-telemetry='checkbox']");
-  if (checkbox) {
-    checkbox.addEventListener("change", async () => {
-      const mode = checkbox.checked ? "upload" : "off";
-      const ok = await saveTelemetryConfig(mode);
+  const telemetryCheckbox = root.querySelector("[data-telemetry='checkbox']");
+  const localCopyArea = root.querySelector("[data-telemetry='local-copy-area']");
+  const localCopyCheckbox = root.querySelector("[data-telemetry='local-copy']");
+
+  const syncLocalCopyVisibility = () => {
+    if (localCopyArea) {
+      localCopyArea.style.display = telemetryCheckbox?.checked ? "" : "none";
+    }
+  };
+
+  if (telemetryCheckbox) {
+    telemetryCheckbox.addEventListener("change", async () => {
+      const mode = telemetryCheckbox.checked ? "upload" : "off";
+      const localCopy = telemetryCheckbox.checked && localCopyCheckbox?.checked;
+      const ok = await saveTelemetryConfig(mode, localCopy);
       if (!ok) {
-        checkbox.checked = !checkbox.checked;
+        telemetryCheckbox.checked = !telemetryCheckbox.checked;
       }
+      syncLocalCopyVisibility();
     });
   }
+
+  if (localCopyCheckbox) {
+    localCopyCheckbox.addEventListener("change", async () => {
+      if (!telemetryCheckbox?.checked) return;
+      await saveTelemetryConfig("upload", localCopyCheckbox.checked);
+    });
+  }
+
+  syncLocalCopyVisibility();
 
   root.addEventListener("click", async (event) => {
     const target = event.target;
@@ -205,20 +234,26 @@ async function getEffectiveEndpoint() {
   return DEFAULT_ENDPOINT;
 }
 
-async function loadTelemetryCheckbox(root) {
-  const checkbox = root.querySelector("[data-telemetry='checkbox']");
-  if (!checkbox) return;
+async function loadTelemetryConfig(root) {
+  const telemetryCheckbox = root.querySelector("[data-telemetry='checkbox']");
+  const localCopyCheckbox = root.querySelector("[data-telemetry='local-copy']");
 
   try {
     const text = await getFile(TELEMETRY_PATH);
     const cfg = JSON.parse(text);
-    checkbox.checked = cfg && cfg.telemetry === "upload";
+    if (telemetryCheckbox) {
+      telemetryCheckbox.checked = cfg && cfg.telemetry === "upload";
+    }
+    if (localCopyCheckbox) {
+      localCopyCheckbox.checked = cfg && cfg.local_copy === true;
+    }
   } catch (_error) {
-    checkbox.checked = false;
+    if (telemetryCheckbox) telemetryCheckbox.checked = false;
+    if (localCopyCheckbox) localCopyCheckbox.checked = false;
   }
 }
 
-async function saveTelemetryConfig(mode) {
+async function saveTelemetryConfig(mode, localCopy) {
   let existing = {};
   try {
     const text = await getFile(TELEMETRY_PATH);
@@ -231,6 +266,9 @@ async function saveTelemetryConfig(mode) {
   }
 
   existing.telemetry = mode;
+  if (typeof localCopy === "boolean" && mode === "upload") {
+    existing.local_copy = localCopy;
+  }
 
   try {
     await putFile(TELEMETRY_PATH, JSON.stringify(existing, null, 2) + "\n");
@@ -626,6 +664,3 @@ function escapeHtml(text) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
-
-module.exports = SiyuanBridgePlugin;
-module.exports.default = SiyuanBridgePlugin;
