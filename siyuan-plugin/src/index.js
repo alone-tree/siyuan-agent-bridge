@@ -206,12 +206,16 @@ async function loadAndRenderNotifications(root) {
       return;
     }
 
-    area.innerHTML = notifications.map((n) => `
-      <a class="siyuan-bridge-home__notification-item"
-         href="${escapeAttr(n.url || "#")}" target="_blank" rel="noopener">
-        ${escapeHtml(n.title || "")}
-      </a>
-    `).join("");
+    area.innerHTML = notifications.map((n) =>
+      n.url
+        ? `<a class="siyuan-bridge-home__notification-item"
+             href="${escapeAttr(n.url)}" target="_blank" rel="noopener">
+             ${escapeHtml(n.title || "")}
+           </a>`
+        : `<div class="siyuan-bridge-home__notification-item siyuan-bridge-home__notification-text">
+             ${escapeHtml(n.title || "")}
+           </div>`
+    ).join("");
   } catch (_error) {
     area.innerHTML = `<div class="siyuan-bridge-home__empty">暂无新消息</div>`;
   }

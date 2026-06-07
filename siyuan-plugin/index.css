@@ -114,6 +114,11 @@
   color: var(--b3-theme-primary-hover);
 }
 
+.siyuan-bridge-home__notification-text {
+  color: var(--b3-theme-on-surface);
+  cursor: default;
+}
+
 .siyuan-bridge-home__field {
   display: flex;
   flex-direction: column;
