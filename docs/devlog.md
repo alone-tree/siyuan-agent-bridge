@@ -2,7 +2,73 @@
 
 该文档应该把最新内容放在最上，不要放到最下面，AI读不到。
 
-## 2026-06-06：move 祖先链检查与 list 权限列
+## 2026-06-06：确认产品定位与块引用保留优化方向
+
+### 命名统一
+
+现在有三处名字不一致：
+- GitHub repo：alone-tree/siyuan-bridge（对，少 agent-）
+- 本地目录名：siyuan-agent-bridge（多了 agent-）
+- plugins/ 下一级：siyuan-agent-bridge（同上）
+
+工具前缀 siyuan_（siyuan_list/find/read/edit/create/doc_manage）不需要改。
+Skill 名在命名统一后同步更新。
+
+### 目录结构优化方向
+
+只考虑思源插件场景（不考虑 CC Switch 等其他市场），当前插件桥文件的 MCP 注册路径：
+
+<siyuan-data>/data/plugins/siyuan-bridge/bridge/plugins/siyuan-agent-bridge/scripts/run_mcp.py
+
+5 层嵌套。原因：plugins/siyuan-agent-bridge/ 是最初为 CC Switch 独立分发设计的容器层，scripts/ 和 skills/ 都在里面。但在思源插件场景下，桥文件已经有一个 bridge/ 根目录，再叠一层容器层就是多余嵌套。
+
+优化方向（待执行）：
+1. 拆掉 plugins/siyuan-bridge/ 容器层（只做思源市场，不需要独立分发的能力）
+2. run_mcp.py 提到 bridge/ 根目录
+3. skills/ 提到 bridge/ 根目录
+4. 同步更新 sync_siyuan_plugin_bridge.py 的 SOURCE_DIRS 路径
+5. 同步更新插件 index.js 中生成 MCP JSON 的路径拼接
+6. 同步更新 .mcp.json 配置模板
+7. 同步更新所有文档引用路径
+
+优化后的路径：
+<siyuan-data>/data/plugins/siyuan-bridge/bridge/run_mcp.py  
+2 层
+
+命名统一和目录结构调整涉及多文件联动，需要一次完成。
+
+### 产品定位讨论
+
+核心定位：把思源当作 AI 的结构化本地知识库来处理，尽量接近文档编辑体验，同时尊重思源的块结构系统。
+
+不追求的功能覆盖面：
+- 不做数据库/属性视图写入（只读）
+- 不做闪卡、标签管理、附件上传
+- 不做大而全的功能堆砌
+- 偶尔才用的功能不做——工具多了对 AI 是负担，浪费 token 污染上下文
+
+核心优化方向：
+- 专注打磨核心高频场景：list、find、read、edit、create、doc_manage
+- 提高 AI 调用成功率，尤其是修改编辑的稳定性
+- 减少 AI 选择负担，工具面保持精简
+
+这样就和 Sisyphus（101 action，追求全覆盖）形成了明确的差异化。
+
+### 块引用保留——下一个优化方向
+
+块引用断裂是当前编辑模型的一个缺口：
+- single_block_replace 保留块 ID，引用安全
+- multi_block_replace 和 delete 会删除旧块 ID，跨文档引用链断裂
+- 预期触发场景：大段重写、段落合并、列表项删除
+
+设计方向（待实现，记录在 ARCHITECTURE.md siyuan_edit 章节）：
+
+1. single_block_replace 仍是首选路径，保留块 ID
+2. 涉及多块删除/替换时，写入前检测目标块的反向链接。有引用时向 AI 报告受影响的文档和引用数
+3. 不做自动重写引用，只做告知和确认
+4. 具体实现待设计讨论：反向链接检测 API（思源 `/api/search/getBacklink`）、校验时机、冲突处理
+
+对比 Sisyphus：Sisyphus 有文档时间线（事后回滚），思源桥选择写前保护（快照 + 引用检测）。两种不同的安全哲学。
 
 本轮修复上一轮 MCP 实测后的 3 个待处理点，并补充 `siyuan_list` 权限展示：
 
