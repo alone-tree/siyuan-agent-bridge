@@ -115,12 +115,15 @@ def main() -> int:
         target = plugins_dir / PLUGIN_NAME
 
     backup = ROOT / "ai_workspace" / "plugin_import_backup"
-    if backup.exists():
-        shutil.rmtree(backup)
-    backup.mkdir(parents=True, exist_ok=True)
 
     if not args.fresh and target.exists():
+        # Overwrite any stale backup with the live config files
+        if backup.exists():
+            shutil.rmtree(backup)
+        backup.mkdir(parents=True, exist_ok=True)
         copy_local_configs(target, backup)
+    else:
+        backup.mkdir(parents=True, exist_ok=True)
 
     plugins_dir.mkdir(parents=True, exist_ok=True)
     remove_target(target, plugins_dir)
