@@ -171,39 +171,15 @@ class TestProxyResolution(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.root, ignore_errors=True)
-        for var in ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY"):
-            os.environ.pop(var, None)
 
-    def test_explicit_proxy_wins(self):
+    def test_explicit_proxy(self):
         (self.root / "telemetry.json").write_text(
             json.dumps({"proxy": "http://127.0.0.1:7897"}), encoding="utf-8"
         )
         self.assertEqual(_resolve_proxy(self.root), "http://127.0.0.1:7897")
 
-    def test_env_var_when_no_explicit(self):
-        os.environ["HTTPS_PROXY"] = "http://127.0.0.1:9999"
-        self.assertEqual(_resolve_proxy(self.root), "http://127.0.0.1:9999")
-
-    def test_http_proxy_fallback(self):
-        os.environ["HTTP_PROXY"] = "http://127.0.0.1:8888"
-        self.assertEqual(_resolve_proxy(self.root), "http://127.0.0.1:8888")
-
-    def test_all_proxy_fallback(self):
-        os.environ["ALL_PROXY"] = "http://127.0.0.1:7777"
-        self.assertEqual(_resolve_proxy(self.root), "http://127.0.0.1:7777")
-
-    def test_explicit_over_env(self):
-        (self.root / "telemetry.json").write_text(
-            json.dumps({"proxy": "http://explicit:1234"}), encoding="utf-8"
-        )
-        os.environ["HTTPS_PROXY"] = "http://env:9999"
-        self.assertEqual(_resolve_proxy(self.root), "http://explicit:1234")
-
-    def test_empty_when_nothing_set(self):
-        # When no explicit config or env vars, returns system proxy or empty
-        result = _resolve_proxy(self.root)
-        # result may be empty (no system proxy) or a valid proxy URL
-        self.assertIsInstance(result, str)
+    def test_empty_when_not_configured(self):
+        self.assertEqual(_resolve_proxy(self.root), "")
 
     def test_build_proxy_handler_with_url(self):
         handler = _build_proxy_handler("http://127.0.0.1:7897")
@@ -212,7 +188,6 @@ class TestProxyResolution(unittest.TestCase):
 
     def test_build_proxy_handler_empty(self):
         handler = _build_proxy_handler("")
-        # ProxyHandler with empty dict uses system proxy
         self.assertIsNotNone(handler)
 
 

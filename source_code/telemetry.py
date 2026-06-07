@@ -186,23 +186,14 @@ def get_effective_endpoint(root: Path) -> str:
 
 
 def _resolve_proxy(root: Path) -> str:
-    """按优先级解析代理地址。
+    """返回用户显式配置的代理地址。
 
-    1. telemetry.json 显式 proxy 字段
-    2. HTTPS_PROXY / HTTP_PROXY / ALL_PROXY 环境变量
-    3. 系统代理设置（urllib 内置 getproxies）
-    4. 以上都没有则返回空字符串（直连）
+    仅从 telemetry.json 的 proxy 字段读取。不再自动探测环境变量或系统代理，
+    因为 Python urllib 通过 Clash 等代理访问自定义域名时可能 SSL 握手失败。
+    默认直连即可——项目使用自有域名，无需翻墙。
     """
     cfg = load_telemetry_config(root)
-    explicit = str(cfg.get("proxy", "")).strip()
-    if explicit:
-        return explicit
-    for var in ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY"):
-        val = os.environ.get(var, "").strip()
-        if val:
-            return val
-    proxies = urllib_request.getproxies()
-    return proxies.get("https", "") or proxies.get("http", "") or ""
+    return str(cfg.get("proxy", "")).strip()
 
 
 def _build_proxy_handler(proxy_url: str) -> urllib_request.ProxyHandler:
