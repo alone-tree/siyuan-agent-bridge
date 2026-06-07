@@ -3,6 +3,7 @@
 .env.*
 config.local.json
 .mcp.json
+worker/.env
 
 # Python runtime/cache
 __pycache__/

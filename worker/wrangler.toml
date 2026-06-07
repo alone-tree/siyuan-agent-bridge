@@ -1,0 +1,12 @@
+name = "siyuan-bridge-telemetry"
+main = "index.js"
+compatibility_date = "2026-06-07"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "siyuan_bridge"
+database_id = "142b11e4-52a9-4050-bbaf-073433b52c70"
+
+[observability]
+enabled = true
+head_sampling_rate = 1
