@@ -85,6 +85,8 @@
 - `siyuan-plugin/index.css` — 样式
 - 构建产物：`siyuan-plugin/dist/index.js`（webpack 打包后的结果，实际加载的是这个）
 
+思源实际运行入口是根目录 `siyuan-plugin/index.js`，当前思源桌面端会以普通脚本/eval 方式加载它，必须保持 CommonJS：使用 `require("siyuan")` 和 `module.exports`。不要把根 `index.js` 改成 `import` / `export default`，否则控制台会报 `Cannot use import statement outside a module`，插件不会加载，插件列表设置齿轮也会消失。`src/index.js` 和 `dist/index.js` 可以按现有构建形态保留 ES module。
+
 实现后需要重新构建部署，或者使用 `python scripts\import_siyuan_plugin.py --workspace <思源测试工作空间>` 把仓库中的 `siyuan-plugin/` 导入测试工作空间。测试路径不要硬编码；可通过 `SIYUAN_TEST_WORKSPACE` 指向当前机器的思源测试工作空间。
 
 ---

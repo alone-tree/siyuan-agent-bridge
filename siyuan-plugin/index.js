@@ -1,4 +1,4 @@
-import {Dialog, Plugin, showMessage} from "siyuan";
+const {Dialog, Plugin, showMessage} = require("siyuan");
 
 const PLUGIN_NAME = "siyuan-bridge";
 const CONFIG_PATH = `/data/plugins/${PLUGIN_NAME}/bridge/config.local.json`;
@@ -9,7 +9,7 @@ const DEFAULT_CONFIG = {
   language: "zh-CN",
 };
 
-export default class SiyuanBridgePlugin extends Plugin {
+class SiyuanBridgePlugin extends Plugin {
   onload() {
     this.setting = {
       open: () => this.openHome(),
@@ -664,3 +664,6 @@ function escapeHtml(text) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
+
+module.exports = SiyuanBridgePlugin;
+module.exports.default = SiyuanBridgePlugin;

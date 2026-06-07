@@ -4,6 +4,14 @@
 
 该文档应该把最新内容放在最上，不要放到最下面，AI读不到。
 
+## 2026-06-07：修复插件根入口被改成 ESM 后齿轮消失
+
+症状：思源控制台报 `plugin siyuan-bridge run error: SyntaxError: Cannot use import statement outside a module`，插件列表设置齿轮消失。
+
+原因：`siyuan-plugin/index.js` 是思源实际运行入口，桌面端当前以普通脚本/eval 方式加载。一次前端改动把它从 CommonJS 改成了 ES module（`import {Dialog, Plugin, showMessage} from "siyuan"`、`export default class ...`），导致插件脚本加载失败。
+
+修复：根 `siyuan-plugin/index.js` 恢复 CommonJS：`const {Dialog, Plugin, showMessage} = require("siyuan")`，文件末尾保留 `module.exports = SiyuanBridgePlugin` 和 `module.exports.default = SiyuanBridgePlugin`。`src/index.js`、`dist/index.js` 不作为本次运行入口格式判断依据，保留现状。
+
 ## 2026-06-07：遥测配置初始化方案讨论
 
 ### 决策：`telemetry.json` 由 JS 端在插件初始化时创建
