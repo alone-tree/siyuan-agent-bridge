@@ -89,7 +89,7 @@
 用户本地环境                              远端
 
 +-----------------------------+       +----------------------------+
-| siyuan-agent-bridge (MCP)   |       | CF Worker                  |
+| siyuan-bridge (MCP)          |       | CF Worker                  |
 |                             |       |                            |
 | telemetry.py ── POST ──────┼──────>│ /api/telemetry ──> D1      |
 |   (工具装饰器自动采集)       |       |                            |
@@ -232,7 +232,7 @@ CREATE TABLE notifications (
 
 ```sql
 INSERT INTO notifications (id, title, url, created_at)
-VALUES ('v0.3.0', '思源桥 v0.3.0 已发布', 'https://github.com/alone-tree/siyuan-agent-bridge/releases/tag/v0.3.0', datetime('now'));
+VALUES ('v0.3.0', '思源桥 v0.3.0 已发布', 'https://github.com/alone-tree/siyuan-bridge/releases/tag/v0.3.0', datetime('now'));
 ```
 
 ---
@@ -292,7 +292,7 @@ VALUES ('v0.3.0', '思源桥 v0.3.0 已发布', 'https://github.com/alone-tree/s
     {
       "id": "v0.3.0",
       "title": "思源桥 v0.3.0 已发布",
-      "url": "https://github.com/alone-tree/siyuan-agent-bridge/releases/tag/v0.3.0"
+      "url": "https://github.com/alone-tree/siyuan-bridge/releases/tag/v0.3.0"
     }
   ]
 }
