@@ -54,8 +54,9 @@ from .telemetry import (
 )
 
 
+from . import __version__
+
 SERVER_NAME = "siyuan-bridge"
-SERVER_VERSION = "1.0.0"
 DEFAULT_SNIPPETS_PER_DOC = 5
 POST_WRITE_SYNC_TIMEOUT = 5.0
 POST_WRITE_SYNC_INTERVAL = 0.25
@@ -1180,7 +1181,7 @@ class McpServer:
                 {
                     "protocolVersion": "2025-03-26",
                     "capabilities": {"tools": {}},
-                    "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
+                    "serverInfo": {"name": SERVER_NAME, "version": __version__},
                 },
             )
         if method == "notifications/initialized":

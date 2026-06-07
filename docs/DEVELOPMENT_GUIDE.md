@@ -304,8 +304,8 @@ claude --permission-mode bypassPermissions --dangerously-skip-permissions --prin
 
 当前已经验证过的基线：
 
-- `python -m pytest tests -q`：167 passed。
-- 本地 JSON-RPC `tools/list`：8 个工具，server version `0.2.0`。
+- `python -m pytest tests -q`：241 passed。
+- 本地 JSON-RPC `tools/list`：9 个工具，server version 见 `source_code/__init__.py`。
 - `python scripts/sync_siyuan_plugin_bridge.py` 可同步 bridge 到插件开发目录。
 
 ## 自动化验证计划
@@ -343,6 +343,32 @@ python scripts/verify.py
 12. 插件和安装文档存在版本/链接漂移。
 13. 思源插件第一版的 `bridge/` 目录由同步脚本生成，不是发布 ZIP；不要把旧 ZIP 流程误当成当前插件实现路径。
 14. 测试空间里的思源插件目录不是源码，不得直接编辑。正确流程是修改仓库 `siyuan-plugin/`，再整体导入测试空间。
+
+## 版本号管理
+
+版本号遵循单一事实源原则。Python 端统一从 `source_code/__init__.py` 的 `__version__` 读取，其他模块不得重复定义。
+
+**版本号位置：**
+
+| 位置 | 角色 | 管理方式 |
+|------|------|----------|
+| `source_code/__init__.py` | **唯一事实源** | 手动编辑 `__version__ = "x.y.z"` |
+| `source_code/telemetry.py` | 引用 | `from source_code import __version__ as MCP_VERSION` |
+| `source_code/mcp_server.py` | 引用 | `from . import __version__`（`serverInfo.version`） |
+| `siyuan-plugin/plugin.json` | 独立维护 | 手动同步，与 `__version__` 保持一致 |
+
+**升级版本号时需修改的文件：**
+
+1. `source_code/__init__.py` — `__version__`
+2. `siyuan-plugin/plugin.json` — `"version"`
+
+`plugin.json` 是 JSON 文件，无法 import Python 模块，只能手动同步。两者必须保持一致。
+
+**不需要改的地方：**
+
+- 文档中的 API 示例数据（`mcp_ver` 字段）仅作示意，不需要逐版更新。
+- `docs/devlog.md` 中的历史版本号是工程记录，不应修改。
+- `tests/` 不硬编码版本号。
 
 ## Windows 命令与编码
 
