@@ -85,8 +85,8 @@ siyuan-plugin/
   index.css
   bridge/
     source_code/
-    plugins/siyuan-bridge/scripts/run_mcp.py
-    plugins/siyuan-bridge/skills/
+    scripts/run_mcp.py
+    skills/
 ```
 
 `siyuan-plugin/bridge/` 由 `python scripts/sync_siyuan_plugin_bridge.py` 生成，不提交 Git。同步脚本只复制必要 Python 运行文件和说明文件，不复制 `config.local.json`、`knowledge_base/`、`ai_workspace/`、`tests/`、`.mcp.json` 或 `dist/`。

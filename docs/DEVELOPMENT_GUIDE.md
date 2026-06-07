@@ -193,25 +193,20 @@ JSON-RPC tools/list
 涉及发布或安装材料时运行：
 
 ```bash
-python pack_skill.py --check
-python pack_release.py --check
-```
-
-涉及思源插件形态时，第一版不生成 ZIP 发布包，而是同步必要 Python Bridge 文件到插件开发目录：
-
-```bash
 python scripts/sync_siyuan_plugin_bridge.py
 ```
+
+不再有 `pack_skill.py` 和 `pack_release.py` —— 项目已从 CC Switch 独立分发转为思源集市插件发布。
 
 同步脚本只生成 `siyuan-plugin/bridge/`，该目录是开发/安装运行产物，不提交 Git。验证时必须确认：
 
 - `siyuan-plugin/bridge/source_code/mcp_server.py` 存在。
-- `siyuan-plugin/bridge/plugins/siyuan-bridge/scripts/run_mcp.py` 存在。
+- `siyuan-plugin/bridge/scripts/run_mcp.py` 存在。
 - `siyuan-plugin/bridge/config.local.json` 不会被同步脚本覆盖。
 
 ## 插件导入测试流程
 
-测试思源工作空间中的插件目录只能作为”用户安装后的落盘结果”。不要直接修改测试工作空间里的插件代码，例如 `D:\Siyuan2test\data\plugins\siyuan-bridge`。所有修复必须先改仓库工程文件，再把整个 `siyuan-plugin/` 重新导入测试工作空间。
+测试思源工作空间中的插件目录只能作为”用户安装后的落盘结果”。不要直接修改测试工作空间里的插件代码。所有修复必须先改仓库工程文件，再把整个 `siyuan-plugin/` 重新导入测试工作空间。
 
 ### 首次安装（模拟新用户）
 
@@ -233,7 +228,7 @@ python -c “import os; plugins=sorted(os.listdir(r'D:\Siyuan2test\data\plugins\
 
 验证清单：
 - [x] `bridge/source_code/mcp_server.py` 存在
-- [x] `bridge/plugins/siyuan-bridge/scripts/run_mcp.py` 存在
+- [x] `bridge/scripts/run_mcp.py` 存在
 - [x] `bridge/config.local.json` **不存在**
 - [x] 思源 UI 启用插件后自动创建 `config.local.json`
 - [x] 用户没有点开设置页、没有点击保存的情况下，外部 MCP 客户端能正常启动并调用工具
@@ -299,7 +294,7 @@ claude --permission-mode bypassPermissions --dangerously-skip-permissions --prin
 
 - `python -m pytest tests -q`：167 passed。
 - 本地 JSON-RPC `tools/list`：8 个工具，server version `0.2.0`。
-- `pack_skill.py --check` 和 `pack_release.py --check` 可列出清单。
+- `python scripts/sync_siyuan_plugin_bridge.py` 可同步 bridge 到插件开发目录。
 
 ## 自动化验证计划
 

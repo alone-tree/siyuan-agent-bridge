@@ -1,13 +1,44 @@
 # SiYuan Bridge 工程日志
 
-> 草案状态：本文档用于替换当前 `docs/devlog.md` 的工程日志职责。当前先新增，不删除旧文档；确认后再决定是否迁移、归档或删除旧文档。
-
 记录原则：
 
 - 新记录写在最前面。
 - 只记录工程实施、问题排查、验证结果和阶段性结论。
 - 架构总览、产品理念、工具长期契约写入 `docs/ARCHITECTURE.md`。
 - 开发规则、验证清单、AI 修改要求写入 `docs/DEVELOPMENT_GUIDE.md`。
+
+## 2026-06-07：项目更名 + 拆容器层 + 废独立打包
+
+今日两次提交解决了两个历史遗留问题：
+
+### 项目更名：SiYuan Agent Bridge → SiYuan Bridge
+
+- `SERVER_NAME`：`siyuan-agent-bridge` → `siyuan-bridge`
+- Skill name：`siyuan-agent-bridge` → `siyuan-bridge`
+- 目录：`plugins/siyuan-agent-bridge/` → `plugins/siyuan-bridge/`
+- Skill 目录：`skills/siyuan-agent-bridge/` → `skills/siyuan-bridge/`
+- 所有 MCP 配置模板、打包脚本、思源插件路径、文档全部更新
+- `i18n.py` 中 `LEGACY_NOTEBOOK_NAMES` / `LEGACY_DOC_NAMES` 保留向后兼容
+- `test_indexer.py` 保留旧名作为兼容测试数据
+
+### 拆掉容器层，废掉独立打包
+
+项目已从 CC Switch 独立压缩包分发转为仅通过思源集市插件发布。
+
+- **删除** `pack_release.py`、`pack_skill.py`、`INSTALL_FOR_AI.md`
+- **删除** `dist/` 中旧构建产物
+- **重构** `sync_siyuan_plugin_bridge.py`：
+  - `scripts/` 和 `skills/` 直接放在 `bridge/` 根下，不再嵌套 `plugins/siyuan-bridge/` 容器层
+  - ROOT_FILES 移除 `INSTALL_FOR_AI.md`
+  - 新增旧容器层清理逻辑
+- **更新** `siyuan-plugin/index.js`、`src/index.js`、`dist/index.js`：MCP 路径从 `bridge/plugins/siyuan-bridge/scripts/run_mcp.py` 缩短为 `bridge/scripts/run_mcp.py`
+- **修复** `run_mcp.py`：`REPO_ROOT` 从 `PLUGIN_ROOT.parents[1]` 改为 `PLUGIN_ROOT`（容器层拆除后 scripts/ 直接在 bridge/ 下，parents[1] 就是 bridge 根）
+- **更新** `doctor.bat`、`.mcp.json`、README、AGENTS、ARCHITECTURE、DEVELOPMENT_GUIDE、PD 等全部文档
+
+**结果**：
+- 路径从 5 层嵌套 → 2 层：`siyuan-bridge/bridge/scripts/run_mcp.py`
+- 205 tests passed
+- 在测试工作空间端到端验证通过（`siyuan_start` 返回正确启动包）
 
 ## 2026-06-04：文档体系重整草案
 
@@ -256,7 +287,7 @@ Hermes 实测发现：用思源 `updateBlock` 把单块替换成多块 Markdown 
 实现方式：
 
 - `replace` 单块替换走 `update_block`。
-- 范围替换走“在起点前插入新 Markdown，再删除旧范围”。
+- 范围替换走"在起点前插入新 Markdown，再删除旧范围"。
 - `insert_after` 在目标块后插入 Markdown。
 - `insert_before` 通过 client 层 `insert_block_before(nextID)` 在目标块前插入 Markdown。
 - `append` 追加到文档末尾。
@@ -332,4 +363,3 @@ Windows 环境下曾遇到 SiYuan HTTP API 连接异常，表现为 `WinError 10
 
 - client 请求使用 `Connection: close`。
 - 避免复用不稳定的 keep-alive 连接。
-
