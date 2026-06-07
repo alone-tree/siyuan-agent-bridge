@@ -221,6 +221,9 @@ set SIYUAN_TEST_WORKSPACE=D:\siyuan2
 
 导入脚本默认保留测试工作空间已有的 `bridge/config.local.json` 和 `bridge/telemetry.json`。模拟新用户首次安装时加 `--fresh`，不会保留这些本地配置。
 
+> 遥测与反馈的 Worker API、D1 表结构、运维操作详见 [反馈与遥测后端参考](./feedback-telemetry-backend.md)。
+> 遇到连接超时、遥测不工作等问题？见 [常见问题与故障排除](./TROUBLESHOOTING.md)。
+
 ### 首次安装（模拟新用户）
 
 模拟用户第一次从零安装插件的场景。预期：导入后没有 `config.local.json`，启用插件后自动创建。

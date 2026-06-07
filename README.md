@@ -138,7 +138,7 @@ siyuan-bridge/
 └── README.md                     # 本文件（给人看）
 ```
 
-更多产品理念和工程设计考虑请见[产品设计文档PD](docs/PD.md)。
+更多产品理念和工程设计考虑请见[产品设计文档PD](docs/PD.md)。遇到问题先查[常见问题与故障排除](docs/TROUBLESHOOTING.md)。
 
 ---
 
