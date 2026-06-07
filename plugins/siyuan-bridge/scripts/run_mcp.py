@@ -6,7 +6,10 @@ import sys
 from pathlib import Path
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
-REPO_ROOT = PLUGIN_ROOT.parents[1]
+# In the flattened structure, scripts/ lives directly in bridge/,
+# and source_code/ is alongside scripts/ in the same bridge/ directory.
+# run_mcp.py: scripts/run_mcp.py → parents[0]=scripts → parents[1]=bridge (REPO_ROOT)
+REPO_ROOT = PLUGIN_ROOT
 
 os.chdir(REPO_ROOT)
 sys.path.insert(0, str(REPO_ROOT))
