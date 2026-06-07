@@ -136,7 +136,7 @@ Worker 端点**无需认证**——所有 3 个 API 均为公开访问。
 | `tool` | TEXT | MCP 工具名 |
 | `action` | TEXT (nullable) | 子操作（如 edit、create 的 action 参数） |
 | `ok` | INTEGER | 1=成功, 0=失败 |
-| `error_type` | TEXT (nullable) | 异常类名（失败时） |
+| `error_type` | TEXT (nullable) | 错误码（失败时），`category:detail` 两级编码，详见错误码参考 |
 | `dur_ms` | INTEGER (nullable) | 耗时（毫秒） |
 
 ### `feedbacks` — 用户反馈
@@ -158,6 +158,126 @@ Worker 端点**无需认证**——所有 3 个 API 均为公开访问。
 | `title` | TEXT | 通知标题 |
 | `url` | TEXT | 点击跳转链接 |
 | `created_at` | TEXT | 创建时间 |
+
+---
+
+## 遥测错误码参考
+
+`error_type` 字段采用 `category:detail` 两级编码。**category** 用于聚合看板，**detail** 用于下钻诊断。
+
+失败时优先取异常对象上的 `error_code` 属性；若不存在则退回到 Python 异常类名（如 `SiYuanConnectionError`、`FileNotFoundError`）。
+
+### 错误码总览
+
+#### validation — AI 传参错误
+
+参数无效、缺失、类型错误或语义冲突，通常意味着 AI 对工具的理解有偏差，需要改进工具描述或 prompt。
+
+| error_type | 触发场景 |
+|------------|----------|
+| `validation:missing_param` | 必填参数为空（keyword / title / markdown / document / action / new_title / target_parent / target_path / table_edit 对象等） |
+| `validation:invalid_enum` | 枚举参数取值不在允许列表中（mode / scope / if_exists / action / type / table_edit.operation 等） |
+| `validation:invalid_type` | 参数类型错误（start_index 非整数、cell 非对象、cells 非数组、values 非数组） |
+| `validation:out_of_range` | 数值越界（row / column_index / block 索引超出范围） |
+| `validation:wrong_shape` | 操作与目标块数量不匹配（single_block_replace 选了多个块、table_edit 选了多个块、markdown 会拆成多块） |
+| `validation:wrong_target_type` | 操作作用在不支持的块类型上（table_edit 用在非 table 块、replace 用在不支持复杂块类型上） |
+| `validation:invalid_table` | Markdown 表格格式无法解析（缺表头或分隔行） |
+| `validation:operation_order` | 操作顺序违反语义约束（在表头前插入数据行、删除最后一列、start_index > end_index） |
+| `validation:mismatch` | 多个参数不一致（path 中的笔记本名称与 notebook_id 不匹配） |
+| `validation:missing_edit_range` | 编辑操作缺少块定位参数（start_index/start_id 或 end_index/end_id） |
+
+#### permission — 权限不足或未确认
+
+用户设置的隐私规则限制了对特定文档/笔记本的访问，或 AI 未取得用户确认。
+
+| error_type | 触发场景 |
+|------------|----------|
+| `permission:not_confirmed` | confirmed=false，未取得用户明确确认 |
+| `permission:not_read_write` | 目标文档/路径的权限不是 read_write，不允许写入 |
+| `permission:privacy_rules` | 尝试访问 Privacy Rules 文档（该文档属于人类，AI 不可读写） |
+| `permission:sql_admin` | SQL 搜索需要思源管理员权限 |
+| `permission:subtree_blocked` | delete 操作的目标子树中含有只读或隐藏文档 |
+| `permission:ancestor_blocked` | move 操作的源文档祖先路径中有非 read_write 节点 |
+
+#### not_found — 目标不存在
+
+指定的文档、笔记本、路径或块引用在索引中不存在。
+
+| error_type | 触发场景 |
+|------------|----------|
+| `not_found:document` | 文档路径在索引中不存在，可能被隐藏、未索引或定位符有误 |
+| `not_found:notebook` | 笔记本名称/ID 在可见笔记本列表中未匹配到 |
+| `not_found:parent` | move/copy 的 target_parent 不存在 |
+| `not_found:block_index` | start_index/end_index 在当前文档中不存在（文档可能已变化） |
+
+#### conflict — 状态不一致
+
+请求与当前文档状态之间存在冲突，通常需要 AI 重新读取后再操作。
+
+| error_type | 触发场景 |
+|------------|----------|
+| `conflict:already_exists` | 目标文档/路径已存在（create 时 if_exists=reject，或 copy 时目标已存在） |
+| `conflict:ambiguous_path` | 文档路径/笔记本名称存在歧义，匹配到多个结果 |
+| `conflict:stale_block_id` | 引用的块 ID 与当前文档中该位置的块 ID 不匹配（索引过期） |
+| `conflict:stale_cell_value` | table_edit 的 expected_old_value 与当前单元格值不匹配（索引过期） |
+| `conflict:multi_doc_overwrite` | 目标路径下有多个同名文档且 if_exists=overwrite，无法确定保留哪个文档 ID |
+
+#### api — 思源 API 层错误
+
+思源服务端返回的错误，非 AI 能直接修复。
+
+| error_type | 触发场景 |
+|------------|----------|
+| `api:snapshot_key` | 数据仓库密钥未初始化，无法创建快照 |
+| `api:snapshot_failed` | 快照创建因其他原因失败 |
+| `api:duplicate_no_id` | duplicateDoc 操作未返回新文档 ID |
+
+#### 类名兜底
+
+以下异常没有 `error_code` 属性，遥测直接记录 Python 类名：
+
+| 类名 | 含义 |
+|------|------|
+| `SiYuanConnectionError` | 无法连接思源（未启动、端口不对、Token 不可用） |
+| `SiYuanApiError` | 思源 API 返回的错误（由 client.py 直接抛出，未经 tool_error 转换） |
+| `FileNotFoundError` | siyuan_list 中路径完全不存在且无子孙文档 |
+| `RuntimeError` | 系统笔记本创建失败等内部错误 |
+
+### 典型遥测查询
+
+```sql
+-- 看板：按大类聚合错误率
+SELECT
+  tool,
+  CASE
+    WHEN error_type LIKE 'validation:%' THEN 'validation'
+    WHEN error_type LIKE 'permission:%' THEN 'permission'
+    WHEN error_type LIKE 'not_found:%' THEN 'not_found'
+    WHEN error_type LIKE 'conflict:%' THEN 'conflict'
+    WHEN error_type LIKE 'api:%' THEN 'api'
+    ELSE error_type
+  END AS category,
+  COUNT(*) AS n
+FROM events
+WHERE ok = 0
+GROUP BY tool, category
+ORDER BY tool, n DESC;
+
+-- 下钻：validation 类中具体哪种错误最多
+SELECT tool, action, error_type, COUNT(*) AS n
+FROM events
+WHERE ok = 0 AND error_type LIKE 'validation:%'
+GROUP BY tool, action, error_type
+ORDER BY n DESC
+LIMIT 20;
+
+-- 某个工具的全部失败细节
+SELECT ts, action, error_type, dur_ms
+FROM events
+WHERE tool = 'siyuan_edit' AND ok = 0
+ORDER BY ts DESC
+LIMIT 20;
+```
 
 ---
 

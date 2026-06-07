@@ -60,6 +60,56 @@ DEFAULT_SNIPPETS_PER_DOC = 5
 POST_WRITE_SYNC_TIMEOUT = 5.0
 POST_WRITE_SYNC_INTERVAL = 0.25
 
+# ---------------------------------------------------------------------------
+# Error codes for telemetry — category:detail two-level encoding
+# category 用于聚合看板，detail 用于下钻诊断
+# ---------------------------------------------------------------------------
+
+# validation — AI 传参错误
+_ERR_MISSING_PARAM    = "validation:missing_param"
+_ERR_INVALID_ENUM     = "validation:invalid_enum"
+_ERR_INVALID_TYPE     = "validation:invalid_type"
+_ERR_OUT_OF_RANGE     = "validation:out_of_range"
+_ERR_WRONG_SHAPE      = "validation:wrong_shape"
+_ERR_OPERATION_ORDER  = "validation:operation_order"
+_ERR_WRONG_TARGET     = "validation:wrong_target_type"
+_ERR_INVALID_TABLE    = "validation:invalid_table"
+_ERR_MISMATCH         = "validation:mismatch"
+_ERR_MISSING_EDIT_RANGE = "validation:missing_edit_range"
+
+# permission — 权限不足或未确认
+_ERR_NOT_CONFIRMED    = "permission:not_confirmed"
+_ERR_NOT_READ_WRITE   = "permission:not_read_write"
+_ERR_PRIVACY_RULES    = "permission:privacy_rules"
+_ERR_SQL_ADMIN        = "permission:sql_admin"
+_ERR_SUBTREE_BLOCKED  = "permission:subtree_blocked"
+_ERR_ANCESTOR_BLOCKED = "permission:ancestor_blocked"
+
+# not_found — 目标不存在
+_ERR_DOC_NOT_FOUND    = "not_found:document"
+_ERR_NB_NOT_FOUND     = "not_found:notebook"
+_ERR_PARENT_NOT_FOUND = "not_found:parent"
+_ERR_BLOCK_NOT_FOUND  = "not_found:block_index"
+
+# conflict — 状态不一致
+_ERR_ALREADY_EXISTS      = "conflict:already_exists"
+_ERR_AMBIGUOUS           = "conflict:ambiguous_path"
+_ERR_STALE_BLOCK_ID      = "conflict:stale_block_id"
+_ERR_STALE_CELL_VALUE    = "conflict:stale_cell_value"
+_ERR_MULTI_DOC_OVERWRITE = "conflict:multi_doc_overwrite"
+
+# api — 思源 API 层错误（从 SiYuanApiError 转换）
+_ERR_SNAPSHOT_KEY   = "api:snapshot_key"
+_ERR_SNAPSHOT_FAILED = "api:snapshot_failed"
+_ERR_DUPLICATE_NO_ID = "api:duplicate_no_id"
+
+
+def tool_error(code: str, message: str) -> ValueError:
+    """创建一个附带遥测 error_code 的 ValueError。"""
+    exc = ValueError(message)
+    exc.error_code = code  # type: ignore[attr-defined]
+    return exc
+
 
 def normalize_new_document_markdown(title: str, markdown: str) -> str:
     """Remove the first H1 line if it duplicates the document title."""
@@ -450,11 +500,11 @@ def render_markdown_table(headers: list[str], rows: list[list[str]]) -> str:
 def parse_markdown_table(markdown: str) -> tuple[list[str], list[list[str]]]:
     lines = [line.strip() for line in markdown.strip().splitlines() if line.strip()]
     if len(lines) < 2 or "|" not in lines[0] or "|" not in lines[1]:
-        raise ValueError("目标块不是可解析的 Markdown 表格。请重新引用阅读，确认目标块 type=table。")
+        raise tool_error(_ERR_INVALID_TABLE, "目标块不是可解析的 Markdown 表格。请重新引用阅读，确认目标块 type=table。")
     headers = split_markdown_table_row(lines[0])
     separator = split_markdown_table_row(lines[1])
     if not headers or len(separator) != len(headers):
-        raise ValueError("表格表头或分隔行格式不完整，暂不支持 table_edit。")
+        raise tool_error(_ERR_INVALID_TABLE, "表格表头或分隔行格式不完整，暂不支持 table_edit。")
     rows = [split_markdown_table_row(line) for line in lines[2:]]
     return headers, [(row + [""] * len(headers))[:len(headers)] for row in rows]
 
@@ -479,23 +529,23 @@ def table_column_index(headers: list[str], edit: dict[str, Any]) -> int:
     if edit.get("column_index") is not None:
         index = int(edit["column_index"]) - 1
         if index < 0 or index >= len(headers):
-            raise ValueError(f"column_index 超出范围：当前表格共有 {len(headers)} 列。")
+            raise tool_error(_ERR_OUT_OF_RANGE, f"column_index 超出范围：当前表格共有 {len(headers)} 列。")
         return index
     column = str(edit.get("column") or "").strip()
     if not column:
-        raise ValueError("table_edit.set_cell 需要 column 或 column_index。")
+        raise tool_error(_ERR_MISSING_PARAM, "table_edit.set_cell 需要 column 或 column_index。")
     matches = [i for i, header in enumerate(headers) if header == column]
     if not matches:
-        raise ValueError(f"表格中未找到列：{column}。请重新引用阅读确认列名，或使用 column_index。")
+        raise tool_error(_ERR_NOT_FOUND, f"表格中未找到列：{column}。请重新引用阅读确认列名，或使用 column_index。")
     if len(matches) > 1:
-        raise ValueError(f"列名存在重复：{column}。请改用 column_index。")
+        raise tool_error(_ERR_AMBIGUOUS, f"列名存在重复：{column}。请改用 column_index。")
     return matches[0]
 
 
 def table_position(edit: dict[str, Any]) -> str:
     position = str(edit.get("position") or "").strip().lower()
     if position not in {"before", "after"}:
-        raise ValueError("table_edit.position 只支持 before 或 after。")
+        raise tool_error(_ERR_INVALID_ENUM, "table_edit.position 只支持 before 或 after。")
     return position
 
 
@@ -504,12 +554,12 @@ def table_row_values(headers: list[str], values: Any) -> list[str]:
         return [str(values.get(header, "")) for header in headers]
     if isinstance(values, list):
         return ([str(value) for value in values] + [""] * len(headers))[:len(headers)]
-    raise ValueError("insert_row 需要 values，格式为按列顺序排列的数组，或按表头取值的对象。")
+    raise tool_error(_ERR_INVALID_TYPE, "insert_row 需要 values，格式为按列顺序排列的数组，或按表头取值的对象。")
 
 
 def apply_table_cell_edit(headers: list[str], rows: list[list[str]], cell: dict[str, Any]) -> None:
     if cell.get("row") is None:
-        raise ValueError("set_cell 需要 row。row=0 表示表头，row>=1 表示数据行。")
+        raise tool_error(_ERR_MISSING_PARAM, "set_cell 需要 row。row=0 表示表头，row>=1 表示数据行。")
     row_number = int(cell["row"])
     col_index = table_column_index(headers, cell)
     expected = cell.get("expected_old_value")
@@ -517,7 +567,7 @@ def apply_table_cell_edit(headers: list[str], rows: list[list[str]], cell: dict[
     if row_number == 0:
         current = headers[col_index]
         if expected is not None and current != str(expected):
-            raise ValueError(
+            raise tool_error(_ERR_STALE_CELL_VALUE,
                 f"表头单元格旧值校验失败：当前值为 `{current}`，"
                 f"但 expected_old_value 为 `{expected}`。请重新引用阅读后再编辑。"
             )
@@ -526,10 +576,10 @@ def apply_table_cell_edit(headers: list[str], rows: list[list[str]], cell: dict[
 
     row_index = row_number - 1
     if row_index < 0 or row_index >= len(rows):
-        raise ValueError(f"row 超出范围。当前表格有 {len(rows)} 行数据，row=0 表示表头。")
+        raise tool_error(_ERR_OUT_OF_RANGE, f"row 超出范围。当前表格有 {len(rows)} 行数据，row=0 表示表头。")
     current = rows[row_index][col_index]
     if expected is not None and current != str(expected):
-        raise ValueError(
+        raise tool_error(_ERR_STALE_CELL_VALUE,
             f"单元格旧值校验失败：当前值为 `{current}`，"
             f"但 expected_old_value 为 `{expected}`。请重新引用阅读后再编辑。"
         )
@@ -547,33 +597,33 @@ def apply_table_edit(markdown: str, edit: dict[str, Any]) -> str:
         operation, default_position = legacy_insert_map[operation]
         edit = {**edit, "operation": operation, "position": edit.get("position") or default_position}
     if operation not in {"set_cell", "insert_row", "delete_row", "insert_column", "delete_column"}:
-        raise ValueError("table_edit.operation 只支持 set_cell、insert_row、delete_row、insert_column、delete_column。")
+        raise tool_error(_ERR_INVALID_ENUM, "table_edit.operation 只支持 set_cell、insert_row、delete_row、insert_column、delete_column。")
 
     if operation == "set_cell":
         cells = edit.get("cells")
         if cells is not None:
             if not isinstance(cells, list) or not cells:
-                raise ValueError("set_cell.cells 必须是非空数组。")
+                raise tool_error(_ERR_INVALID_TYPE, "set_cell.cells 必须是非空数组。")
             for cell in cells:
                 if not isinstance(cell, dict):
-                    raise ValueError("set_cell.cells 中的每一项都必须是对象。")
+                    raise tool_error(_ERR_INVALID_TYPE, "set_cell.cells 中的每一项都必须是对象。")
                 apply_table_cell_edit(headers, rows, cell)
         else:
             cell = edit.get("cell")
             if cell is None:
                 cell = edit
             if not isinstance(cell, dict):
-                raise ValueError("set_cell 需要 cell 对象或 cells 数组。")
+                raise tool_error(_ERR_INVALID_TYPE, "set_cell 需要 cell 对象或 cells 数组。")
             apply_table_cell_edit(headers, rows, cell)
     elif operation == "insert_row":
         if edit.get("row") is None:
-            raise ValueError("insert_row 需要 row。row=0 表示表头，row>=1 表示数据行。")
+            raise tool_error(_ERR_MISSING_PARAM, "insert_row 需要 row。row=0 表示表头，row>=1 表示数据行。")
         row_number = int(edit["row"])
         position = table_position(edit)
         if row_number < 0 or row_number > len(rows):
-            raise ValueError(f"row 超出范围。当前表格有 {len(rows)} 行数据，row=0 表示表头。")
+            raise tool_error(_ERR_OUT_OF_RANGE, f"row 超出范围。当前表格有 {len(rows)} 行数据，row=0 表示表头。")
         if row_number == 0 and position == "before":
-            raise ValueError("不能在表头前插入数据行。请使用 row=0, position=after 或指定数据行。")
+            raise tool_error(_ERR_OPERATION_ORDER, "不能在表头前插入数据行。请使用 row=0, position=after 或指定数据行。")
         new_row = table_row_values(headers, edit.get("values"))
         insert_at = 0 if row_number == 0 else row_number - 1
         if position == "after" and row_number > 0:
@@ -582,19 +632,19 @@ def apply_table_edit(markdown: str, edit: dict[str, Any]) -> str:
     elif operation == "delete_row":
         row_arg = edit.get("row")
         if row_arg is None:
-            raise ValueError("delete_row 需要 row。row>=1 表示数据行，不能删除表头。")
+            raise tool_error(_ERR_MISSING_PARAM, "delete_row 需要 row。row>=1 表示数据行，不能删除表头。")
         row_index = int(row_arg) - 1
         if row_index < 0 or row_index >= len(rows):
-            raise ValueError(f"row 超出范围。当前表格有 {len(rows)} 行数据。")
+            raise tool_error(_ERR_OUT_OF_RANGE, f"row 超出范围。当前表格有 {len(rows)} 行数据。")
         rows.pop(row_index)
     elif operation == "insert_column":
         col_index = table_column_index(headers, edit)
         position = table_position(edit)
         values = edit.get("values")
         if not isinstance(values, list):
-            raise ValueError("insert_column 需要 values 数组，values[0] 是表头，其后是数据行。")
+            raise tool_error(_ERR_INVALID_TYPE, "insert_column 需要 values 数组，values[0] 是表头，其后是数据行。")
         if len(values) > len(rows) + 1:
-            raise ValueError(f"insert_column.values 过长。当前表格需要最多 {len(rows) + 1} 个值（含表头）。")
+            raise tool_error(_ERR_OUT_OF_RANGE, f"insert_column.values 过长。当前表格需要最多 {len(rows) + 1} 个值（含表头）。")
         normalized = [str(value) for value in values] + [""] * (len(rows) + 1 - len(values))
         insert_at = col_index if position == "before" else col_index + 1
         headers.insert(insert_at, normalized[0])
@@ -602,7 +652,7 @@ def apply_table_edit(markdown: str, edit: dict[str, Any]) -> str:
             row.insert(insert_at, value)
     elif operation == "delete_column":
         if len(headers) <= 1:
-            raise ValueError("不能删除最后一列。")
+            raise tool_error(_ERR_OPERATION_ORDER, "不能删除最后一列。")
         col_index = table_column_index(headers, edit)
         headers.pop(col_index)
         for row in rows:
@@ -658,13 +708,13 @@ def resolve_create_target(
 
     if not path:
         if not notebook_id_arg:
-            raise ValueError(
+            raise tool_error(_ERR_MISSING_PARAM,
                 "siyuan_create 优先使用完整路径 path=/Notebook/Folder/Doc。"
                 "如果不传 path，则必须提供 notebook_id 和笔记本内路径。"
             )
         nb = _notebook_by_id(notebooks, notebook_id_arg)
         if nb is None:
-            raise ValueError(f"笔记本 {notebook_id_arg} 不可见，可能已被隐私规则隐藏。")
+            raise tool_error(_ERR_NB_NOT_FOUND, f"笔记本 {notebook_id_arg} 不可见，可能已被隐私规则隐藏。")
         internal_path = f"/{title}"
     else:
         parts = path.strip("/").split("/", 1)
@@ -674,7 +724,7 @@ def resolve_create_target(
 
         if len(name_matches) > 1 and not notebook_id_arg:
             choices = "\n".join(f"- `{nb.get('id', '')}` {nb.get('name', '')}" for nb in name_matches)
-            raise ValueError(
+            raise tool_error(_ERR_AMBIGUOUS,
                 "目标笔记本名称存在歧义。请改用 notebook_id + 笔记本内路径，例如 "
                 "`notebook_id=<目标笔记本ID>, path=/Folder/Doc`。\n"
                 + choices
@@ -684,19 +734,19 @@ def resolve_create_target(
             if notebook_id_arg:
                 nb = next((item for item in name_matches if str(item.get("id", "")) == notebook_id_arg), None)
                 if nb is None:
-                    raise ValueError("path 中的笔记本名称与 notebook_id 不匹配。")
+                    raise tool_error(_ERR_MISMATCH, "path 中的笔记本名称与 notebook_id 不匹配。")
             else:
                 nb = name_matches[0]
             internal_path = normalize_display_path(rest or title)
         else:
             if not notebook_id_arg:
-                raise ValueError(
+                raise tool_error(_ERR_NB_NOT_FOUND,
                     "path 应使用完整可读路径 /Notebook/Folder/Doc。"
                     "未匹配到路径第一段对应的可见笔记本；如需使用笔记本内路径，请同时提供 notebook_id。"
                 )
             nb = _notebook_by_id(notebooks, notebook_id_arg)
             if nb is None:
-                raise ValueError(f"笔记本 {notebook_id_arg} 不可见，可能已被隐私规则隐藏。")
+                raise tool_error(_ERR_NB_NOT_FOUND, f"笔记本 {notebook_id_arg} 不可见，可能已被隐私规则隐藏。")
             internal_path = path
 
     notebook_id = str(nb.get("id", ""))
@@ -1403,7 +1453,7 @@ class McpServer:
             path = normalize_display_path(self._notebook_name(notebook_id))
 
         if not path:
-            raise ValueError("path 参数为空。")
+            raise tool_error(_ERR_MISSING_PARAM, "path 参数为空。")
 
         parent_doc = next(
             (doc for doc in docs if display_document_path(doc).casefold() == path.casefold()),
@@ -1492,15 +1542,15 @@ class McpServer:
     def siyuan_find(self, args: dict[str, Any]) -> str:
         keyword = str(args.get("keyword") or "").strip()
         if not keyword:
-            raise ValueError("keyword 参数是必填的")
+            raise tool_error(_ERR_MISSING_PARAM, "keyword 参数是必填的")
 
         mode = str(args.get("mode") or "keyword").strip().casefold()
         if mode not in ("keyword", "query", "regex", "sql"):
-            raise ValueError("mode 必须是 keyword、query、regex 或 sql 之一")
+            raise tool_error(_ERR_INVALID_ENUM, "mode 必须是 keyword、query、regex 或 sql 之一")
 
         scope = str(args.get("scope") or "headings").strip().casefold()
         if scope not in ("headings", "full"):
-            raise ValueError("scope 必须是 headings 或 full 之一")
+            raise tool_error(_ERR_INVALID_ENUM, "scope 必须是 headings 或 full 之一")
 
         limit = max(int(args.get("limit") or 20), 1)
         max_snippets_per_doc = max(int(args.get("max_snippets_per_doc") or DEFAULT_SNIPPETS_PER_DOC), 1)
@@ -1527,7 +1577,7 @@ class McpServer:
                     rows = client.query_sql(keyword)
             except SiYuanApiError as exc:
                 if "administrator" in str(exc).casefold() or "privilege" in str(exc).casefold():
-                    raise ValueError("SQL 搜索需要思源管理员权限，请改用 keyword、query 或 regex 模式。") from exc
+                    raise tool_error(_ERR_SQL_ADMIN, "SQL 搜索需要思源管理员权限，请改用 keyword、query 或 regex 模式。") from exc
                 raise
             enriched = self._enrich_sql_results(rows, indexed_docs, notebook_names, privacy, notebooks)
         else:
@@ -1841,7 +1891,7 @@ class McpServer:
     def resolve_visible_document(self, args: dict[str, Any]) -> dict[str, Any]:
         locator = str(args.get("document") or args.get("document_id") or args.get("locator") or "").strip()
         if not locator:
-            raise ValueError("document/document_id 参数是必填的")
+            raise tool_error(_ERR_MISSING_PARAM, "document/document_id 参数是必填的")
         docs = filter_documents(load_docs(self.root), load_privacy_rules(self.root))
         if locator.startswith("/"):
             exact_display_path = [
@@ -1852,17 +1902,17 @@ class McpServer:
             if exact_display_path:
                 if len(exact_display_path) > 1:
                     choices = "\n".join(f"- `{doc.get('id')}` {display_document_path(doc)}" for doc in exact_display_path)
-                    raise ValueError(f"文档路径存在歧义，请补充 document_id：\n{choices}")
+                    raise tool_error(_ERR_AMBIGUOUS, f"文档路径存在歧义，请补充 document_id：\n{choices}")
                 doc = exact_display_path[0]
                 if is_privacy_rules_document(str(doc.get("hpath", ""))):
-                    raise ValueError(
+                    raise tool_error(_ERR_PRIVACY_RULES,
                         "Privacy Rules 文档不可通过 AI 访问。隐私规则由人类在思源中维护。"
                     )
                 return doc
         status, matches = resolve_document(docs, locator)
         if status == "ambiguous":
             choices = "\n".join(f"- `{doc.get('id')}` {doc.get('hpath')}" for doc in matches)
-            raise ValueError(f"文档定位符存在歧义：\n{choices}")
+            raise tool_error(_ERR_AMBIGUOUS, f"文档定位符存在歧义：\n{choices}")
         if status in ("missing", "no_index"):
             privacy = load_privacy_rules(self.root)
             if privacy.allow:
@@ -1871,10 +1921,10 @@ class McpServer:
                     live_docs = filter_documents(load_live_docs(client), privacy)
                 status, matches = resolve_document(live_docs, locator)
         if status != "ok":
-            raise ValueError("未找到匹配的可见文档。文档可能已被隐藏、尚未索引，或定位符有误。")
+            raise tool_error(_ERR_DOC_NOT_FOUND, "未找到匹配的可见文档。文档可能已被隐藏、尚未索引，或定位符有误。")
         doc = matches[0]
         if is_privacy_rules_document(str(doc.get("hpath", ""))):
-            raise ValueError(
+            raise tool_error(_ERR_PRIVACY_RULES,
                 "Privacy Rules 文档不可通过 AI 访问。隐私规则由人类在思源中维护。"
             )
         return doc
@@ -1886,19 +1936,19 @@ class McpServer:
     def siyuan_create(self, args: dict[str, Any]) -> str:
         confirmed = bool(args.get("confirmed"))
         if not confirmed:
-            raise ValueError("需要 confirmed=true。写入思源必须经过用户明确确认。")
+            raise tool_error(_ERR_NOT_CONFIRMED, "需要 confirmed=true。写入思源必须经过用户明确确认。")
 
         title = str(args.get("title") or "").strip()
         if not title:
-            raise ValueError("title 参数是必填的")
+            raise tool_error(_ERR_MISSING_PARAM, "title 参数是必填的")
 
         markdown = str(args.get("markdown") or "").strip()
         if not markdown:
-            raise ValueError("markdown 参数是必填的")
+            raise tool_error(_ERR_MISSING_PARAM, "markdown 参数是必填的")
 
         if_exists = str(args.get("if_exists") or "reject").strip().casefold()
         if if_exists not in {"reject", "overwrite", "create_new"}:
-            raise ValueError("if_exists 只支持 reject、overwrite、create_new。默认 reject。")
+            raise tool_error(_ERR_INVALID_ENUM, "if_exists 只支持 reject、overwrite、create_new。默认 reject。")
 
         notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
         docs = filter_documents(load_docs(self.root), load_privacy_rules(self.root))
@@ -1912,23 +1962,23 @@ class McpServer:
             "hpath": target.internal_path,
         }
         if document_permission(target_doc_for_permission, privacy, all_docs) != "read_write":
-            raise ValueError("目标路径权限不是 read_write，不允许创建或覆盖文档。")
+            raise tool_error(_ERR_NOT_READ_WRITE, "目标路径权限不是 read_write，不允许创建或覆盖文档。")
 
         # Prevent creating Privacy Rules document
         if is_privacy_rules_document(target.internal_path.strip("/")):
-            raise ValueError(
+            raise tool_error(_ERR_PRIVACY_RULES,
                 "Privacy Rules 文档不可通过 AI 创建。隐私规则由人类在思源中维护。"
             )
         for existing in target.existing_docs:
             if document_permission(existing, privacy, all_docs) != "read_write":
-                raise ValueError(f"目标文档权限不是 read_write，不允许写入：{display_document_path(existing)}")
+                raise tool_error(_ERR_NOT_READ_WRITE, f"目标文档权限不是 read_write，不允许写入：{display_document_path(existing)}")
 
         if target.existing_docs and if_exists == "reject":
             choices = "\n".join(
                 f"- `{doc.get('id', '')}` {display_document_path(doc)}"
                 for doc in target.existing_docs
             )
-            raise ValueError(
+            raise tool_error(_ERR_ALREADY_EXISTS,
                 "目标文档已存在，默认拒绝写入以避免误覆盖。\n"
                 "可选处理：if_exists=overwrite 清空当前文档所有块后重写，并保留文档 ID；"
                 "if_exists=create_new 新增一个同名文档。\n"
@@ -1939,7 +1989,7 @@ class McpServer:
                 f"- `{doc.get('id', '')}` {display_document_path(doc)}"
                 for doc in target.existing_docs
             )
-            raise ValueError(
+            raise tool_error(_ERR_MULTI_DOC_OVERWRITE,
                 "目标路径下已有多个同名文档，无法判断覆盖时应保留哪个文档 ID。"
                 "请先用 siyuan_edit 定位具体文档，或使用 if_exists=create_new。\n"
                 + choices
@@ -1956,16 +2006,16 @@ class McpServer:
         except SiYuanApiError as exc:
             msg = str(exc)
             if "数据仓库密钥" in msg or "data repo key" in msg.casefold() or "key" in msg.casefold():
-                raise ValueError(
+                raise tool_error(_ERR_SNAPSHOT_KEY,
                     "快照创建失败：数据仓库密钥未初始化。"
                     "请打开思源 → 设置 → 关于 → 数据仓库密钥，初始化密钥后重试。"
                 ) from exc
-            raise ValueError(f"快照创建失败，拒绝写入。错误：{msg}") from exc
+            raise tool_error(_ERR_SNAPSHOT_FAILED, f"快照创建失败，拒绝写入。错误：{msg}") from exc
 
         # Normalize markdown to avoid duplicate H1
         markdown = normalize_new_document_markdown(title, markdown)
         if not markdown.strip():
-            raise ValueError("markdown 参数是必填的")
+            raise tool_error(_ERR_MISSING_PARAM, "markdown 参数是必填的")
 
         action_status = "created"
         overwritten_blocks: list[DisplayBlock] = []
@@ -2055,11 +2105,11 @@ class McpServer:
         except SiYuanApiError as exc:
             msg = str(exc)
             if "数据仓库密钥" in msg or "data repo key" in msg.casefold() or "key" in msg.casefold():
-                raise ValueError(
+                raise tool_error(_ERR_SNAPSHOT_KEY,
                     "快照创建失败：数据仓库密钥未初始化。"
                     "请打开思源 -> 设置 -> 关于 -> 数据仓库密钥，初始化密钥后重试。"
                 ) from exc
-            raise ValueError(f"快照创建失败，拒绝写入。错误：{msg}") from exc
+            raise tool_error(_ERR_SNAPSHOT_FAILED, f"快照创建失败，拒绝写入。错误：{msg}") from exc
 
     @staticmethod
     def _update_block_preserving_attrs(client: Any, block_id: str, markdown: str) -> None:
@@ -2074,21 +2124,21 @@ class McpServer:
     @staticmethod
     def _edit_range_from_args(args: dict[str, Any], blocks: list[DisplayBlock]) -> list[DisplayBlock]:
         if args.get("start_index") is None or not str(args.get("start_id") or "").strip():
-            raise ValueError("需要 start_index 和 start_id。请先用 siyuan_read(include_block_ids=true) 进行引用阅读。")
+            raise tool_error(_ERR_MISSING_EDIT_RANGE, "需要 start_index 和 start_id。请先用 siyuan_read(include_block_ids=true) 进行引用阅读。")
         try:
             start_index = int(args["start_index"])
         except (TypeError, ValueError) as exc:
-            raise ValueError("start_index 必须是整数。") from exc
+            raise tool_error(_ERR_INVALID_TYPE, "start_index 必须是整数。") from exc
         start_id = str(args.get("start_id") or "").strip()
         start_pos = next((i for i, block in enumerate(blocks) if block.index == start_index), None)
         if start_pos is None:
-            raise ValueError(
+            raise tool_error(_ERR_BLOCK_NOT_FOUND,
                 f"目标块校验失败：当前文档没有 start_index={start_index}。"
                 "文档可能在上次读取后发生变化。请重新调用 siyuan_read(include_block_ids=true)，"
                 "用新的块序号和块 ID 再编辑。"
             )
         if blocks[start_pos].id != start_id:
-            raise ValueError(
+            raise tool_error(_ERR_STALE_BLOCK_ID,
                 f"目标块校验失败：start_index={start_index} 对应的当前块 ID 是 `{blocks[start_pos].id}`，"
                 f"但请求中的 start_id 是 `{start_id}`。请重新调用 siyuan_read(include_block_ids=true)，"
                 "不要沿用旧块 ID。"
@@ -2097,33 +2147,33 @@ class McpServer:
         if args.get("end_index") is None and not str(args.get("end_id") or "").strip():
             return [blocks[start_pos]]
         if args.get("end_index") is None or not str(args.get("end_id") or "").strip():
-            raise ValueError("范围操作需要同时提供 end_index 和 end_id。")
+            raise tool_error(_ERR_MISSING_EDIT_RANGE, "范围操作需要同时提供 end_index 和 end_id。")
         try:
             end_index = int(args["end_index"])
         except (TypeError, ValueError) as exc:
-            raise ValueError("end_index 必须是整数。") from exc
+            raise tool_error(_ERR_INVALID_TYPE, "end_index 必须是整数。") from exc
         end_id = str(args.get("end_id") or "").strip()
         end_pos = next((i for i, block in enumerate(blocks) if block.index == end_index), None)
         if end_pos is None:
-            raise ValueError(
+            raise tool_error(_ERR_BLOCK_NOT_FOUND,
                 f"目标块校验失败：当前文档没有 end_index={end_index}。"
                 "文档可能在上次读取后发生变化。请重新调用 siyuan_read(include_block_ids=true)，"
                 "用新的范围端点再编辑。"
             )
         if blocks[end_pos].id != end_id:
-            raise ValueError(
+            raise tool_error(_ERR_STALE_BLOCK_ID,
                 f"目标块校验失败：end_index={end_index} 对应的当前块 ID 是 `{blocks[end_pos].id}`，"
                 f"但请求中的 end_id 是 `{end_id}`。请重新调用 siyuan_read(include_block_ids=true)，"
                 "不要沿用旧块 ID。"
             )
         if end_pos < start_pos:
-            raise ValueError("范围操作要求 start_index <= end_index。")
+            raise tool_error(_ERR_OPERATION_ORDER, "范围操作要求 start_index <= end_index。")
         return blocks[start_pos:end_pos + 1]
 
     def siyuan_edit(self, args: dict[str, Any]) -> str:
         confirmed = bool(args.get("confirmed"))
         if not confirmed:
-            raise ValueError("需要 confirmed=true。编辑思源文档必须经过用户明确确认。")
+            raise tool_error(_ERR_NOT_CONFIRMED, "需要 confirmed=true。编辑思源文档必须经过用户明确确认。")
 
         action = str(args.get("action") or "").strip()
         allowed_actions = {
@@ -2136,7 +2186,7 @@ class McpServer:
             "table_edit",
         }
         if action not in allowed_actions:
-            raise ValueError(
+            raise tool_error(_ERR_INVALID_ENUM,
                 "action 只支持 single_block_replace、multi_block_replace、"
                 "insert_after、insert_before、append、delete、table_edit。"
             )
@@ -2148,7 +2198,7 @@ class McpServer:
         all_docs = load_docs(self.root)
         permission = document_permission(doc, load_privacy_rules(self.root), all_docs)
         if permission != "read_write":
-            raise ValueError(f"当前文档权限为 {permission}，不允许编辑。")
+            raise tool_error(_ERR_NOT_READ_WRITE, f"当前文档权限为 {permission}，不允许编辑。")
 
         _profile, client = detect_active_profile(load_config(self.root))
 
@@ -2161,9 +2211,9 @@ class McpServer:
         markdown = str(args.get("markdown") or "")
 
         if action in {"single_block_replace", "multi_block_replace", "insert_after", "insert_before", "append"} and not markdown.strip():
-            raise ValueError(f"action={action} 需要 markdown。")
+            raise tool_error(_ERR_MISSING_PARAM, f"action={action} 需要 markdown。")
         if action == "table_edit" and not isinstance(args.get("table_edit"), dict):
-            raise ValueError("action=table_edit 需要 table_edit 对象。")
+            raise tool_error(_ERR_MISSING_PARAM, "action=table_edit 需要 table_edit 对象。")
 
         if action in {"single_block_replace", "multi_block_replace"}:
             refused = [
@@ -2172,7 +2222,7 @@ class McpServer:
                 if display_block_semantic_type(block) in REPLACE_REFUSED_SEMANTIC_TYPES
             ]
             if refused:
-                raise ValueError(
+                raise tool_error(_ERR_WRONG_TARGET,
                     f"{action} 暂不支持复杂块类型。\n"
                     "处理建议：如需移除目标块，用 delete；如需补充说明，用 insert_before 或 insert_after；"
                     "如需重构复杂块附近内容，请只替换普通文本/标题/代码/表格块。\n"
@@ -2181,13 +2231,13 @@ class McpServer:
 
         if action == "single_block_replace":
             if len(target_blocks) != 1:
-                raise ValueError(
+                raise tool_error(_ERR_WRONG_SHAPE,
                     "single_block_replace 只能替换单个块，并保留该块 ID 和块属性。"
                     "当前目标是多个块；请改用 multi_block_replace。注意 multi_block_replace 会重建块，"
                     "旧块 ID 和指向旧块的引用会失效。"
                 )
             if markdown_has_multiple_blocks(markdown):
-                raise ValueError(
+                raise tool_error(_ERR_WRONG_SHAPE,
                     "single_block_replace 的 markdown 必须只生成一个展示块，因为它会复用原块 ID 和块属性。"
                     "当前 markdown 会被思源拆成多个块；请改用 multi_block_replace。"
                     "注意 multi_block_replace 会重建块，旧块 ID 和指向旧块的引用会失效。"
@@ -2197,9 +2247,9 @@ class McpServer:
         if action == "table_edit":
             target = target_blocks[0]
             if len(target_blocks) != 1:
-                raise ValueError("table_edit 只能作用于单个普通 Markdown 表格块。范围表格编辑请拆成多次调用。")
+                raise tool_error(_ERR_WRONG_SHAPE, "table_edit 只能作用于单个普通 Markdown 表格块。范围表格编辑请拆成多次调用。")
             if display_block_semantic_type(target) != "table":
-                raise ValueError(
+                raise tool_error(_ERR_WRONG_TARGET,
                     f"table_edit 只能作用于 type=table 的普通 Markdown 表格；当前目标为 type={display_block_semantic_type(target)}。"
                     "如果要在该块附近添加表格或说明，请使用 insert_before / insert_after；"
                     "如果要整体替换为普通内容，请使用 multi_block_replace。"
@@ -2367,7 +2417,7 @@ class McpServer:
         action = str(args.get("action") or "").strip().casefold()
         allowed_actions = {"rename", "move", "delete", "copy", "export"}
         if action not in allowed_actions:
-            raise ValueError("action 只支持 rename、move、delete、copy、export。")
+            raise tool_error(_ERR_INVALID_ENUM, "action 只支持 rename、move、delete、copy、export。")
 
         doc = self.resolve_visible_document(args)
         doc_id = str(doc.get("id", ""))
@@ -2379,13 +2429,13 @@ class McpServer:
         privacy = load_privacy_rules(self.root)
         permission = document_permission(doc, privacy, docs)
         if permission == "hidden":
-            raise ValueError("未找到匹配的可见文档。文档可能已被隐藏、尚未索引，或定位符有误。")
+            raise tool_error(_ERR_DOC_NOT_FOUND, "未找到匹配的可见文档。文档可能已被隐藏、尚未索引，或定位符有误。")
 
         write_actions = {"rename", "move", "delete"}
         if action in write_actions and permission != "read_write":
-            raise ValueError(f"当前文档权限为 {permission}，不允许 {action}。")
+            raise tool_error(_ERR_NOT_READ_WRITE, f"当前文档权限为 {permission}，不允许 {action}。")
         if action in write_actions | {"copy"} and not bool(args.get("confirmed")):
-            raise ValueError(f"action={action} 需要 confirmed=true。")
+            raise tool_error(_ERR_NOT_CONFIRMED, f"action={action} 需要 confirmed=true。")
 
         _profile, client = detect_active_profile(load_config(self.root))
 
@@ -2414,21 +2464,21 @@ class McpServer:
         if action == "rename":
             new_title = str(args.get("new_title") or "").strip()
             if not new_title:
-                raise ValueError("action=rename 需要 new_title。")
+                raise tool_error(_ERR_MISSING_PARAM, "action=rename 需要 new_title。")
         elif action == "move":
             target_parent = str(args.get("target_parent") or "").strip()
             if not target_parent:
-                raise ValueError("action=move 需要 target_parent，例如 /Notebook 或 /Notebook/Folder。")
+                raise tool_error(_ERR_MISSING_PARAM, "action=move 需要 target_parent，例如 /Notebook 或 /Notebook/Folder。")
             target_id, target_label = self.resolve_doc_manage_parent(target_parent)
             self._ensure_doc_manage_ancestors_writable(doc, privacy, docs, action="move")
             self._ensure_doc_manage_target_parent_writable(target_label, privacy, docs, action="move")
         elif action == "copy":
             target_path = str(args.get("target_path") or "").strip()
             if not target_path:
-                raise ValueError("action=copy 需要 target_path，例如 /Notebook/Folder/New Doc。")
+                raise tool_error(_ERR_MISSING_PARAM, "action=copy 需要 target_path，例如 /Notebook/Folder/New Doc。")
             copy_title = target_path.strip("/").split("/")[-1]
             if not copy_title:
-                raise ValueError("复制目标标题为空。")
+                raise tool_error(_ERR_MISSING_PARAM, "复制目标标题为空。")
             notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
             visible_docs = filter_documents(load_docs(self.root), privacy)
             copy_target = resolve_create_target({"path": target_path}, notebooks, visible_docs, copy_title)
@@ -2439,10 +2489,10 @@ class McpServer:
                 "hpath": copy_target.internal_path,
             }
             if document_permission(target_doc_for_permission, privacy, docs) != "read_write":
-                raise ValueError("复制目标路径权限不是 read_write，不允许创建副本。")
+                raise tool_error(_ERR_NOT_READ_WRITE, "复制目标路径权限不是 read_write，不允许创建副本。")
             if copy_target.existing_docs:
                 choices = "\n".join(f"- `{item.get('id', '')}` {display_document_path(item)}" for item in copy_target.existing_docs)
-                raise ValueError("复制目标文档已存在，拒绝覆盖。\n" + choices)
+                raise tool_error(_ERR_ALREADY_EXISTS, "复制目标文档已存在，拒绝覆盖。\n" + choices)
             copy_parent = parent_display_path(copy_target.display_path)
             copy_parent_id, _copy_parent_label = self.resolve_doc_manage_parent(copy_parent)
         elif action == "delete":
@@ -2485,7 +2535,7 @@ class McpServer:
                 result = client.duplicate_doc(doc_id)
                 duplicated_id = str(result.get("id") or result.get("docID") or result.get("doc_id") or "")
                 if not duplicated_id:
-                    raise ValueError("duplicateDoc 未返回新文档 ID，无法完成复制。")
+                    raise tool_error(_ERR_DUPLICATE_NO_ID, "duplicateDoc 未返回新文档 ID，无法完成复制。")
                 client.rename_doc_by_id(duplicated_id, copy_title)
                 client.move_docs_by_id([duplicated_id], copy_parent_id)
             result_line = f"已复制到：{copy_target.display_path}（`{duplicated_id}`）"
@@ -2540,7 +2590,7 @@ class McpServer:
             if document_permission(item, privacy, live_docs) != "read_write"
         ]
         if blocked:
-            raise ValueError(
+            raise tool_error(_ERR_SUBTREE_BLOCKED,
                 "权限不足，子文档中存在只读或隐藏文档，不允许删除整个文档树。"
                 "请让用户调整隐私规则后重试。"
             )
@@ -2559,7 +2609,7 @@ class McpServer:
             if matches:
                 permission = document_permission(matches[0], privacy, docs)
                 if permission != "read_write":
-                    raise ValueError(
+                    raise tool_error(_ERR_ANCESTOR_BLOCKED,
                         f"权限不足，该文档的祖先路径权限不是 read_write，不允许 {action}。"
                         "请让用户调整隐私规则后重试。"
                     )
@@ -2594,12 +2644,12 @@ class McpServer:
             matches = [doc for doc in docs if display_document_path(doc).casefold() == path.casefold()]
             permission = document_permission(matches[0], privacy, docs) if len(matches) == 1 else "hidden"
         if permission != "read_write":
-            raise ValueError(f"action={action} 的目标父路径权限为 {permission}，不允许写入。")
+            raise tool_error(_ERR_NOT_READ_WRITE, f"action={action} 的目标父路径权限为 {permission}，不允许写入。")
 
     def resolve_doc_manage_parent(self, target_parent: str) -> tuple[str, str]:
         path = normalize_display_path(target_parent)
         if not path:
-            raise ValueError("target_parent 不能为空。")
+            raise tool_error(_ERR_MISSING_PARAM, "target_parent 不能为空。")
         docs = filter_documents(load_docs(self.root), load_privacy_rules(self.root))
         notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
         notebook = next(
@@ -2616,8 +2666,8 @@ class McpServer:
             return str(matches[0].get("id", "")), display_document_path(matches[0])
         if len(matches) > 1:
             choices = "\n".join(f"- `{doc.get('id')}` {display_document_path(doc)}" for doc in matches)
-            raise ValueError(f"target_parent 存在歧义：\n{choices}")
-        raise ValueError(f"未找到可见 target_parent：{path}")
+            raise tool_error(_ERR_AMBIGUOUS, f"target_parent 存在歧义：\n{choices}")
+        raise tool_error(_ERR_PARENT_NOT_FOUND, f"未找到可见 target_parent：{path}")
 
     def resolve_notebook_id(self, notebook_name: str) -> str:
         notebooks = read_json(self.root / KNOWLEDGE_BASE_DIR / "notebooks.json")
@@ -2628,20 +2678,20 @@ class McpServer:
         if len(partial) == 1:
             return str(partial[0]["id"])
         if len(exact) + len(partial) > 1:
-            raise ValueError("笔记本名称存在歧义，请使用 notebook_id")
-        raise ValueError(f"未匹配到可见笔记本：{notebook_name}")
+            raise tool_error(_ERR_AMBIGUOUS, "笔记本名称存在歧义，请使用 notebook_id")
+        raise tool_error(_ERR_NB_NOT_FOUND, f"未匹配到可见笔记本：{notebook_name}")
 
     def siyuan_bridge_feedback(self, args: dict[str, Any]) -> str:
         """Submit feedback to the SiYuan Bridge developer."""
         feedback_type = str(args.get("type", "")).strip()
         if feedback_type not in ("bug", "feature", "idea"):
-            raise ValueError("type must be one of: bug, feature, idea")
+            raise tool_error(_ERR_INVALID_ENUM, "type must be one of: bug, feature, idea")
         title = str(args.get("title", "")).strip()
         if not title:
-            raise ValueError("title is required")
+            raise tool_error(_ERR_MISSING_PARAM, "title is required")
         description = str(args.get("description", "")).strip()
         if not description:
-            raise ValueError("description is required")
+            raise tool_error(_ERR_MISSING_PARAM, "description is required")
         contact = str(args.get("contact", "")).strip() or None
 
         endpoint = get_effective_endpoint(self.root)

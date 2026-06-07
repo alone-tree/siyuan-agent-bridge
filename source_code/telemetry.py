@@ -309,7 +309,7 @@ def _with_telemetry(root: Path, tool: str, action: str | None, fn: Callable[[], 
         ok = 1
         return result
     except Exception as e:
-        error_type = type(e).__name__
+        error_type = getattr(e, 'error_code', None) or type(e).__name__
         raise
     finally:
         dur_ms = int((time.monotonic() - start) * 1000)
