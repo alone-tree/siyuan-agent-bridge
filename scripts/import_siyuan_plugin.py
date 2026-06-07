@@ -11,10 +11,12 @@ import sync_siyuan_plugin_bridge
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_PLUGIN = ROOT / "siyuan-plugin"
 PLUGIN_NAME = "siyuan-bridge"
-CONFIG_RELATIVE_PATHS = [
-    Path("bridge") / "config.local.json",
-    Path("bridge") / "telemetry.json",
-]
+PROTECTED_FILES = {"config.local.json", "telemetry.json"}
+
+
+def _ignore_config(_directory: str, files: list[str]) -> list[str]:
+    """Skip protected config files during copy so existing ones stay untouched."""
+    return [f for f in files if f in PROTECTED_FILES]
 
 
 def resolve_plugins_dir(path: Path) -> Path:
@@ -26,31 +28,6 @@ def resolve_plugins_dir(path: Path) -> Path:
         if candidate.exists():
             return candidate.resolve()
     return candidates[0].resolve()
-
-
-def copy_local_configs(target: Path, backup: Path) -> None:
-    for relative in CONFIG_RELATIVE_PATHS:
-        src = target / relative
-        if src.exists():
-            dst = backup / relative
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
-
-
-def restore_local_configs(target: Path, backup: Path) -> None:
-    for relative in CONFIG_RELATIVE_PATHS:
-        src = backup / relative
-        if src.exists():
-            dst = target / relative
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
-
-
-def remove_local_configs(target: Path) -> None:
-    for relative in CONFIG_RELATIVE_PATHS:
-        path = target / relative
-        if path.exists():
-            path.unlink()
 
 
 def remove_target(target: Path, plugins_dir: Path) -> None:
@@ -95,7 +72,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--fresh",
         action="store_true",
-        help="Simulate first install by not preserving config.local.json or telemetry.json.",
+        help="Simulate first install: delete existing plugin first, no config preserved.",
     )
     return parser.parse_args()
 
@@ -114,27 +91,17 @@ def main() -> int:
         plugins_dir = resolve_plugins_dir(Path(args.workspace))
         target = plugins_dir / PLUGIN_NAME
 
-    backup = ROOT / "ai_workspace" / "plugin_import_backup"
-
-    if not args.fresh and target.exists():
-        # Overwrite any stale backup with the live config files
-        if backup.exists():
-            shutil.rmtree(backup)
-        backup.mkdir(parents=True, exist_ok=True)
-        copy_local_configs(target, backup)
-    else:
-        backup.mkdir(parents=True, exist_ok=True)
+    if args.fresh:
+        remove_target(target, plugins_dir)
 
     plugins_dir.mkdir(parents=True, exist_ok=True)
-    remove_target(target, plugins_dir)
-    shutil.copytree(SOURCE_PLUGIN, target)
-    remove_local_configs(target)
-
-    if not args.fresh:
-        restore_local_configs(target, backup)
+    shutil.copytree(
+        SOURCE_PLUGIN, target,
+        dirs_exist_ok=not args.fresh,
+        ignore=_ignore_config if not args.fresh else None,
+    )
 
     verify_import(target, args.fresh)
-    shutil.rmtree(backup)
     print(f"Imported {SOURCE_PLUGIN} -> {target}")
     return 0
 
