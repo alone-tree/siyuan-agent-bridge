@@ -1,7 +1,7 @@
-"""Package siyuan-agent-bridge skills into a distributable zip.
+"""Package siyuan-bridge skills into a distributable zip.
 
 Usage:
-    python pack_skill.py          # packs to dist/siyuan-agent-bridge-skill-<timestamp>.zip
+    python pack_skill.py          # packs to dist/siyuan-bridge-skill-<timestamp>.zip
     python pack_skill.py --check  # list files without creating zip
 """
 
@@ -11,22 +11,22 @@ from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-PLUGIN_DIR = ROOT / "plugins" / "siyuan-agent-bridge"
+PLUGIN_DIR = ROOT / "plugins" / "siyuan-bridge"
 DIST_DIR = ROOT / "dist"
 
 FILES = [
     ".mcp.json",
     ".codex-plugin/plugin.json",
     "scripts/run_mcp.py",
-    "skills/siyuan-agent-bridge/plugin.json",
-    "skills/siyuan-agent-bridge/SKILL.md",
+    "skills/siyuan-bridge/plugin.json",
+    "skills/siyuan-bridge/SKILL.md",
     "skills/siyuan-index-builder/plugin.json",
     "skills/siyuan-index-builder/SKILL.md",
 ]
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Package SiYuan Agent Bridge skills")
+    parser = argparse.ArgumentParser(description="Package SiYuan Bridge skills")
     parser.add_argument("--check", action="store_true", help="List files without creating zip")
     args = parser.parse_args()
 
@@ -41,7 +41,7 @@ def main() -> None:
         return
 
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    filename = f"siyuan-agent-bridge-skill-{timestamp}.zip"
+    filename = f"siyuan-bridge-skill-{timestamp}.zip"
 
     DIST_DIR.mkdir(parents=True, exist_ok=True)
     output_path = DIST_DIR / filename

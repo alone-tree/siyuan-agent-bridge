@@ -1,4 +1,4 @@
-# SiYuan Agent Bridge — Agent Navigation
+# SiYuan Bridge — Agent Navigation
 
 Python 项目，MCP + Skill 架构。产品界面是 MCP 工具和 Skill，CLI 仅供开发诊断。
 
@@ -42,8 +42,8 @@ Windows 推荐流程：
 
 ```bat
 cmd /d /s /c "chcp 65001 >nul && npm install -g @colbymchenry/codegraph"
-cmd /d /s /c "chcp 65001 >nul && cd /d D:\Github\siyuan-agent-bridge && codegraph init"
-cmd /d /s /c "chcp 65001 >nul && cd /d D:\Github\siyuan-agent-bridge && codegraph status"
+cmd /d /s /c "chcp 65001 >nul && cd /d D:\Github\siyuan-bridge && codegraph init"
+cmd /d /s /c "chcp 65001 >nul && cd /d D:\Github\siyuan-bridge && codegraph status"
 ```
 
 Codex 全局配置文件通常是 `%USERPROFILE%\.codex\config.toml`。如果安装器没有自动写入，可以手动加入：
@@ -67,12 +67,12 @@ cmd /d /s /c "chcp 65001 >nul && codegraph install --print-config codex"
 
 | 任务类型 | 先读文档 | 再看代码/材料 |
 |---|---|---|
-| MCP 工具名称、schema、参数、返回格式、权限边界 | `docs/ARCHITECTURE.md` 的 “MCP 工具总览” 和各工具章节；`docs/DEVELOPMENT_GUIDE.md` 的 “修改工具面时必须同步” | `source_code/mcp_server.py` 的实现和 `tool_specs()`；`plugins/siyuan-agent-bridge/skills/siyuan-agent-bridge/SKILL.md`；`README.md`；`INSTALL_FOR_AI.md`；相关测试 |
+| MCP 工具名称、schema、参数、返回格式、权限边界 | `docs/ARCHITECTURE.md` 的 “MCP 工具总览” 和各工具章节；`docs/DEVELOPMENT_GUIDE.md` 的 “修改工具面时必须同步” | `source_code/mcp_server.py` 的实现和 `tool_specs()`；`plugins/siyuan-bridge/skills/siyuan-bridge/SKILL.md`；`README.md`；`INSTALL_FOR_AI.md`；相关测试 |
 | `siyuan_create`、`siyuan_edit`、`siyuan_doc_manage` 写入行为 | `docs/ARCHITECTURE.md` 的 “写入模型”、对应工具章节；`docs/DEVELOPMENT_GUIDE.md` 的 “修改写入模型时必须验证” 和 “修改文档管理时必须验证” | `source_code/mcp_server.py`；`source_code/client.py`；`tests/test_mcp_server.py`；`tests/test_client.py` |
-| 隐私、权限、系统笔记本、Privacy Rules | `docs/ARCHITECTURE.md` 的 “系统笔记本”“隐私与权限模型”；`docs/DEVELOPMENT_GUIDE.md` 的 “修改隐私模型时必须验证” | `source_code/ignore.py`；`source_code/agent_notebook.py`；`source_code/indexer.py`；相关测试 |
-| 索引、列表、搜索、读取、附件、块窗口 | `docs/ARCHITECTURE.md` 的 “索引模型”“搜索模型”“阅读模型”；`docs/DEVELOPMENT_GUIDE.md` 的 “修改读取模型时必须验证” | `source_code/indexer.py`；`source_code/mcp_server.py`；`source_code/client.py`；相关测试 |
+| 隐私、权限、系统笔记本、Privacy Rules | `docs/ARCHITECTURE.md` 的 “系统笔记本””隐私与权限模型”；`docs/DEVELOPMENT_GUIDE.md` 的 “修改隐私模型时必须验证” | `source_code/ignore.py`；`source_code/agent_notebook.py`；`source_code/indexer.py`；相关测试 |
+| 索引、列表、搜索、读取、附件、块窗口 | `docs/ARCHITECTURE.md` 的 “索引模型””搜索模型””阅读模型”；`docs/DEVELOPMENT_GUIDE.md` 的 “修改读取模型时必须验证” | `source_code/indexer.py`；`source_code/mcp_server.py`；`source_code/client.py`；相关测试 |
 | 思源底层 API 封装 | `docs/思源API.md`；`docs/ARCHITECTURE.md` 的 “底层 API 封装策略” | `source_code/client.py`；`tests/test_client.py` |
-| Workspace Index 工作流 | `docs/ARCHITECTURE.md` 的 “siyuan-index-builder Skill”；`plugins/siyuan-agent-bridge/skills/siyuan-index-builder/SKILL.md` | `plugins/siyuan-agent-bridge/skills/siyuan-agent-bridge/SKILL.md`；相关 MCP 工具实现 |
+| Workspace Index 工作流 | `docs/ARCHITECTURE.md` 的 “siyuan-index-builder Skill”；`plugins/siyuan-bridge/skills/siyuan-index-builder/SKILL.md` | `plugins/siyuan-bridge/skills/siyuan-bridge/SKILL.md`；相关 MCP 工具实现 |
 | 安装、打包、发布材料 | `docs/DEVELOPMENT_GUIDE.md` 的发布/验证部分 | `pack_skill.py`；`pack_release.py`；`mcp_configs/`；`INSTALL_FOR_AI.md`；`README.md` |
 || 历史问题、排障、阶段性结论 | `docs/devlog.md`，优先读最新记录；不要把旧计划当当前事实 | 必要时同步回 `ARCHITECTURE.md` 或 `DEVELOPMENT_GUIDE.md` |
 || 遥测、统计、用户体验改善 | `docs/telemetry-design.md` | `source_code/mcp_server.py` 的时间测量层；`config.py` 的配置加载；`scripts/` |
@@ -94,7 +94,7 @@ source_code/         Python 适配层
   cli.py             开发诊断 CLI
 
 plugins/
-  siyuan-agent-bridge/
+  siyuan-bridge/
     skills/          给外部 AI 的 Skill 指令
     scripts/         run_mcp.py，MCP stdio 启动脚本
 
@@ -178,7 +178,7 @@ python -m pytest tests -q
 
 ## 发布入口
 
-- MCP server 通过 stdin/stdout JSON-RPC 通信，由 `plugins/siyuan-agent-bridge/scripts/run_mcp.py` 启动。
+- MCP server 通过 stdin/stdout JSON-RPC 通信，由 `plugins/siyuan-bridge/scripts/run_mcp.py` 启动。
 - `config.local.json` 包含思源 API token，已被 Git 忽略。
 - Skill ZIP：`python pack_skill.py`。
 - Release ZIP：`python pack_release.py`。

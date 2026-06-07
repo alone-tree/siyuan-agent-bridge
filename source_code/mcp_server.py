@@ -44,7 +44,7 @@ from .agent_notebook import (
 from .i18n import build_language_config
 
 
-SERVER_NAME = "siyuan-agent-bridge"
+SERVER_NAME = "siyuan-bridge"
 SERVER_VERSION = "0.2.0"
 DEFAULT_SNIPPETS_PER_DOC = 5
 POST_WRITE_SYNC_TIMEOUT = 5.0
@@ -1908,7 +1908,7 @@ class McpServer:
 
         # Create snapshot before writing
         ts = datetime.now().strftime("%Y%m%d%H%M%S")
-        memo = f"siyuan-agent-bridge:auto-snapshot tool=siyuan_create target={target.display_path} created={ts}"
+        memo = f"siyuan-bridge:auto-snapshot tool=siyuan_create target={target.display_path} created={ts}"
         try:
             client.create_snapshot(memo)
             snapshot_status = "created"
@@ -2007,7 +2007,7 @@ class McpServer:
     @staticmethod
     def _create_snapshot_or_raise(client: Any, tool: str, target: str) -> str:
         ts = datetime.now().strftime("%Y%m%d%H%M%S")
-        memo = f"siyuan-agent-bridge:auto-snapshot tool={tool} target={target} created={ts}"
+        memo = f"siyuan-bridge:auto-snapshot tool={tool} target={target} created={ts}"
         try:
             client.create_snapshot(memo)
             return "created"

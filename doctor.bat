@@ -3,7 +3,7 @@ chcp 65001 >nul
 
 echo.
 echo ================================================
-echo   SiYuan Agent Bridge — 诊断脚本
+echo   SiYuan Bridge — 诊断脚本
 echo ================================================
 echo.
 
@@ -54,7 +54,7 @@ if errorlevel 1 (
 :: 检查 MCP 启动脚本
 echo.
 echo [4/4] 检查 MCP 启动脚本...
-set "RUN_MCP=%INSTALL_DIR%plugins\siyuan-agent-bridge\scripts\run_mcp.py"
+set "RUN_MCP=%INSTALL_DIR%plugins\siyuan-bridge\scripts\run_mcp.py"
 if exist "%RUN_MCP%" (
     echo [OK] run_mcp.py 存在
 ) else (

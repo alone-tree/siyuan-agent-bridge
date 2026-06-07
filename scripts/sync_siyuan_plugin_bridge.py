@@ -11,12 +11,12 @@ BRIDGE_ROOT = PLUGIN_ROOT / "bridge"
 SOURCE_DIRS = [
     (ROOT / "source_code", BRIDGE_ROOT / "source_code"),
     (
-        ROOT / "plugins" / "siyuan-agent-bridge" / "scripts",
-        BRIDGE_ROOT / "plugins" / "siyuan-agent-bridge" / "scripts",
+        ROOT / "plugins" / "siyuan-bridge" / "scripts",
+        BRIDGE_ROOT / "plugins" / "siyuan-bridge" / "scripts",
     ),
     (
-        ROOT / "plugins" / "siyuan-agent-bridge" / "skills",
-        BRIDGE_ROOT / "plugins" / "siyuan-agent-bridge" / "skills",
+        ROOT / "plugins" / "siyuan-bridge" / "skills",
+        BRIDGE_ROOT / "plugins" / "siyuan-bridge" / "skills",
     ),
 ]
 
@@ -35,8 +35,8 @@ PROTECTED_FILES = [
 def remove_generated_bridge_paths() -> None:
     for path in (
         BRIDGE_ROOT / "source_code",
-        BRIDGE_ROOT / "plugins" / "siyuan-agent-bridge" / "scripts",
-        BRIDGE_ROOT / "plugins" / "siyuan-agent-bridge" / "skills",
+        BRIDGE_ROOT / "plugins" / "siyuan-bridge" / "scripts",
+        BRIDGE_ROOT / "plugins" / "siyuan-bridge" / "skills",
     ):
         if path.exists():
             shutil.rmtree(path)

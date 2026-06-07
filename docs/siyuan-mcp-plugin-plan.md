@@ -279,8 +279,8 @@ siyuan-plugin/bridge/
 
 ```text
 source_code/
-plugins/siyuan-agent-bridge/scripts/run_mcp.py
-plugins/siyuan-agent-bridge/skills/
+plugins/siyuan-bridge/scripts/run_mcp.py
+plugins/siyuan-bridge/skills/
 config.example.json
 README.md
 INSTALL_FOR_AI.md
@@ -303,7 +303,7 @@ LICENSE
 ```text
 siyuan-plugin/bridge/
   source_code/
-  plugins/siyuan-agent-bridge/scripts/run_mcp.py
+  plugins/siyuan-bridge/scripts/run_mcp.py
 ```
 
 这样现有 `run_mcp.py` 从自身路径向上推导运行根目录时，可以自然落到 `bridge/`。
@@ -392,7 +392,7 @@ Python 核心只做必要兼容，不做结构性重构：
    ```text
    siyuan-plugin/bridge/source_code/mcp_server.py
    siyuan-plugin/bridge/source_code/config.py
-   siyuan-plugin/bridge/plugins/siyuan-agent-bridge/scripts/run_mcp.py
+   siyuan-plugin/bridge/plugins/siyuan-bridge/scripts/run_mcp.py
    ```
 
 4. 在 `siyuan-plugin/bridge/` 下创建测试用 `config.local.json`。

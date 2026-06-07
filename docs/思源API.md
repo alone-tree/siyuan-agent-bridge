@@ -1,6 +1,6 @@
 # 思源 API 能力地图
 
-本文记录 SiYuan Agent Bridge 后续实现读写能力时可使用的思源 HTTP API。目标不是复刻完整 API 文档，而是说明这些端点在本项目中的用途、风险和 MCP 封装策略。
+本文记录 SiYuan Bridge 后续实现读写能力时可使用的思源 HTTP API。目标不是复刻完整 API 文档，而是说明这些端点在本项目中的用途、风险和 MCP 封装策略。
 
 参考资料：
 
@@ -122,7 +122,7 @@ ORDER BY parent_id, sort
 快照 memo 应至少包含：
 
 ```text
-siyuan-agent-bridge
+siyuan-bridge
 operation type
 target notebook/document
 timestamp

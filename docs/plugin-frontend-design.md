@@ -89,7 +89,7 @@ MCP 工具 `siyuan_feedback` 见下方描述，实现该工具时参考 `docs/AR
     {
       "id": "v0.3.0",
       "title": "思源桥 v0.3.0 已发布",
-      "url": "https://github.com/alone-tree/siyuan-agent-bridge/releases/tag/v0.3.0"
+      "url": "https://github.com/alone-tree/siyuan-bridge/releases/tag/v0.3.0"
     }
   ]
 }
@@ -110,7 +110,7 @@ CREATE TABLE notifications (
 
 ```sql
 INSERT INTO notifications (id, title, url, created_at)
-VALUES ('v0.3.0', '思源桥 v0.3.0 已发布', 'https://github.com/alone-tree/siyuan-agent-bridge/releases/tag/v0.3.0', datetime('now'));
+VALUES ('v0.3.0', '思源桥 v0.3.0 已发布', 'https://github.com/alone-tree/siyuan-bridge/releases/tag/v0.3.0', datetime('now'));
 ```
 
 GET /api/notifications 直接 SELECT * FROM notifications ORDER BY created_at DESC 返回即可。

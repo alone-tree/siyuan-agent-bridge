@@ -677,7 +677,7 @@ class McpServerWriteTests(unittest.TestCase):
             self.assertIn("New Doc", result)
             self.assertIn("created", result)
             self.assertEqual(len(client._snapshots), 1)
-            self.assertIn("siyuan-agent-bridge:auto-snapshot", client._snapshots[0]["memo"])
+            self.assertIn("siyuan-bridge:auto-snapshot", client._snapshots[0]["memo"])
             self.assertIn("tool=siyuan_create", client._snapshots[0]["memo"])
             self.assertIn("target=/Main/New Doc", client._snapshots[0]["memo"])
             self.assertIn("New Doc", client._push_msgs[0])

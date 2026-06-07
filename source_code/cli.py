@@ -149,7 +149,7 @@ def cmd_refresh(_args: argparse.Namespace, config: Config) -> int:
 
 def cmd_backup(args: argparse.Namespace, config: Config) -> int:
     _profile, client = detect_active_profile(config)
-    memo = args.memo.strip() or f"siyuan-agent-bridge manual backup {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    memo = args.memo.strip() or f"siyuan-bridge manual backup {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     snapshot = client.create_snapshot(memo)
     print("Created SiYuan workspace snapshot.")
     print(f"Endpoint: {client.base_url}")

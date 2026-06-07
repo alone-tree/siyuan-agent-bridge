@@ -1,4 +1,4 @@
-# SiYuan Agent Bridge 工程日志
+# SiYuan Bridge 工程日志
 
 > 草案状态：本文档用于替换当前 `docs/devlog.md` 的工程日志职责。当前先新增，不删除旧文档；确认后再决定是否迁移、归档或删除旧文档。
 

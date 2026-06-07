@@ -1,10 +1,10 @@
-"""Package SiYuan Agent Bridge into a distributable ZIP for beta release.
+"""Package SiYuan Bridge into a distributable ZIP for beta release.
 
 Generates the skill ZIP internally and bundles it alongside the full source tree.
 The skill ZIP is the self-contained plugin package that users import into CC Switch.
 
 Usage:
-    python pack_release.py          # packs to dist/siyuan-agent-bridge-release-<timestamp>.zip
+    python pack_release.py          # packs to dist/siyuan-bridge-release-<timestamp>.zip
     python pack_release.py --check  # list files without creating zip
 """
 
@@ -16,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 DIST_DIR = ROOT / "dist"
-PLUGIN_DIR = ROOT / "plugins" / "siyuan-agent-bridge"
+PLUGIN_DIR = ROOT / "plugins" / "siyuan-bridge"
 
 SOURCE_FILES = [
     "__init__.py",
@@ -35,8 +35,8 @@ PLUGIN_FILES = [
     ".mcp.json",
     ".codex-plugin/plugin.json",
     "scripts/run_mcp.py",
-    "skills/siyuan-agent-bridge/plugin.json",
-    "skills/siyuan-agent-bridge/SKILL.md",
+    "skills/siyuan-bridge/plugin.json",
+    "skills/siyuan-bridge/SKILL.md",
     "skills/siyuan-index-builder/plugin.json",
     "skills/siyuan-index-builder/SKILL.md",
 ]
@@ -85,7 +85,7 @@ def collect_files() -> list[tuple[Path, str]]:
         src = PLUGIN_DIR / f
         if not src.exists():
             raise SystemExit(f"Missing: {src}")
-        entries.append((src, f"plugins/siyuan-agent-bridge/{f}"))
+        entries.append((src, f"plugins/siyuan-bridge/{f}"))
 
     mcp_dir = ROOT / "mcp_configs"
     for f in MCP_CONFIG_FILES:
@@ -104,7 +104,7 @@ def collect_files() -> list[tuple[Path, str]]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Package SiYuan Agent Bridge release ZIP")
+    parser = argparse.ArgumentParser(description="Package SiYuan Bridge release ZIP")
     parser.add_argument("--check", action="store_true", help="List files without creating zip")
     args = parser.parse_args()
 
@@ -114,12 +114,12 @@ def main() -> None:
         print(f"Files to package ({len(entries)}):")
         for _, arcname in sorted(entries, key=lambda x: x[1]):
             print(f"  {arcname}")
-        print(f"\nSkill ZIP: {len(PLUGIN_FILES)} files from plugins/siyuan-agent-bridge/")
+        print(f"\nSkill ZIP: {len(PLUGIN_FILES)} files from plugins/siyuan-bridge/")
         return
 
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    filename = f"siyuan-agent-bridge-release-{timestamp}.zip"
-    skill_zip_name = f"siyuan-agent-bridge-skill-{timestamp}.zip"
+    filename = f"siyuan-bridge-release-{timestamp}.zip"
+    skill_zip_name = f"siyuan-bridge-skill-{timestamp}.zip"
 
     DIST_DIR.mkdir(parents=True, exist_ok=True)
     output_path = DIST_DIR / filename

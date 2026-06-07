@@ -1,5 +1,5 @@
 ---
-name: siyuan-agent-bridge
+name: siyuan-bridge
 description: Use when the user wants to read, search, or write their private SiYuan notes (思源笔记). Triggers on mentions of 思源, 知识库, or when the agent needs personal context from the user's notes.
 ---
 

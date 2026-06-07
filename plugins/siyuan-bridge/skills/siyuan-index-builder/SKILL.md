@@ -14,7 +14,7 @@ description: 创建和更新思源系统笔记本 思源桥 中的 Workspace Ind
 
 ## 前置条件
 
-- 必须已注册 `siyuan-agent-bridge` MCP 工具。如果不可用，告知用户先注册 MCP 服务器。
+- 必须已注册 `siyuan-bridge` MCP 工具。如果不可用，告知用户先注册 MCP 服务器。
 - 先运行 `siyuan_start` —— 它确保系统笔记本 `思源桥` 存在，并返回当前笔记本概览。
 
 ## 工作流

@@ -1,4 +1,4 @@
-# SiYuan Agent Bridge 开发指南
+# SiYuan Bridge 开发指南
 
 > 草案状态：当前先新增，不删除旧文档；确认后再把稳定规则合并回入口文档。
 
@@ -16,8 +16,8 @@
 
 | 修改范围 | 还必须阅读 |
 |---|---|
-| MCP 工具 schema、参数、返回格式 | `plugins/siyuan-agent-bridge/skills/siyuan-agent-bridge/SKILL.md`、`README.md`、`INSTALL_FOR_AI.md` |
-| Workspace Index 工作流 | `plugins/siyuan-agent-bridge/skills/siyuan-index-builder/SKILL.md` |
+| MCP 工具 schema、参数、返回格式 | `plugins/siyuan-bridge/skills/siyuan-bridge/SKILL.md`、`README.md`、`INSTALL_FOR_AI.md` |
+| Workspace Index 工作流 | `plugins/siyuan-bridge/skills/siyuan-index-builder/SKILL.md` |
 | 思源 API 封装 | `docs/思源API.md`、`source_code/client.py` |
 | 隐私和权限 | `source_code/ignore.py`、`source_code/agent_notebook.py`、相关测试 |
 | 阅读、编辑、表格、文档管理 | `source_code/mcp_server.py`、相关测试 |
@@ -52,8 +52,8 @@
 - `source_code/mcp_server.py` 的工具实现
 - `tool_specs()`
 - `tests/`
-- `plugins/siyuan-agent-bridge/skills/siyuan-agent-bridge/SKILL.md`
-- `plugins/siyuan-agent-bridge/skills/siyuan-index-builder/SKILL.md`，如果影响索引工作流
+- `plugins/siyuan-bridge/skills/siyuan-bridge/SKILL.md`
+- `plugins/siyuan-bridge/skills/siyuan-index-builder/SKILL.md`，如果影响索引工作流
 - `README.md`
 - `INSTALL_FOR_AI.md`
 - `docs/ARCHITECTURE.md`
@@ -207,7 +207,7 @@ python scripts/sync_siyuan_plugin_bridge.py
 同步脚本只生成 `siyuan-plugin/bridge/`，该目录是开发/安装运行产物，不提交 Git。验证时必须确认：
 
 - `siyuan-plugin/bridge/source_code/mcp_server.py` 存在。
-- `siyuan-plugin/bridge/plugins/siyuan-agent-bridge/scripts/run_mcp.py` 存在。
+- `siyuan-plugin/bridge/plugins/siyuan-bridge/scripts/run_mcp.py` 存在。
 - `siyuan-plugin/bridge/config.local.json` 不会被同步脚本覆盖。
 
 ## 插件导入测试流程
@@ -226,7 +226,7 @@ python -c “import psutil; [p.kill() for p in psutil.process_iter(['pid','cmdli
 python -c “import shutil; shutil.rmtree(r'D:\Siyuan2test\data\plugins\siyuan-bridge')”
 
 :: 3. 整体导入仓库 siyuan-plugin/
-python -c “import shutil; shutil.copytree(r'D:\Github\siyuan-agent-bridge\siyuan-plugin', r'D:\Siyuan2test\data\plugins\siyuan-bridge')”
+python -c “import shutil; shutil.copytree(r'D:\Github\siyuan-bridge\siyuan-plugin', r'D:\Siyuan2test\data\plugins\siyuan-bridge')”
 
 :: 4. 确认导入结果
 python -c “import os; plugins=sorted(os.listdir(r'D:\Siyuan2test\data\plugins\siyuan-bridge')); print(plugins); cfg=os.path.join(r'D:\Siyuan2test\data\plugins\siyuan-bridge','bridge','config.local.json'); print('NO_CONFIG' if not os.path.exists(cfg) else 'HAS_CONFIG')”
@@ -234,7 +234,7 @@ python -c “import os; plugins=sorted(os.listdir(r'D:\Siyuan2test\data\plugins\
 
 验证清单：
 - [x] `bridge/source_code/mcp_server.py` 存在
-- [x] `bridge/plugins/siyuan-agent-bridge/scripts/run_mcp.py` 存在
+- [x] `bridge/plugins/siyuan-bridge/scripts/run_mcp.py` 存在
 - [x] `bridge/config.local.json` **不存在**
 - [x] 思源 UI 启用插件后自动创建 `config.local.json`
 - [x] 用户没有点开设置页、没有点击保存的情况下，外部 MCP 客户端能正常启动并调用工具
@@ -248,13 +248,13 @@ python -c “import os; plugins=sorted(os.listdir(r'D:\Siyuan2test\data\plugins\
 必须在当前项目目录运行：
 
 ```bat
-cd /d D:\Github\siyuan-agent-bridge
+cd /d D:\Github\siyuan-bridge
 ```
 
 项目级 MCP 名称固定为 `siyuan-bridge-dev`，配置文件是根目录 `.mcp.json`，启动脚本指向：
 
 ```text
-plugins/siyuan-agent-bridge/scripts/run_mcp.py
+plugins/siyuan-bridge/scripts/run_mcp.py
 ```
 
 先确认 Claude Code 能连接项目 MCP：

@@ -26,7 +26,8 @@ SYSTEM_DOC_KEYS = [
     "privacy_rules",
 ]
 
-# Legacy document names matched for backward compatibility but never created.
+# Legacy document names matched for backward compatibility — early users may have
+# notebooks/documents created under the old project name "SiYuan Agent Bridge / 思源代理桥".
 # Particularly "关于Siyuan Agent Bridge" was observed in the wild (hybrid zh-CN prefix + en notebook name).
 LEGACY_DOC_NAMES: dict[str, list[str]] = {
     "about": [

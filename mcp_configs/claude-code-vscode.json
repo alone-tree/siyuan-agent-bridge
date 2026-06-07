@@ -1,9 +1,9 @@
 {
   "mcpServers": {
-    "siyuan-agent-bridge": {
+    "siyuan-bridge": {
       "command": "python",
       "args": [
-        "<INSTALL_DIR>\\plugins\\siyuan-agent-bridge\\scripts\\run_mcp.py"
+        "<INSTALL_DIR>\\plugins\\siyuan-bridge\\scripts\\run_mcp.py"
       ],
       "env": {
         "PYTHONUTF8": "1"

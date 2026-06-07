@@ -1,7 +1,7 @@
 {
   "name": "siyuan-bridge",
   "author": "Private Local User",
-  "url": "https://github.com/alone-tree/siyuan-agent-bridge",
+  "url": "https://github.com/alone-tree/siyuan-bridge",
   "version": "0.1.0",
   "minAppVersion": "3.3.0",
   "backends": [
