@@ -800,6 +800,8 @@ scope：
 
 遥测默认关闭（`telemetry.json` 缺失 = off），用户需主动创建配置文件开启。
 
+> 后端 API、D1 表结构、运维操作详见 [反馈与遥测后端参考](./feedback-telemetry-backend.md)。
+
 ## 底层 API 封装策略
 
 `client.py` 不是完整 SDK，只封装项目当前需要的 API：

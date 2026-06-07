@@ -4,6 +4,77 @@
 
 该文档应该把最新内容放在最上，不要放到最下面，AI读不到。
 
+## 2026-06-07：遥测配置初始化方案讨论
+
+### 决策：`telemetry.json` 由 JS 端在插件初始化时创建
+
+**字段：**
+
+| 字段 | 生成方 | 说明 |
+|------|--------|------|
+| `platform` | JS | `navigator.platform` → Windows / Mac / Linux |
+| `siyuan_ver` | JS | 思源系统配置或 `window.siyuan` |
+| `mcp_ver` | JS | 硬编码版本号，与 `plugin.json` 同步 |
+| `telemetry` | JS | `"off"` 默认，用户勾选 → `"upload"` |
+| `anonymous_id` | **JS 唯一生成** | uuid v4 hex，Python 只读不写 |
+| `telemetry_endpoint` | 手动 | 空字符串，需要时用户手动编辑 |
+| `proxy` | 手动 | 空字符串，需要时用户手动编辑 |
+
+创建时机：与 `config.local.json` 同级（`ensureDefaultBridgeConfig` 同类位置），文件不存在时自动创建。
+
+JS 端是 `anonymous_id` 的唯一生成方。Python 端 `load_anonymous_id()` 改为优先读 `telemetry.json` 中的 `anonymous_id`，没有才 fallback 到 `stats/telemetry_id`（兼容旧版本）。
+
+文件被删除/损坏时：自动重建新文件，生成新 `anonymous_id`（影响不大，旧统计数据无法关联而已）。
+
+### `session_id` 改为 `siyuan_start` 创建
+
+改为在 `siyuan_start` 函数中调用 `new_session_id()` 显式创建，不再在 `ensure_session_id()` 中惰性初始化。
+
+语义：一次会话 = 从 AI Agent 调用 `siyuan_start` 到下一次 `siyuan_start`，不依赖 MCP server 进程生命周期。
+
+### `getFile` Bug 已识别
+
+当思源 API `/api/file/getFile` 返回 404（文件不存在）时，返回 JSON 格式错误 `{"code":404,"msg":"file does not exist","data":null}`。原 `getFile` 的 catch 吞掉了 API 错误抛出的异常，导致错误 JSON 被当作文本内容返回。
+
+调用方（如 `saveTelemetryConfig`）将错误 JSON 当作"现有配置"合并字段后写回，导致文件被污染。
+
+修复：`getFile` 只 catch JSON parse 失败；API 返回 code ≠ 0 时 throw 需传播到调用方。但 `telemetry.json` 初始化后正常流程不再遇此情况。
+
+### 遥测字段价值评估
+
+**遥测目的：理解用户行为，发现摩擦点。** 不只是监控代码健康，而是知道用户如何调用工具、在哪里卡住、因为什么反复报错，以优化工具设计、数据流程和错误文案。
+
+当前问题：`error_type = type(e).__name__` 粒度太粗，所有参数校验/权限/找不到文档都归为 `ValueError`。
+
+建议方案：在 `TelemetryEvent` 中增加错误标签维度，细分：
+
+| 标签 | 场景 | 分析问题 |
+|------|------|---------|
+| `validation` | 参数缺失、格式错误 | 工具描述是否够清晰？ |
+| `permission` | read_only、缺少 confirmed=true | 权限模型是否太难理解？ |
+| `not_found` | 文档/路径/notebook 不存在 | 搜索和索引是否好用？ |
+| `conflict` | 路径已存在、重复创建 | 用户操作流程问题？ |
+| `api_error` | 思源 API 返回错误、网络不可达 | 环境稳定性 |
+| `internal` | 未预期的异常 | 代码 bug |
+
+实施时需在 mcp_server 异常处理点给 `ValueError` 等异常附加标签，不改 Python 异常体系。 |
+
+### 后端实测验证
+
+- MCP 工具全链路通过（siyuan_start/list/read/find/feedback/refresh_index）
+- 前端反馈表单 → Worker → D1 写入确认（id=3: "前端手动测试"）
+- MCP 反馈工具 → Worker → D1 写入确认（id=2: "MCP前端实测"）
+- wrangler 远端查询命令可用：`npx wrangler d1 execute siyuan_bridge --remote --command "SELECT ..."`
+- 文档：[反馈与遥测后端参考](./feedback-telemetry-backend.md)
+
+### 待实施
+
+- [ ] JS 端 `telemetry.json` 初始化（platform/siyuan_ver/mcp_ver/anonymous_id/telemetry）
+- [ ] Python 端 `load_anonymous_id` 改为读 `telemetry.json`
+- [ ] `session_id` 改为 `siyuan_start` → `new_session_id()`
+- [ ] 修复 `getFile` bug
+- [ ] 更新 `TestAnonymousId`、`TestSessionId` 测试
+
 ## 2026-06-07：插件前端改造 + Python 默认端点
 
 ### 目标
@@ -39,6 +110,8 @@ Python 端添加默认端点 `DEFAULT_ENDPOINT`，`should_upload()` 不再要求
 ### 测试结果
 
 242 tests passed.
+
+**文档**：新增 [反馈与遥测后端参考](./feedback-telemetry-backend.md)，记录 Worker API、D1 表结构、开发者运维操作。
 
 ## 2026-06-07：遥测与反馈 Phase 1 — Python 端实现
 

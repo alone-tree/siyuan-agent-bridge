@@ -420,3 +420,5 @@ ORDER BY day;
 **插件前端已实现**：Home Dialog 含 4 板块（通知/MCP配置/反馈/用户体验改进），遥测开关简化为单个复选框（off/upload）。
 
 CF Worker 后端已部署并验证可通过代理正常通信。第二阶段（自定义域名）待推进。
+
+> 后端 API、D1 表结构、运维操作详见 [反馈与遥测后端参考](./feedback-telemetry-backend.md)。

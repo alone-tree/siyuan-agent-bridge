@@ -555,16 +555,17 @@ async function getFile(path) {
     body: JSON.stringify({path}),
   });
   const text = await response.text();
+  let envelope;
   try {
-    const envelope = JSON.parse(text);
-    if (envelope && typeof envelope === "object" && envelope.code !== undefined) {
-      if (envelope.code !== 0) {
-        throw new Error(envelope.msg || "读取配置失败");
-      }
-      return typeof envelope.data === "string" ? envelope.data : JSON.stringify(envelope.data || {});
+    envelope = JSON.parse(text);
+  } catch (_) {
+    return text;
+  }
+  if (envelope && typeof envelope === "object" && envelope.code !== undefined) {
+    if (envelope.code !== 0) {
+      throw new Error(envelope.msg || "读取配置失败");
     }
-  } catch (_error) {
-    // getFile normally returns raw file content.
+    return typeof envelope.data === "string" ? envelope.data : JSON.stringify(envelope.data || {});
   }
   return text;
 }

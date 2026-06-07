@@ -102,6 +102,8 @@
 
 Python 端已添加默认端点 `DEFAULT_ENDPOINT`，`should_upload()` 不再要求显式配置 endpoint。前端 `getEffectiveEndpoint()` 优先使用配置值，否则使用默认端点。
 
+> 后端 API、D1 表结构、运维操作详见 [反馈与遥测后端参考](./feedback-telemetry-backend.md)。
+
 ### 已实现
 
 ### 第一阶段：基础改造
