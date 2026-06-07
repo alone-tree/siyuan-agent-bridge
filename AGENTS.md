@@ -157,6 +157,13 @@ cmd /d /s /c "chcp 65001 >nul && python -m pytest tests -q"
 ## 常用入口
 
 ```bash
+# 导入到本地思源测试
+python scripts/import_siyuan_plugin.py --workspace <思源工作空间路径>
+python scripts/import_siyuan_plugin.py --workspace <路径> --fresh  # 首次安装/清空重装
+
+# 打包集市发布 zip
+python scripts/build_package.py
+
 # 诊断
 python -m source_code doctor
 python -m source_code notebooks
@@ -177,6 +184,57 @@ python -m pytest tests -q
 ## 外部验证
 
 涉及 MCP 工具面、Skill、安装配置或跨 Agent 行为时，常规测试后必须做外部 Agent 验证。优先使用 Claude Code 实际调用项目 MCP。详细流程、宽授权 / bypass 模式、失败降级和各类改动的最低验证要求见 `docs/DEVELOPMENT_GUIDE.md` 的 “外部 Agent 验证”。
+
+## 构建脚本
+
+两个脚本，一个导入测试，一个打包发布。都执行完整的 bridge 同步（`sync_siyuan_plugin_bridge.py`），无需手动先跑 sync。
+
+### 导入测试：`scripts/import_siyuan_plugin.py`
+
+把插件导入到本地思源数据目录，用于开发测试。
+
+```bash
+# 导入到思源工作空间（写完后在思源集市 → 已下载启用插件）
+python scripts/import_siyuan_plugin.py --workspace "D:\SiYuan"
+
+# 首次导入 / 清空重装（删除旧插件目录，不留旧配置）
+python scripts/import_siyuan_plugin.py --workspace "D:\SiYuan" --fresh
+
+# 直接用插件目录路径
+python scripts/import_siyuan_plugin.py --plugin-dir "D:\SiYuan\data\plugins\siyuan-bridge"
+```
+
+数据流：`sync` 生成 `bridge/` → 把 `siyuan-plugin/` 整个复制到 `{workspace}/data/plugins/siyuan-bridge/`。
+
+`--fresh` 会先删除目标目录再复制。不带 `--fresh` 时保留已有 `config.local.json` 和 `telemetry.json` 不动。
+
+### 打包发布：`scripts/build_package.py`
+
+生成思源集市上架的 `package.zip`。
+
+```bash
+python scripts/build_package.py
+```
+
+输出：`dist/package.zip`。
+
+zip 包含：`plugin.json`、`icon.png`、`preview.png`、`index.js`、`index.css`、`README*.md`、`bridge/`、`dist/`、`src/`。`bridge/` 目录由 sync 脚本生成，包含完整 Python 运行文件（`source_code/`、`scripts/run_mcp.py`、`skills/`）。
+
+修改 `plugin.json` 里 `version` 后重新跑一次即可生成新版本包。
+
+### 文件去向
+
+```
+source_code/          ─┐
+plugins/siyuan-bridge/  ┤  手写源文件（你改的）
+siyuan-plugin/*         ┤  (plugin.json, index.js, 图标等)
+                        ─┘
+         ↓  sync_siyuan_plugin_bridge.py
+siyuan-plugin/bridge/  ←  自动生成（不提交 Git，不要手动改）
+         ↓  import_siyuan_plugin.py               ↓  build_package.py
+{workspace}/data/plugins/siyuan-bridge/       dist/package.zip
+      (本地测试用)                               (集市发布用)
+```
 
 ## 发布入口
 

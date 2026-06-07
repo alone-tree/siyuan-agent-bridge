@@ -1,6 +1,6 @@
 {
   "name": "siyuan-bridge",
-  "author": "Private Local User",
+  "author": "alone-tree",
   "url": "https://github.com/alone-tree/siyuan-bridge",
   "version": "1.0.0",
   "minAppVersion": "3.3.0",
@@ -12,17 +12,17 @@
   "frontends": [
     "desktop"
   ],
-  "disabledInPublish": true,
+  "disabledInPublish": false,
   "displayName": {
     "default": "Siyuan Bridge",
     "zh_CN": "思源桥"
   },
   "description": {
-    "default": "Configure the local Siyuan Bridge MCP server for external AI agents.",
-    "zh_CN": "为外部 AI Agent 配置本地思源桥 MCP 服务。"
+    "default": "Lean, fast, and hassle-free SiYuan MCP tool.",
+    "zh_CN": "精简、高效、省心的思源笔记 MCP 工具。"
   },
   "readme": {
-    "default": "README.md",
+    "default": "README_en_US.md",
     "zh_CN": "README_zh_CN.md"
   },
   "keywords": [
