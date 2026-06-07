@@ -9,12 +9,14 @@ from pathlib import Path
 
 from source_code import telemetry
 from source_code.telemetry import (
+    DEFAULT_ENDPOINT,
     TelemetryEvent,
     _build_proxy_handler,
     _resolve_proxy,
     _with_telemetry,
     ensure_session_id,
     generate_anonymous_id,
+    get_effective_endpoint,
     load_anonymous_id,
     load_telemetry_config,
     record_event,
@@ -129,7 +131,7 @@ class TestTelemetryConfig(unittest.TestCase):
             json.dumps({"telemetry": "upload"}), encoding="utf-8"
         )
         self.assertTrue(should_collect(self.root))
-        self.assertFalse(should_upload(self.root))
+        self.assertTrue(should_upload(self.root))
 
     def test_off_mode(self):
         (self.root / "telemetry.json").write_text(
@@ -342,3 +344,31 @@ class TestSubmitFeedback(unittest.TestCase):
             {"type": "bug", "title": "t", "description": "d"},
         )
         self.assertFalse(result)
+
+
+class TestEffectiveEndpoint(unittest.TestCase):
+    def setUp(self):
+        self.root = Path.cwd() / ".test_tmp" / "telemetry_effective"
+        shutil.rmtree(self.root, ignore_errors=True)
+        self.root.mkdir(parents=True, exist_ok=True)
+
+    def tearDown(self):
+        shutil.rmtree(self.root, ignore_errors=True)
+
+    def test_returns_explicit_when_configured(self):
+        (self.root / "telemetry.json").write_text(
+            json.dumps({"telemetry": "upload", "telemetry_endpoint": "https://custom.example.com"})
+        )
+        self.assertEqual(get_effective_endpoint(self.root), "https://custom.example.com")
+
+    def test_falls_back_to_default_when_missing(self):
+        self.assertEqual(get_effective_endpoint(self.root), DEFAULT_ENDPOINT)
+
+    def test_falls_back_when_empty_string(self):
+        (self.root / "telemetry.json").write_text(
+            json.dumps({"telemetry": "upload", "telemetry_endpoint": ""})
+        )
+        self.assertEqual(get_effective_endpoint(self.root), DEFAULT_ENDPOINT)
+
+    def test_falls_back_when_file_missing(self):
+        self.assertEqual(get_effective_endpoint(self.root), DEFAULT_ENDPOINT)

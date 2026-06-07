@@ -38,6 +38,7 @@ _EVENTS_SUBDIR = "events"
 _TELEMETRY_ID_FILE = "telemetry_id"
 _UPLOAD_TIMEOUT = 5  # 秒
 _USER_AGENT = f"siyuan-bridge/{MCP_VERSION}"
+DEFAULT_ENDPOINT: str = "https://siyuan-bridge-telemetry.864271839.workers.dev"
 
 # ---------------------------------------------------------------------------
 # 模块级状态（MCP server 单线程，无需锁）
@@ -160,9 +161,16 @@ def should_collect(root: Path) -> bool:
 
 
 def should_upload(root: Path) -> bool:
-    """是否应上传遥测事件（upload 模式且 endpoint 非空）。"""
+    """是否应上传遥测事件（upload 模式即可，endpoint 由默认值兜底）。"""
     cfg = load_telemetry_config(root)
-    return cfg["telemetry"] == "upload" and bool(cfg.get("telemetry_endpoint", "").strip())
+    return cfg["telemetry"] == "upload"
+
+
+def get_effective_endpoint(root: Path) -> str:
+    """返回有效遥测端点：配置优先，否则使用默认端点。"""
+    cfg = load_telemetry_config(root)
+    explicit = str(cfg.get("telemetry_endpoint", "")).strip()
+    return explicit if explicit else DEFAULT_ENDPOINT
 
 
 # ---------------------------------------------------------------------------
@@ -323,8 +331,7 @@ def _with_telemetry(root: Path, tool: str, action: str | None, fn: Callable[[], 
             )
             record_event(root, event)
             if should_upload(root):
-                cfg = load_telemetry_config(root)
-                endpoint = str(cfg.get("telemetry_endpoint", "")).strip()
+                endpoint = get_effective_endpoint(root)
                 proxy = _resolve_proxy(root)
                 _fire_upload(endpoint, proxy, event)
         except Exception:

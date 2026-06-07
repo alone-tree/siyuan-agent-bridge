@@ -413,6 +413,10 @@ ORDER BY day;
 
 ## 当前状态
 
-**第一阶段（Python 端基础框架）已实现。** 遥测收集、本地存储、代理上传、反馈提交（`siyuan_bridge_feedback` MCP 工具）、CLI 状态命令均已就绪并测试通过（238 tests）。
+**第一阶段（Python 端基础框架）已实现。** 遥测收集、本地存储、代理上传、反馈提交（`siyuan_bridge_feedback` MCP 工具）、CLI 状态命令均已就绪并测试通过（242 tests）。
+
+**默认端点**：`telemetry.py` 已添加 `DEFAULT_ENDPOINT` 常量（`https://siyuan-bridge-telemetry.864271839.workers.dev`），`should_upload()` 不再要求显式配置 `telemetry_endpoint`——只要 telemetry 为 `upload` 即可上传。
+
+**插件前端已实现**：Home Dialog 含 4 板块（通知/MCP配置/反馈/用户体验改进），遥测开关简化为单个复选框（off/upload）。
 
 CF Worker 后端已部署并验证可通过代理正常通信。第二阶段（自定义域名）待推进。

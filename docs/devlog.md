@@ -4,6 +4,42 @@
 
 该文档应该把最新内容放在最上，不要放到最下面，AI读不到。
 
+## 2026-06-07：插件前端改造 + Python 默认端点
+
+### 目标
+
+将插件前端从思源 `Setting` API 改为自定义 Home Dialog，包含 4 个板块：通知、MCP 配置、提交反馈、用户体验改进。遥测 UI 简化为单个复选框。
+
+Python 端添加默认端点 `DEFAULT_ENDPOINT`，`should_upload()` 不再要求显式配置 `telemetry_endpoint`。
+
+### 修改文件
+
+**Python：**
+- `source_code/telemetry.py`：新增 `DEFAULT_ENDPOINT`、`get_effective_endpoint()`，修改 `should_upload()`、`_with_telemetry()`
+- `source_code/mcp_server.py`：import `get_effective_endpoint`，`siyuan_bridge_feedback` 使用它替换 endpoint 检查
+- `tests/test_telemetry.py`：新增 `TestEffectiveEndpoint`，修改 `test_upload_mode_no_endpoint`
+
+**前端：**
+- `siyuan-plugin/src/index.js`（ES module）：完全重写 — 通过自定义 `this.setting.open()` 保留插件管理页齿轮，新增 `openHome()`、`openMcpSettings()`、`renderHome()`、`bindHome()`、通知加载、反馈提交、遥测复选框读写
+- `siyuan-plugin/index.js`（CommonJS）：同步所有修改
+- `siyuan-plugin/dist/index.js`：同步所有修改
+- `siyuan-plugin/index.css`：新增 Home Dialog 样式（~100 行）
+- `siyuan-plugin/plugin.json`：版本 `0.1.0` → `0.3.0`
+
+**文档：**
+- `docs/plugin-frontend-design.md`、`docs/telemetry-design.md`：状态更新
+
+### 设计决策
+
+- 遥测开关只保留复选框：默认不勾选（off），勾选即 upload，无需额外配置
+- Python 默认端点硬编码为 `https://siyuan-bridge-telemetry.864271839.workers.dev`
+- 前端 `getEffectiveEndpoint()`：配置优先，否则用默认值
+- `saveTelemetryConfig()` 只覆盖 `telemetry` 字段，保留已有 `endpoint`/`proxy`
+
+### 测试结果
+
+242 tests passed.
+
 ## 2026-06-07：遥测与反馈 Phase 1 — Python 端实现
 
 ### 目标

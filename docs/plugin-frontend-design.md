@@ -85,24 +85,35 @@
 - `siyuan-plugin/index.css` — 样式
 - 构建产物：`siyuan-plugin/dist/index.js`（webpack 打包后的结果，实际加载的是这个）
 
-实现后需要重新构建部署，或者直接在思源笔记插件目录中替换 dist 文件。目前插件目录里安装运行的是 `D:\Siyuan2test\data\plugins\siyuan-bridge\` 下的 dist 文件和 index.js 文件，而 GitHub 仓库中的 `siyuan-plugin/` 是源代码所在目录。两者是同一个插件的不同副本，以实际运行的那个为准，在同步版本时需要保持两者一致。以后实现时待确认具体同步流程。
+实现后需要重新构建部署，或者使用 `python scripts\import_siyuan_plugin.py --workspace <思源测试工作空间>` 把仓库中的 `siyuan-plugin/` 导入测试工作空间。测试路径不要硬编码；可通过 `SIYUAN_TEST_WORKSPACE` 指向当前机器的思源测试工作空间。
 
 ---
 
 ## 当前状态
 
-设计阶段。尚未实现任何代码。
+**第一阶段（基础改造）已实现。** 插件前端已完成 Home Dialog 改造，包含 4 个板块：
+
+1. **通知**：从 Worker GET `/api/notifications` 拉取，无通知时显示"暂无新消息"
+2. **MCP 配置**：按钮打开原有 MCP 配置 Dialog（标题"MCP 配置"）
+3. **提交反馈**：表单（类型/标题/描述/联系方式）POST 到 Worker `/api/feedback`
+4. **用户体验改进**：单个复选框"加入用户体验改进计划"，默认不勾选（off），勾选即 upload
+
+插件管理页的设置齿轮通过自定义 `this.setting.open()` 保留，点击后直接打开 Home Dialog，不使用思源内置 Setting 列表布局承载复杂首页。
+
+Python 端已添加默认端点 `DEFAULT_ENDPOINT`，`should_upload()` 不再要求显式配置 endpoint。前端 `getEffectiveEndpoint()` 优先使用配置值，否则使用默认端点。
+
+### 已实现
 
 ### 第一阶段：基础改造
 
 1. 首页 Dialog：标题改为"思源桥"，展示消息通知区域 + 提交反馈表单 + MCP 配置入口按钮
-2. 配置页 Dialog：现有内容但标题改为"MCP 配置"，加上返回按钮
+2. 配置页 Dialog：现有内容但标题改为"MCP 配置"
 3. 通知从远端 GET 获取，无通知时静默
 4. 反馈表单 POST 到远端
 
 ### 第二阶段：遥测开关
 
-1. 在设置页增加遥测模式开关（读取/写入 `telemetry.json`）
+1. 在首页增加遥测模式开关（读取/写入 `telemetry.json`）
 2. 显示当前遥测状态和本地事件数
 
 ### 第三阶段：完善

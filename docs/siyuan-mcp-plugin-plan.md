@@ -406,12 +406,12 @@ Python 核心只做必要兼容，不做结构性重构：
 
 涉及 MCP 跨 Agent 行为时，仍按开发指南使用 Claude Code bypass 模式做外部验证。
 
-测试工作空间中的插件目录只代表用户安装后的结果，不是源码目录。调试时不要直接修改 `D:\Siyuan2test\data\plugins\siyuan-bridge` 或其他测试工作空间下的插件代码。正确流程：
+测试工作空间中的插件目录只代表用户安装后的结果，不是源码目录。调试时不要直接修改测试工作空间下的插件代码。正确流程：
 
 ```text
 修改仓库中的 siyuan-plugin/
   -> 运行或确认 Bridge 同步
-  -> 删除/覆盖测试工作空间插件目录
+  -> 通过 scripts/import_siyuan_plugin.py 删除/覆盖测试工作空间插件目录
   -> 必要时保留 bridge/config.local.json
   -> 在思源 UI 中按用户路径重新测试
 ```

@@ -208,22 +208,31 @@ python scripts/sync_siyuan_plugin_bridge.py
 
 测试思源工作空间中的插件目录只能作为”用户安装后的落盘结果”。不要直接修改测试工作空间里的插件代码。所有修复必须先改仓库工程文件，再把整个 `siyuan-plugin/` 重新导入测试工作空间。
 
+测试工作空间路径不要硬编码。使用 `SIYUAN_TEST_WORKSPACE` 环境变量，或在命令中传 `--workspace`。脚本接受两种常见路径：
+
+- 工作空间根目录，例如 `D:\siyuan2\workspace`
+- 包含 `workspace/` 的父目录，例如 `D:\siyuan2`
+
+当前家用测试机示例：
+
+```bat
+set SIYUAN_TEST_WORKSPACE=D:\siyuan2
+```
+
+导入脚本默认保留测试工作空间已有的 `bridge/config.local.json` 和 `bridge/telemetry.json`。模拟新用户首次安装时加 `--fresh`，不会保留这些本地配置。
+
 ### 首次安装（模拟新用户）
 
 模拟用户第一次从零安装插件的场景。预期：导入后没有 `config.local.json`，启用插件后自动创建。
 
 ```bat
-:: 1. 杀旧进程（如果有残留 MCP 进程占用插件目录）
-python -c “import psutil; [p.kill() for p in psutil.process_iter(['pid','cmdline']) if 'run_mcp.py' in ' '.join(p.info['cmdline'] or [])]”
+python scripts\import_siyuan_plugin.py --workspace %SIYUAN_TEST_WORKSPACE% --fresh
+```
 
-:: 2. 删除整个插件目录（含配置，模拟从未安装过）
-python -c “import shutil; shutil.rmtree(r'D:\Siyuan2test\data\plugins\siyuan-bridge')”
+普通开发导入（保留本地配置）：
 
-:: 3. 整体导入仓库 siyuan-plugin/
-python -c “import shutil; shutil.copytree(r'D:\Github\siyuan-bridge\siyuan-plugin', r'D:\Siyuan2test\data\plugins\siyuan-bridge')”
-
-:: 4. 确认导入结果
-python -c “import os; plugins=sorted(os.listdir(r'D:\Siyuan2test\data\plugins\siyuan-bridge')); print(plugins); cfg=os.path.join(r'D:\Siyuan2test\data\plugins\siyuan-bridge','bridge','config.local.json'); print('NO_CONFIG' if not os.path.exists(cfg) else 'HAS_CONFIG')”
+```bat
+python scripts\import_siyuan_plugin.py --workspace %SIYUAN_TEST_WORKSPACE%
 ```
 
 验证清单：

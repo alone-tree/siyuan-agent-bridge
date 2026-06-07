@@ -46,3 +46,104 @@
   min-height: 220px;
   resize: vertical;
 }
+
+/* ========================================
+   Home Dialog
+   ======================================== */
+
+.siyuan-bridge-home {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.siyuan-bridge-home__section {
+  background: var(--b3-theme-surface);
+  border: 1px solid var(--b3-border-color);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.siyuan-bridge-home__section-title {
+  color: var(--b3-theme-on-surface);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 24px;
+  margin-bottom: 12px;
+}
+
+.siyuan-bridge-home__hint {
+  color: var(--b3-theme-on-surface-light);
+  font-size: 13px;
+  line-height: 20px;
+  margin: 0 0 12px;
+}
+
+.siyuan-bridge-home__notifications {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.siyuan-bridge-home__loading,
+.siyuan-bridge-home__empty {
+  color: var(--b3-theme-on-surface-light);
+  font-size: 13px;
+  padding: 12px 0;
+  text-align: center;
+}
+
+.siyuan-bridge-home__notification-item {
+  border-radius: 4px;
+  color: var(--b3-theme-primary);
+  display: block;
+  font-size: 13px;
+  padding: 6px 8px;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.siyuan-bridge-home__notification-item:hover {
+  background: var(--b3-list-hover);
+  color: var(--b3-theme-primary-hover);
+}
+
+.siyuan-bridge-home__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.siyuan-bridge-home__label {
+  color: var(--b3-theme-on-surface);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.siyuan-bridge-home__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.siyuan-bridge-home__checkbox-row {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+  user-select: none;
+}
+
+.siyuan-bridge-home__checkbox-label {
+  color: var(--b3-theme-on-surface);
+  font-size: 14px;
+  line-height: 22px;
+}

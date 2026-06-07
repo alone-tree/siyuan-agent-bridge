@@ -46,6 +46,7 @@ from .telemetry import (
     _resolve_proxy,
     _with_telemetry,
     ensure_session_id,
+    get_effective_endpoint,
     load_anonymous_id,
     load_telemetry_config,
     set_siyuan_version,
@@ -2643,15 +2644,7 @@ class McpServer:
             raise ValueError("description is required")
         contact = str(args.get("contact", "")).strip() or None
 
-        config = load_telemetry_config(self.root)
-        endpoint = str(config.get("telemetry_endpoint", "")).strip()
-        if not endpoint:
-            return (
-                "反馈端点未配置（telemetry_endpoint 为空）。"
-                "请在运行目录下创建 telemetry.json 文件并设置 telemetry_endpoint。\n"
-                '格式示例：{"telemetry": "upload", "telemetry_endpoint": "https://your-worker.workers.dev"}'
-            )
-
+        endpoint = get_effective_endpoint(self.root)
         proxy = _resolve_proxy(self.root)
         payload: dict[str, str] = {
             "type": feedback_type,
