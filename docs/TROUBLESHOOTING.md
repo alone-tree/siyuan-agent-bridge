@@ -14,7 +14,7 @@
 
 ## 遥测/反馈功能在中国大陆无法使用
 
-**原因：** 遥测 Worker 托管在 `siyuan-bridge-telemetry.864271839.workers.dev`。`.workers.dev` 域名在中国大陆被 DNS 污染且 IP 阻断。
+**原因：** 遥测 Worker 托管在 `siyuanbridgetelemetry.zingerplayground.top`。`.workers.dev` 域名在中国大陆被 DNS 污染且 IP 阻断。
 
 **解决方法：**
 

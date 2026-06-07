@@ -3,7 +3,7 @@ import {Dialog, Plugin, showMessage} from "siyuan";
 const PLUGIN_NAME = "siyuan-bridge";
 const CONFIG_PATH = `/data/plugins/${PLUGIN_NAME}/bridge/config.local.json`;
 const TELEMETRY_PATH = `/data/plugins/${PLUGIN_NAME}/bridge/telemetry.json`;
-const DEFAULT_ENDPOINT = "https://siyuan-bridge-telemetry.864271839.workers.dev";
+const DEFAULT_ENDPOINT = "https://siyuanbridgetelemetry.zingerplayground.top";
 const DEFAULT_CONFIG = {
   profiles: [{name: "当前工作空间", token: ""}],
   language: "zh-CN",

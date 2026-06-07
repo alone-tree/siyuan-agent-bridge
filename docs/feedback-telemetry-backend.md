@@ -8,8 +8,8 @@
 ┌─────────────────────────────────────┐
 │  Cloudflare Worker                  │
 │  siyuan-bridge-telemetry            │
-│  siyuan-bridge-telemetry            │
-│      .864271839.workers.dev         │
+│  siyuanbridgetelemetry              │
+│      .zingerplayground.top          │
 │                                     │
 │  POST /api/telemetry   → events     │
 │  POST /api/feedback    → feedbacks  │
@@ -41,7 +41,7 @@
 |----|-----|
 | Cloudflare 账号 | alone-tree（推测，基于 repo owner） |
 | Worker 名称 | `siyuan-bridge-telemetry` |
-| Worker 域名 | `siyuan-bridge-telemetry.864271839.workers.dev` |
+| Worker 域名 | `siyuanbridgetelemetry.zingerplayground.top` |
 | D1 数据库名 | `siyuan_bridge` |
 | D1 database_id | `142b11e4-52a9-4050-bbaf-073433b52c70` |
 | 配置目录 | `worker/` |
@@ -288,7 +288,7 @@ LIMIT 20;
 插件前端 `index.js` 中硬编码默认端点，通过 `getEffectiveEndpoint()` 解析：
 
 ```javascript
-const DEFAULT_ENDPOINT = "https://siyuan-bridge-telemetry.864271839.workers.dev";
+const DEFAULT_ENDPOINT = "https://siyuanbridgetelemetry.zingerplayground.top";
 
 async function getEffectiveEndpoint() {
   try {
@@ -309,7 +309,7 @@ async function getEffectiveEndpoint() {
 `source_code/telemetry.py` 中硬编码默认端点，通过 `get_effective_endpoint()` 解析（与前端同名但独立实现）：
 
 ```python
-DEFAULT_ENDPOINT = "https://siyuan-bridge-telemetry.864271839.workers.dev"
+DEFAULT_ENDPOINT = "https://siyuanbridgetelemetry.zingerplayground.top"
 
 def get_effective_endpoint(root: Path) -> str:
     cfg = load_telemetry_config(root)

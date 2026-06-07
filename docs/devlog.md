@@ -133,7 +133,7 @@ Python 端添加默认端点 `DEFAULT_ENDPOINT`，`should_upload()` 不再要求
 ### 设计决策
 
 - 遥测开关只保留复选框：默认不勾选（off），勾选即 upload，无需额外配置
-- Python 默认端点硬编码为 `https://siyuan-bridge-telemetry.864271839.workers.dev`
+- Python 默认端点硬编码为 `https://siyuanbridgetelemetry.zingerplayground.top`
 - 前端 `getEffectiveEndpoint()`：配置优先，否则用默认值
 - `saveTelemetryConfig()` 只覆盖 `telemetry` 字段，保留已有 `endpoint`/`proxy`
 
@@ -254,7 +254,7 @@ CREATE TABLE notifications (
 - 代码：`worker/index.js`（已提交 Git）
 - 配置：`worker/wrangler.toml`（D1 绑定 DB → siyuan_bridge）
 - 环境变量：`worker/.env`（Git 忽略，含 CLOUDFLARE_API_TOKEN）
-- URL：`https://siyuan-bridge-telemetry.864271839.workers.dev`
+- URL：`https://siyuanbridgetelemetry.zingerplayground.top`
 
 三个端点：
 

@@ -38,7 +38,7 @@ _EVENTS_SUBDIR = "events"
 _TELEMETRY_ID_FILE = "telemetry_id"
 _UPLOAD_TIMEOUT = 5  # 秒
 _USER_AGENT = f"siyuan-bridge/{MCP_VERSION}"
-DEFAULT_ENDPOINT: str = "https://siyuan-bridge-telemetry.864271839.workers.dev"
+DEFAULT_ENDPOINT: str = "https://siyuanbridgetelemetry.zingerplayground.top"
 
 # ---------------------------------------------------------------------------
 # 模块级状态（MCP server 单线程，无需锁）
