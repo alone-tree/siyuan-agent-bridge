@@ -417,7 +417,6 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 ## 相关文档
 
-- [遥测与反馈功能设计](./telemetry-design.md)
-- [插件前端设计](./plugin-frontend-design.md)
 - [架构文档](./ARCHITECTURE.md)
 - [开发指南](./DEVELOPMENT_GUIDE.md)
+- [插件前端实现](./FRONTEND.md)

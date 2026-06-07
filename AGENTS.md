@@ -73,10 +73,11 @@ cmd /d /s /c "chcp 65001 >nul && codegraph install --print-config codex"
 | 索引、列表、搜索、读取、附件、块窗口 | `docs/ARCHITECTURE.md` 的 “索引模型””搜索模型””阅读模型”；`docs/DEVELOPMENT_GUIDE.md` 的 “修改读取模型时必须验证” | `source_code/indexer.py`；`source_code/mcp_server.py`；`source_code/client.py`；相关测试 |
 | 思源底层 API 封装 | `docs/思源API.md`；`docs/ARCHITECTURE.md` 的 “底层 API 封装策略” | `source_code/client.py`；`tests/test_client.py` |
 | Workspace Index 工作流 | `docs/ARCHITECTURE.md` 的 “siyuan-index-builder Skill”；`plugins/siyuan-bridge/skills/siyuan-index-builder/SKILL.md` | `plugins/siyuan-bridge/skills/siyuan-bridge/SKILL.md`；相关 MCP 工具实现 |
-| 安装、打包、发布材料 | `docs/DEVELOPMENT_GUIDE.md` 的发布/验证部分 | `mcp_configs/`；`README.md` |
+| 安装、打包、发布材料 | `docs/DEVELOPMENT_GUIDE.md` 的发布/验证部分 | `mcp_configs/`；`README.md`；`siyuan-plugin/README*.md` |
 || 历史问题、排障、阶段性结论 | `docs/devlog.md`，优先读最新记录；不要把旧计划当当前事实 | 必要时同步回 `ARCHITECTURE.md` 或 `DEVELOPMENT_GUIDE.md` |
-|| 遥测、统计、用户体验改善 | `docs/telemetry-design.md` | `source_code/mcp_server.py` 的时间测量层；`config.py` 的配置加载；`scripts/` |
-|| 插件前端 UI、消息通知、用户反馈 | `docs/plugin-frontend-design.md` | `siyuan-plugin/src/index.js`；`siyuan-plugin/index.css`；`siyuan-plugin/plugin.json` |
+|| 遥测、统计、用户体验改善 | `docs/ARCHITECTURE.md` 的“遥测数据流”；`docs/feedback-telemetry-backend.md` | `source_code/telemetry.py`；`source_code/mcp_server.py`；`worker/` |
+|| 插件前端 UI、消息通知、用户反馈 | `docs/FRONTEND.md` | `siyuan-plugin/index.js`；`siyuan-plugin/src/index.js`；`siyuan-plugin/index.css`；`siyuan-plugin/plugin.json` |
+|| 未决定的想法、待评估 idea | `docs/IDEAS.md` | 定案后再迁移到 `ARCHITECTURE.md` 或 `DEVELOPMENT_GUIDE.md` |
 
 涉及设计决策、工具契约、开发流程或排障结论时，不要只更新代码。必须同步更新对应文档。
 
@@ -86,7 +87,7 @@ cmd /d /s /c "chcp 65001 >nul && codegraph install --print-config codex"
 source_code/         Python 适配层
   client.py          思源 HTTP API 封装
   indexer.py         扫描笔记本，生成 tree.md / docs.jsonl / notebooks.json
-  mcp_server.py      MCP stdio server，8 个工具的 schema 和实现
+  mcp_server.py      MCP stdio server，9 个工具的 schema 和实现
   ignore.py          Privacy Rules Markdown 表格解析与过滤
   i18n.py            多语言名称、系统文档名、默认模板
   agent_notebook.py  系统笔记本服务层
@@ -114,7 +115,8 @@ knowledge_base/      运行时缓存，Git 忽略，每次 refresh 可能覆盖
 ai_workspace/        AI 临时工作区，Git 忽略
 dist/                构建产物
 tests/               单元测试
-docs/                架构、开发指南、API、devlog、旧 PD
+docs/                架构、开发指南、前端、API、idea、devlog
+  architecture-map.html 人类可读产品架构图，整体架构大改时同步更新
 ```
 
 ## 核心约束

@@ -1,6 +1,63 @@
 # SiYuan Bridge 架构文档
 
 > 当前事实基准：2026-06-07，MCP server 版本 `1.0.0`，实际暴露 9 个 MCP 工具。
+> 人类可读架构图见 `docs/architecture-map.html`。如果整体架构、工具关系、主要数据流或产品边界发生较大变化，必须同步更新本 Markdown 和该 HTML。
+
+## 整体架构
+
+思源桥的核心是一个本地 Python MCP Bridge。思源插件是安装和配置入口，外部 AI 客户端通过 MCP 调用 Python Bridge，Python Bridge 再调用思源本地 HTTP API。用户的长期规则放在思源系统笔记本，本地 `knowledge_base/` 只保存可重建的安全索引。
+
+```mermaid
+flowchart LR
+  User["用户"]
+  Plugin["思源插件\n配置 / MCP JSON / 反馈 / 遥测开关"]
+  AI["AI 客户端\nClaude Code / Codex / Cursor"]
+  Skill["Skill 指令\n启动流程 / 安全规则 / 工具心智"]
+  MCP["Python MCP Bridge\nsource_code/mcp_server.py"]
+  Client["SiYuanClient\nsource_code/client.py"]
+  SiYuan["思源本地 HTTP API\n127.0.0.1:6806"]
+  SystemNotebook["思源系统笔记本\nAI Guide / Workspace Index / About / Privacy Rules"]
+  KB["knowledge_base/\ntree.md / docs.jsonl / notebooks.json"]
+  Workspace["ai_workspace/\nattachments / exports / 临时材料"]
+  Worker["Worker + D1\n反馈 / 遥测 / 通知"]
+
+  User --> Plugin
+  Plugin --> AI
+  Plugin --> Worker
+  AI --> Skill
+  Skill --> MCP
+  MCP --> Client
+  Client --> SiYuan
+  SiYuan --> SystemNotebook
+  MCP --> KB
+  MCP --> Workspace
+  MCP --> Worker
+
+  SystemNotebook -. "Privacy Rules 只由 MCP 内部解析\nAI 不可读/搜索/编辑" .-> MCP
+```
+
+核心分层：
+
+| 层 | 职责 | 主要文件 |
+|---|---|---|
+| 思源插件壳 | 降低安装门槛，写入本地配置，生成 MCP JSON，提供反馈和遥测开关 | `siyuan-plugin/`、`docs/FRONTEND.md` |
+| AI 使用层 | 告诉外部 Agent 如何启动、搜索、阅读、编辑、避开隐私边界 | `plugins/siyuan-bridge/skills/` |
+| MCP 工具层 | 暴露 9 个高层工具，执行权限、快照、路径同步、遥测包装 | `source_code/mcp_server.py` |
+| 思源 API 封装 | 封装项目需要的思源 HTTP API，不做完整 SDK | `source_code/client.py`、`docs/思源API.md` |
+| 索引与隐私层 | 生成可见索引，解析 Privacy Rules，过滤 list/search/read/write | `source_code/indexer.py`、`source_code/ignore.py` |
+| 系统笔记本层 | 维护 AI Guide、Workspace Index、About、Privacy Rules | `source_code/agent_notebook.py`、`source_code/i18n.py` |
+| 反馈与遥测层 | 可选记录工具调用元数据，提交反馈，不收集笔记内容 | `source_code/telemetry.py`、`worker/` |
+
+核心调用关系：
+
+| 场景 | 主调用链 |
+|---|---|
+| 首次使用 | 思源插件读取当前工作空间 Token → 写入 `bridge/config.local.json` → 用户复制 MCP JSON 到 AI 客户端 |
+| 会话启动 | AI 调 `siyuan_start` → 探测 profile → 确保系统笔记本 → 解析 Privacy Rules → 刷新安全索引 → 返回启动包 |
+| 搜索 | `siyuan_find` → 临时打开目标笔记本 → 思源搜索/SQL → 隐私过滤 → 按文档聚合结果 |
+| 阅读 | `siyuan_read` → 解析可见文档 → `getChildBlocks` → 块窗口 + 大纲 → 提取附件到 `ai_workspace/` |
+| 写入 | `siyuan_create/edit/doc_manage` → `confirmed=true` + 权限检查 → 创建快照 → 写思源 → 路径同步 → 安全刷新索引 |
+| 语义索引 | `siyuan-index-builder` Skill → list/read 关键文档 → 经用户确认写入系统笔记本的 Workspace Index |
 
 ## 项目定位
 
@@ -74,8 +131,10 @@ tests/               单元测试
 
 - 提供设置页。
 - 写入插件内 `bridge/config.local.json`。
+- 写入插件内 `bridge/telemetry.json`。
 - 生成可复制 MCP JSON。
 - 携带由同步脚本复制的 Python Bridge 运行文件。
+- 提供通知、反馈和用户体验改进开关的前端入口。
 
 插件内运行目录：
 
@@ -95,6 +154,8 @@ siyuan-plugin/
 MCP JSON 只包含 Python 命令、`run_mcp.py` 绝对路径和 `PYTHONUTF8=1`。Token 只保存在 `bridge/config.local.json` 中，并继续使用现有 `profiles` 配置模型。
 
 插件启动和设置页都会通过思源本地 `/api/system/getConf` 获取当前工作空间的 `conf.api.token` 和 `conf.system.workspaceDir`。首次启用插件时，如果 `bridge/config.local.json` 不存在，或默认 profile 没有 Token，插件会自动写入当前工作空间名称和 Token，让外部 MCP 客户端不需要先手动打开设置页并保存。Token 在设置页中允许明文显示，方便用户确认工作空间；但不得写入 MCP JSON。若用户已有非空本地 profile Token，插件不自动覆盖。用户手动新增、改名或修改 Token 后，仍通过设置页“保存配置”更新 `bridge/config.local.json`。
+
+插件前端的实现细节、CommonJS/ESM 加载坑、测试导入流程和 UI 数据流见 `docs/FRONTEND.md`。架构文档只记录它与 Python Bridge、配置文件和 Worker 后端的关系。
 
 ## 配置与工作空间连接
 
@@ -833,12 +894,9 @@ API 设计原则：
 1. 系统笔记本不能隐藏的承诺尚未由代码强制执行。
 2. Privacy Rules 的硬隔离按 hpath 名称判断，可能误挡非系统同名文档。
 3. `siyuan_refresh_index` 不清理 `ai_workspace` 是当前设计；旧 devlog 仍有相反历史记录，迁移时需要剔除。
-4. 写入后的自动 refresh 没有传系统笔记本 ID 和 Privacy Rules 文档 ID。
-5. `cli.py start` 仍读取旧 `knowledge_base/guide.md/index.md/START_HERE.md`，和系统笔记本方案不一致。
-6. `docs/siyuan-api-doc.md` 是网页抓取噪音，需要删掉。
-8. Codex 插件 manifest 仍有 `0.1.0` 和偏只读描述。
-9. `mcp_server.py` 文件过大，后续维护风险高。需要拆分为模块。
-10. 测试也需要模块化拆分。并需要系统性的覆盖。
+4. `cli.py start` 仍读取旧 `knowledge_base/guide.md/index.md/START_HERE.md`，和系统笔记本方案不一致。
+5. `mcp_server.py` 文件过大，后续维护风险高。需要拆分为模块。
+6. 测试也需要模块化拆分。并需要系统性的覆盖。
 
 ## 历史踩坑与结论
 

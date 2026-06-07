@@ -111,7 +111,7 @@ telemetry=upload，子代理调用 7 次 MCP 工具后，D1 `events` 表收到 8
 
 ### 文档
 
-新增 [常见问题与故障排除](./TROUBLESHOOTING.md)，覆盖 VPN/MCP 超时、中国大陆网络、遥测精度、文件损坏等已知问题。
+新增常见问题说明，覆盖 VPN/MCP 超时、中国大陆网络、遥测精度、文件损坏等已知问题；后续已简化并并入 README。
 
 ## 2026-06-07：插件前端改造 + Python 默认端点
 
@@ -136,7 +136,7 @@ Python 端添加默认端点 `DEFAULT_ENDPOINT`，`should_upload()` 不再要求
 - `siyuan-plugin/plugin.json`：版本 `0.1.0` → `0.3.0`
 
 **文档：**
-- `docs/plugin-frontend-design.md`、`docs/telemetry-design.md`：状态更新
+- 遥测设计记录状态更新；前端细节后续迁移到 `docs/FRONTEND.md`
 
 ### 设计决策
 
@@ -155,7 +155,7 @@ Python 端添加默认端点 `DEFAULT_ENDPOINT`，`should_upload()` 不再要求
 
 ### 目标
 
-按 `docs/telemetry-design.md` 第一阶段计划，建立遥测基础框架：匿名 ID、本地 JSONL 记录、工具包装器、`siyuan_bridge_feedback` MCP 工具、代理支持。
+按遥测第一阶段计划，建立遥测基础框架：匿名 ID、本地 JSONL 记录、工具包装器、`siyuan_bridge_feedback` MCP 工具、代理支持。
 
 ### 新增文件
 
@@ -298,7 +298,7 @@ CREATE TABLE notifications (
 ### 后续待办
 
 1. 绑定自定义域名，解决 workers.dev 被墙
-2. 在 Python 端新建 `source_code/telemetry.py`（参考 `docs/telemetry-design.md` 第一阶段实现计划）
+2. 在 Python 端新建 `source_code/telemetry.py`（参考当时的遥测第一阶段实现计划）
 3. 在 `mcp_server.py` 工具外层包遥测装饰器
 4. 插件前端反馈表单与通知拉取
 
@@ -595,7 +595,7 @@ Windows NTFS 的权限继承规则与我们的模型原理一致：
 - `python -m pytest tests\test_client.py tests\test_mcp_server.py -q`：139 passed。
 - `python -m pytest tests -q`：170 passed。
 
-> 2026-06-03 追加设计记录：[`table-edit-next-design.md`](./table-edit-next-design.md) 记录 table_edit 坐标网格与列操作；[`tool-surface-next-design.md`](./tool-surface-next-design.md) 记录工具精简、命名统一、文档文件操作和三档权限模型。
+> 2026-06-03 追加设计记录：当时的 table_edit 坐标网格、工具精简、命名统一、文档文件操作和三档权限模型已迁移到架构文档。
 
 长期规划：需要将整个程序重构一遍，做成可以直接上架思源商店的MCP，并且要求程序运行在电脑本地，MCP的注册、调用不依赖于思源的启动（思源没启动时返回思源未启动，但仍然可以正常调用，不会卡住）
 
@@ -3219,7 +3219,7 @@ siyuan_doc_manage
 
 - 面向新用户的 README、安装指南、Skill、思源 About 文档，只描述当前能力和当前用法，不展开旧版迁移史。
 - `docs/devlog.md` 保留完整演进记录，用于追踪以前是什么、现在是什么、为什么变化。
-- `docs/PD.md` 保留少量设计演进说明，但重点仍是当前产品设计。
+- 旧产品设计内容后续迁移到架构文档，当前事实以 `docs/ARCHITECTURE.md` 为准。
 - `docs/思源API.md` 记录当前 API 封装策略，不能继续把旧工具名写成当前暴露面。
 
 发布前同步：

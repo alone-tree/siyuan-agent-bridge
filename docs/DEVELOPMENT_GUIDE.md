@@ -1,7 +1,5 @@
 # SiYuan Bridge 开发指南
 
-> 草案状态：当前先新增，不删除旧文档；确认后再把稳定规则合并回入口文档。
-
 ## 修改前必须完整阅读
 
 任何 AI 或开发者在修改代码前，必须完整阅读以下文档。不能只读开头，不能只 grep 局部，不能跳过中间或后半段。
@@ -21,6 +19,7 @@
 | 思源 API 封装 | `docs/思源API.md`、`source_code/client.py` |
 | 隐私和权限 | `source_code/ignore.py`、`source_code/agent_notebook.py`、相关测试 |
 | 阅读、编辑、表格、文档管理 | `source_code/mcp_server.py`、相关测试 |
+| 插件前端 | `docs/FRONTEND.md`、`siyuan-plugin/` |
 | 发布和安装 | `mcp_configs/` |
 | 历史问题排查 | `docs/devlog.md`，优先读最近日期；不要把旧计划当当前事实 |
 
@@ -32,10 +31,12 @@
 |---|---|
 | `AGENTS.md` | AI 入口规则、协作约束、常用命令、强制阅读指引 |
 | `docs/ARCHITECTURE.md` | 当前真实架构、工具契约、数据流、设计取舍、已知债务、未来计划 |
+| `docs/architecture-map.html` | 面向人类的产品架构图；整体架构大改时必须和 `ARCHITECTURE.md` 同步 |
 | `docs/DEVELOPMENT_GUIDE.md` | 开发流程、同步清单、验证清单、已知真实风险 |
+| `docs/FRONTEND.md` | 思源插件前端实现细节、加载方式、配置写入、踩坑和验证 |
+| `docs/IDEAS.md` | 未承诺实施的粗略想法；不作为路线图或当前债务 |
 | `docs/devlog.md` | 工程日志、排障记录、阶段性结果；新记录应放最前 |
 | `docs/思源API.md` | 思源底层 API 能力地图和本项目封装策略 |
-| `docs/PD.md` | 旧产品设计文档；确认迁移前保留，当前事实以 `ARCHITECTURE.md` 为准 |
 
 文档同步规则：
 
@@ -44,6 +45,26 @@
 - 工程过程和排障写入 `devlog.md`。
 - 不要把长期架构塞进 devlog。
 - 不要让 README、Skill、Architecture、tool schema 互相矛盾。
+
+## 文档新增与修改规则
+
+默认不新建文档。只有内容有独立生命周期、篇幅会明显拖累主文档，或是短期草案时才允许新建。
+
+修改归属：
+
+- 当前架构、工具契约、数据流、设计取舍、已确认债务：`ARCHITECTURE.md`；整体架构大改时同步 `architecture-map.html`。
+- 开发流程、验证规则、文档维护规则：`DEVELOPMENT_GUIDE.md`。
+- 插件前端细节和踩坑：`FRONTEND.md`。
+- 未承诺 idea：`IDEAS.md`，每条尽量 1-5 行。
+- 工程过程、排障记录、验证结果：`devlog.md`，新记录放最前。
+- 用户说明和常见 QA：`README.md`。
+
+禁止：
+
+- 不要为一次临时计划创建永久文档。
+- 不要在 devlog 写长期架构事实。
+- 不要让同一工具契约在多个文档重复维护。
+- 设计草案定案后，迁移结论并删除草案。
 
 ## 修改工具面时必须同步
 
@@ -221,8 +242,7 @@ set SIYUAN_TEST_WORKSPACE=D:\siyuan2
 
 导入脚本默认保留测试工作空间已有的 `bridge/config.local.json` 和 `bridge/telemetry.json`。模拟新用户首次安装时加 `--fresh`，不会保留这些本地配置。
 
-> 遥测与反馈的 Worker API、D1 表结构、运维操作详见 [反馈与遥测后端参考](./feedback-telemetry-backend.md)。
-> 遇到连接超时、遥测不工作等问题？见 [常见问题与故障排除](./TROUBLESHOOTING.md)。
+> 遥测与反馈的 Worker API、D1 表结构、运维操作详见 [反馈与遥测后端参考](./feedback-telemetry-backend.md)。用户常见问题写在 README。
 
 ### 首次安装（模拟新用户）
 
@@ -339,10 +359,9 @@ python scripts/verify.py
 8. `updateBlock` 会清空块样式属性，必须恢复 IAL custom attrs。
 9. 旧 `siyuan_create` 路径语义曾导致 AI 把完整路径误当内部路径。
 10. Windows keep-alive 曾触发 `WinError 10054`，HTTP client 必须保留 `Connection: close`。
-11. `docs/siyuan-api-doc.md` 是网页抓取噪音，不应作为开发参考。
-12. 插件和安装文档存在版本/链接漂移。
-13. 思源插件第一版的 `bridge/` 目录由同步脚本生成，不是发布 ZIP；不要把旧 ZIP 流程误当成当前插件实现路径。
-14. 测试空间里的思源插件目录不是源码，不得直接编辑。正确流程是修改仓库 `siyuan-plugin/`，再整体导入测试空间。
+11. 插件和安装文档存在版本/链接漂移。
+12. 思源插件第一版的 `bridge/` 目录由同步脚本生成，不是发布 ZIP；不要把旧 ZIP 流程误当成当前插件实现路径。
+13. 测试空间里的思源插件目录不是源码，不得直接编辑。正确流程是修改仓库 `siyuan-plugin/`，再整体导入测试空间。
 
 ## 版本号管理
 

@@ -3,924 +3,388 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SiYuan Bridge 架构地图</title>
+  <title>SiYuan Bridge 架构图</title>
   <style>
-    :root {
-      color-scheme: light;
-      --ink: #17202a;
-      --muted: #5f6c7b;
-      --line: #d8dee7;
-      --paper: #fbfcfe;
-      --panel: #ffffff;
-      --soft: #f2f5f9;
-      --blue: #2563eb;
-      --teal: #0f766e;
-      --green: #15803d;
-      --amber: #b45309;
-      --red: #b91c1c;
-      --violet: #6d28d9;
-      --shadow: 0 18px 50px rgba(30, 41, 59, .10);
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      background: var(--paper);
-      color: var(--ink);
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
-      line-height: 1.55;
-    }
-
-    a {
-      color: inherit;
-    }
-
-    .shell {
-      max-width: 1240px;
-      margin: 0 auto;
-      padding: 28px 22px 56px;
-    }
-
-    .hero {
-      display: grid;
-      grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr);
-      gap: 24px;
-      align-items: end;
-      padding: 30px 0 22px;
-      border-bottom: 1px solid var(--line);
-    }
-
-    h1,
-    h2,
-    h3 {
-      margin: 0;
-      line-height: 1.18;
-      letter-spacing: 0;
-    }
-
-    h1 {
-      max-width: 820px;
-      font-size: clamp(34px, 4vw, 56px);
-    }
-
-    h2 {
-      font-size: 24px;
-    }
-
-    h3 {
-      font-size: 18px;
-    }
-
-    p {
-      margin: 0;
-    }
-
-    .lead {
-      max-width: 780px;
-      margin-top: 18px;
-      color: var(--muted);
-      font-size: 18px;
-    }
-
-    .meta {
-      display: grid;
-      gap: 10px;
-      padding: 16px;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      box-shadow: var(--shadow);
-    }
-
-    .meta-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      font-size: 14px;
-    }
-
-    .meta-row span:first-child {
-      color: var(--muted);
-    }
-
-    .nav {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      display: flex;
-      gap: 8px;
-      overflow-x: auto;
-      padding: 12px 0;
-      background: rgba(251, 252, 254, .92);
-      backdrop-filter: blur(14px);
-      border-bottom: 1px solid rgba(216, 222, 231, .7);
-    }
-
-    .nav a {
-      flex: 0 0 auto;
-      padding: 8px 11px;
-      text-decoration: none;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      color: #273445;
-      font-size: 14px;
-    }
-
-    .section {
-      margin-top: 34px;
-    }
-
-    .section-head {
-      display: flex;
-      align-items: end;
-      justify-content: space-between;
-      gap: 20px;
-      margin-bottom: 14px;
-    }
-
-    .section-note {
-      max-width: 620px;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      box-shadow: var(--shadow);
-    }
-
-    .map-wrap {
-      padding: 16px;
-      overflow-x: auto;
-    }
-
-    .architecture-svg {
-      width: 100%;
-      min-width: 980px;
-      height: auto;
-      display: block;
-    }
-
-    .legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      padding: 0 16px 16px;
-    }
-
-    .tag,
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      min-height: 28px;
-      padding: 4px 9px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: var(--soft);
-      color: #334155;
-      font-size: 13px;
-      white-space: nowrap;
-    }
-
-    .tag::before {
-      content: "";
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: currentColor;
-    }
-
-    .blue {
-      color: var(--blue);
-    }
-
-    .teal {
-      color: var(--teal);
-    }
-
-    .green {
-      color: var(--green);
-    }
-
-    .amber {
-      color: var(--amber);
-    }
-
-    .red {
-      color: var(--red);
-    }
-
-    .violet {
-      color: var(--violet);
-    }
-
-    .grid {
-      display: grid;
-      gap: 14px;
-    }
-
-    .cols-2 {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .cols-3 {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .cols-4 {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-
-    .card {
-      padding: 16px;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      min-width: 0;
-    }
-
-    .card p {
-      margin-top: 8px;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .card-top {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: start;
-      margin-bottom: 10px;
-    }
-
-    .file {
-      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-      font-size: 13px;
-      color: #263244;
-      overflow-wrap: anywhere;
-    }
-
-    .number {
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .lane {
-      display: grid;
-      grid-template-columns: 160px minmax(0, 1fr);
-      gap: 14px;
-      align-items: stretch;
-      padding: 14px;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .lane:last-child {
-      border-bottom: 0;
-    }
-
-    .lane-title {
-      display: flex;
-      align-items: center;
-      font-weight: 700;
-      color: #243244;
-    }
-
-    .lane-flow {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .arrow {
-      color: #94a3b8;
-    }
-
-    .tool-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .tool {
-      padding: 14px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel);
-    }
-
-    .tool h3 {
-      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-      font-size: 15px;
-    }
-
-    .tool p {
-      min-height: 66px;
-      margin-top: 8px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .badges {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 10px;
-    }
-
-    .badge {
-      padding: 3px 7px;
-      border-radius: 999px;
-      background: var(--soft);
-      color: #334155;
-      font-size: 12px;
-    }
-
-    .badge.write {
-      background: #fef3c7;
-      color: #92400e;
-    }
-
-    .badge.safe {
-      background: #dcfce7;
-      color: #166534;
-    }
-
-    .badge.stop {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-
-    .matrix {
-      width: 100%;
-      border-collapse: collapse;
-      overflow: hidden;
-      border-radius: 8px;
-      font-size: 14px;
-    }
-
-    .matrix th,
-    .matrix td {
-      padding: 11px 12px;
-      border-bottom: 1px solid var(--line);
-      text-align: left;
-      vertical-align: top;
-    }
-
-    .matrix th {
-      background: #eef3f8;
-      color: #334155;
-      font-weight: 700;
-    }
-
-    .matrix tr:last-child td {
-      border-bottom: 0;
-    }
-
-    details {
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--line);
-    }
-
-    details:last-child {
-      border-bottom: 0;
-    }
-
-    summary {
-      cursor: pointer;
-      font-weight: 700;
-    }
-
-    details p,
-    details ul {
-      margin: 10px 0 0;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    ul {
-      padding-left: 20px;
-    }
-
-    .timeline {
-      counter-reset: step;
-    }
-
-    .step {
-      position: relative;
-      display: grid;
-      grid-template-columns: 44px minmax(0, 1fr);
-      gap: 12px;
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .step:last-child {
-      border-bottom: 0;
-    }
-
-    .step::before {
-      counter-increment: step;
-      content: counter(step);
-      width: 30px;
-      height: 30px;
-      display: grid;
-      place-items: center;
-      background: #e8f0ff;
-      color: var(--blue);
-      border-radius: 50%;
-      font-weight: 800;
-      font-size: 13px;
-    }
-
-    .step h3 {
-      margin-bottom: 4px;
-      font-size: 16px;
-    }
-
-    .step p {
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .callout {
-      padding: 16px;
-      border: 1px solid #f1d59b;
-      border-radius: 8px;
-      background: #fffbeb;
-      color: #713f12;
-    }
-
-    .footer {
-      margin-top: 40px;
-      padding-top: 18px;
-      border-top: 1px solid var(--line);
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    @media (max-width: 900px) {
-      .hero,
-      .cols-2,
-      .cols-3,
-      .cols-4,
-      .tool-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .lane {
-        grid-template-columns: 1fr;
-      }
-
-      .section-head {
-        align-items: start;
-        flex-direction: column;
-      }
-    }
+    body{margin:0;background:#f6f8fb;color:#17202a;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;line-height:1.5}
+    main{max-width:1220px;margin:0 auto;padding:28px 22px 52px}
+    h1{margin:0 0 8px;font-size:40px;letter-spacing:0}
+    h2{margin:32px 0 12px;font-size:26px}
+    h3{margin:0 0 8px;font-size:17px}
+    p{margin:0;color:#526070}
+    code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+    .note{margin-top:8px;font-size:14px}
+    .panel,.card{background:#fff;border:1px solid #d8dee7;border-radius:8px}
+    .panel{padding:18px;overflow:auto}
+    .card{padding:14px}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .intro{display:grid;grid-template-columns:1.15fr .85fr;gap:12px;margin-top:18px}
+    ol{margin:8px 0 0;padding-left:20px;color:#526070}
+    li{margin:4px 0}
+    .legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    .tag{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid #d8dee7;border-radius:999px;background:#fff;font-size:13px;color:#334155}
+    .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+    .d-blue{background:#dcecff;border:1px solid #86bfff}.d-green{background:#def8e7;border:1px solid #74d99a}.d-yellow{background:#fff5cc;border:1px solid #ecc94b}.d-purple{background:#eee8ff;border:1px solid #b8a7ff}.d-red{background:#ffe6e9;border:1px solid #ff9ca8}
+    svg{min-width:1120px;width:100%;height:auto;display:block}
+    .node{stroke-width:1.5}
+    .blue{fill:#eaf4ff;stroke:#86bfff}.green{fill:#eafaf0;stroke:#74d99a}.yellow{fill:#fff9df;stroke:#ecc94b}.purple{fill:#f2edff;stroke:#b8a7ff}.red{fill:#fff0f2;stroke:#ff9ca8}
+    .title{font-size:16px;font-weight:700;fill:#17202a}.text{font-size:13px;fill:#405066}.small{font-size:12px;fill:#64748b}
+    .line{fill:none;stroke:#4f6b8a;stroke-width:2.2}.privacy{fill:none;stroke:#b91c1c;stroke-width:2.2;stroke-dasharray:7 6}
+    .label-bg{fill:#fff;stroke:#d8dee7;stroke-width:1}
+    .label{font-size:12px;fill:#243244;font-weight:600}
+    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #d8dee7;border-radius:8px;overflow:hidden}
+    th,td{padding:10px 12px;border-bottom:1px solid #d8dee7;text-align:left;vertical-align:top;font-size:14px}
+    th{background:#eef2f7}tr:last-child td{border-bottom:0}
+    @media(max-width:900px){.grid,.intro{grid-template-columns:1fr}h1{font-size:30px}}
   </style>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: true,
+      securityLevel: "loose",
+      flowchart: {
+        curve: "linear",
+        htmlLabels: true,
+        nodeSpacing: 48,
+        rankSpacing: 58
+      },
+      theme: "base",
+      themeVariables: {
+        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Microsoft YaHei, sans-serif",
+        primaryColor: "#eaf4ff",
+        primaryBorderColor: "#86bfff",
+        lineColor: "#4f6b8a",
+        textColor: "#17202a"
+      }
+    });
+  </script>
 </head>
 <body>
-  <main class="shell">
-    <header class="hero">
-      <div>
-        <h1>SiYuan Bridge 架构地图</h1>
-        <p class="lead">把长文档里的结构、数据流、工具边界和安全规则压成一张可浏览的地图。产品入口是 MCP 工具和 Skill；CLI 只用于开发诊断。</p>
+<main>
+  <h1>SiYuan Bridge 架构图</h1>
+  <p>给协作者快速理解程序分层、调用关系和数据边界。完整契约和实现细节以 <code>docs/ARCHITECTURE.md</code> 为准；整体架构大改时，本页必须同步。</p>
+  <p class="note">事实基准：2026-06-07；MCP server 版本 1.0.0；实际暴露 9 个 MCP 工具。</p>
+
+  <section class="intro">
+    <div class="card">
+      <h3>先看这三件事</h3>
+      <ol>
+        <li>思源插件只负责安装、配置和反馈入口；真正的工具能力在 Python MCP Bridge。</li>
+        <li>AI 客户端通过 MCP 调 Bridge；仓库里的 Skill 只是副本，必须被 AI 客户端主动导入后才生效。</li>
+        <li>Privacy Rules 只由 MCP 内部解析，AI 不可读、不可搜、不可编辑。</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>节点颜色</h3>
+      <div class="legend">
+        <span class="tag"><span class="dot d-blue"></span>用户/AI 入口</span>
+        <span class="tag"><span class="dot d-green"></span>运行服务</span>
+        <span class="tag"><span class="dot d-yellow"></span>本地文件</span>
+        <span class="tag"><span class="dot d-purple"></span>说明/工作区</span>
+        <span class="tag"><span class="dot d-red"></span>隐私边界</span>
       </div>
-      <aside class="meta" aria-label="项目元信息">
-        <div class="meta-row"><span>事实基准</span><strong>2026-06-04 / v0.2.0</strong></div>
-        <div class="meta-row"><span>MCP 工具</span><strong>8 个</strong></div>
-        <div class="meta-row"><span>运行时依赖</span><strong>Python 标准库</strong></div>
-        <div class="meta-row"><span>主入口</span><strong>plugins/.../run_mcp.py</strong></div>
-      </aside>
-    </header>
+      <p class="note">箭头含义直接写在箭头旁边，不靠颜色猜。</p>
+    </div>
+  </section>
 
-    <nav class="nav" aria-label="页面导航">
-      <a href="#big-picture">总览图</a>
-      <a href="#repo-map">目录地图</a>
-      <a href="#flows">关键流程</a>
-      <a href="#tools">工具面</a>
-      <a href="#safety">安全边界</a>
-      <a href="#runtime">运行时文件</a>
-      <a href="#debt">已知债务</a>
-      <a href="#formats">格式选择</a>
-    </nav>
+  <h2>产品架构关系图</h2>
+  <section class="panel">
+    <svg viewBox="0 0 1180 680" role="img" aria-label="SiYuan Bridge 产品架构关系图">
+      <rect x="40" y="70" width="220" height="95" rx="8" class="node blue"/>
+      <text x="64" y="106" class="title">用户</text>
+      <text x="64" y="134" class="text">安装插件 / 复制配置</text>
 
-    <section class="section" id="big-picture">
-      <div class="section-head">
-        <h2>一张图看懂</h2>
-        <p class="section-note">从 AI agent 的调用开始，到 Python 适配层、思源 HTTP API、系统笔记本和本地缓存。粗线是主路径，红色虚线是硬隔离边界。</p>
-      </div>
-      <div class="panel">
-        <div class="map-wrap">
-          <svg class="architecture-svg" viewBox="0 0 1160 650" role="img" aria-label="SiYuan Bridge architecture diagram">
-            <defs>
-              <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
-                <path d="M0,0 L0,6 L9,3 z" fill="#2563eb"></path>
-              </marker>
-              <marker id="arrowGray" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
-                <path d="M0,0 L0,6 L9,3 z" fill="#64748b"></path>
-              </marker>
-              <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
-                <path d="M0,0 L0,6 L9,3 z" fill="#15803d"></path>
-              </marker>
-              <filter id="cardShadow" x="-15%" y="-15%" width="130%" height="130%">
-                <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0f172a" flood-opacity=".10"></feDropShadow>
-              </filter>
-            </defs>
+      <rect x="40" y="255" width="220" height="125" rx="8" class="node blue"/>
+      <text x="64" y="291" class="title">思源插件</text>
+      <text x="64" y="319" class="text">设置页 / Home Dialog</text>
+      <text x="64" y="343" class="text">生成 MCP JSON</text>
+      <text x="64" y="367" class="text">反馈 / 遥测开关</text>
 
-            <rect x="20" y="22" width="1120" height="606" rx="16" fill="#ffffff" stroke="#d8dee7"></rect>
+      <rect x="350" y="70" width="230" height="120" rx="8" class="node blue"/>
+      <text x="374" y="106" class="title">AI 客户端</text>
+      <text x="374" y="134" class="text">Claude Code / Codex / Cursor</text>
+      <text x="374" y="158" class="text">启动 MCP server</text>
+      <text x="374" y="182" class="text">调用 tools/list / tools/call</text>
 
-            <text x="58" y="70" font-size="18" font-weight="800" fill="#17202a">AI 客户端层</text>
-            <text x="335" y="70" font-size="18" font-weight="800" fill="#17202a">MCP / Skill 层</text>
-            <text x="620" y="70" font-size="18" font-weight="800" fill="#17202a">Python 适配层</text>
-            <text x="900" y="70" font-size="18" font-weight="800" fill="#17202a">思源工作空间</text>
+      <rect x="350" y="280" width="230" height="120" rx="8" class="node purple"/>
+      <text x="374" y="316" class="title">Skill 副本</text>
+      <text x="374" y="344" class="text">仓库内提供给 AI 客户端导入</text>
+      <text x="374" y="368" class="text">不会自动生效</text>
+      <text x="374" y="392" class="text">约束工具使用方式</text>
 
-            <rect x="50" y="98" width="210" height="108" rx="8" fill="#eff6ff" stroke="#bfdbfe" filter="url(#cardShadow)"></rect>
-            <text x="74" y="132" font-size="18" font-weight="800" fill="#1e3a8a">Claude / Codex / Cursor</text>
-            <text x="74" y="160" font-size="14" fill="#475569">通过 MCP 调工具</text>
-            <text x="74" y="184" font-size="14" fill="#475569">不直接扫本地笔记</text>
+      <rect x="680" y="70" width="250" height="140" rx="8" class="node green"/>
+      <text x="704" y="106" class="title">Python MCP Bridge</text>
+      <text x="704" y="134" class="text">plugins/.../run_mcp.py</text>
+      <text x="704" y="158" class="text">source_code/mcp_server.py</text>
+      <text x="704" y="182" class="text">9 个高层 MCP 工具</text>
 
-            <rect x="330" y="98" width="220" height="108" rx="8" fill="#f0fdfa" stroke="#99f6e4" filter="url(#cardShadow)"></rect>
-            <text x="354" y="132" font-size="18" font-weight="800" fill="#115e59">Skill 指令</text>
-            <text x="354" y="160" font-size="14" fill="#475569">启动流程、隐私规则</text>
-            <text x="354" y="184" font-size="14" fill="#475569">工具调用心智模型</text>
+      <rect x="680" y="285" width="250" height="115" rx="8" class="node yellow"/>
+      <text x="704" y="321" class="title">本地配置与缓存</text>
+      <text x="704" y="349" class="text">config.local.json / telemetry.json</text>
+      <text x="704" y="373" class="text">knowledge_base/ / ai_workspace/</text>
 
-            <rect x="610" y="98" width="230" height="108" rx="8" fill="#f8fafc" stroke="#cbd5e1" filter="url(#cardShadow)"></rect>
-            <text x="634" y="132" font-size="18" font-weight="800" fill="#334155">mcp_server.py</text>
-            <text x="634" y="160" font-size="14" fill="#475569">JSON-RPC stdio server</text>
-            <text x="634" y="184" font-size="14" fill="#475569">8 个工具 schema + 实现</text>
+      <rect x="1000" y="55" width="150" height="110" rx="8" class="node green"/>
+      <text x="1022" y="91" class="title">思源 HTTP API</text>
+      <text x="1022" y="119" class="text">文档 / 块 / 搜索</text>
+      <text x="1022" y="143" class="text">快照 / 导出</text>
 
-            <rect x="895" y="98" width="215" height="108" rx="8" fill="#f0fdf4" stroke="#bbf7d0" filter="url(#cardShadow)"></rect>
-            <text x="919" y="132" font-size="18" font-weight="800" fill="#166534">SiYuan HTTP API</text>
-            <text x="919" y="160" font-size="14" fill="#475569">文档树 / 块 / 搜索</text>
-            <text x="919" y="184" font-size="14" fill="#475569">快照 / 通知 / 导出</text>
+      <rect x="1000" y="225" width="150" height="130" rx="8" class="node purple"/>
+      <text x="1022" y="261" class="title">系统笔记本</text>
+      <text x="1022" y="289" class="text">AI Guide</text>
+      <text x="1022" y="313" class="text">Workspace Index</text>
+      <text x="1022" y="337" class="text">Privacy Rules</text>
 
-            <path d="M260 152 H330" stroke="#2563eb" stroke-width="3" marker-end="url(#arrowBlue)"></path>
-            <path d="M550 152 H610" stroke="#2563eb" stroke-width="3" marker-end="url(#arrowBlue)"></path>
-            <path d="M840 152 H895" stroke="#15803d" stroke-width="3" marker-end="url(#arrowGreen)"></path>
+      <rect x="1000" y="425" width="150" height="105" rx="8" class="node red"/>
+      <text x="1022" y="461" class="title">隐私硬边界</text>
+      <text x="1022" y="489" class="text">MCP 内部解析</text>
+      <text x="1022" y="513" class="text">AI 不可访问</text>
 
-            <rect x="610" y="250" width="230" height="286" rx="8" fill="#ffffff" stroke="#cbd5e1" filter="url(#cardShadow)"></rect>
-            <text x="634" y="286" font-size="18" font-weight="800" fill="#334155">适配层模块</text>
-            <text x="634" y="322" font-size="14" font-weight="700" fill="#2563eb">client.py</text>
-            <text x="734" y="322" font-size="14" fill="#475569">思源 API 封装</text>
-            <text x="634" y="354" font-size="14" font-weight="700" fill="#2563eb">indexer.py</text>
-            <text x="734" y="354" font-size="14" fill="#475569">安全索引刷新</text>
-            <text x="634" y="386" font-size="14" font-weight="700" fill="#2563eb">ignore.py</text>
-            <text x="734" y="386" font-size="14" fill="#475569">Privacy Rules</text>
-            <text x="634" y="418" font-size="14" font-weight="700" fill="#2563eb">agent_notebook.py</text>
-            <text x="770" y="418" font-size="14" fill="#475569">系统笔记本</text>
-            <text x="634" y="450" font-size="14" font-weight="700" fill="#2563eb">config.py</text>
-            <text x="734" y="450" font-size="14" fill="#475569">token / profile</text>
-            <text x="634" y="482" font-size="14" font-weight="700" fill="#2563eb">i18n.py</text>
-            <text x="734" y="482" font-size="14" fill="#475569">中英文模板</text>
-            <text x="634" y="514" font-size="14" font-weight="700" fill="#64748b">cli.py</text>
-            <text x="734" y="514" font-size="14" fill="#475569">开发诊断</text>
+      <rect x="680" y="515" width="250" height="95" rx="8" class="node blue"/>
+      <text x="704" y="551" class="title">Worker + D1</text>
+      <text x="704" y="579" class="text">反馈 / 遥测 / 通知</text>
 
-            <rect x="895" y="250" width="215" height="132" rx="8" fill="#f0fdf4" stroke="#bbf7d0" filter="url(#cardShadow)"></rect>
-            <text x="919" y="286" font-size="18" font-weight="800" fill="#166534">系统笔记本</text>
-            <text x="919" y="320" font-size="14" fill="#475569">AI Guide：偏好规则</text>
-            <text x="919" y="346" font-size="14" fill="#475569">Workspace Index：语义导航</text>
-            <text x="919" y="372" font-size="14" fill="#475569">About：给人看的说明</text>
+      <path d="M150 165 V255" class="line"/>
+      <rect x="84" y="197" width="132" height="22" rx="4" class="label-bg"/>
+      <text x="96" y="213" class="label">用户安装/打开插件</text>
 
-            <rect x="895" y="414" width="215" height="122" rx="8" fill="#fff1f2" stroke="#fecdd3" filter="url(#cardShadow)"></rect>
-            <text x="919" y="450" font-size="18" font-weight="800" fill="#be123c">Privacy Rules</text>
-            <text x="919" y="482" font-size="14" fill="#475569">只由 MCP 内部解析</text>
-            <text x="919" y="508" font-size="14" fill="#475569">AI 不可读 / 搜索 / 编辑</text>
+      <path d="M260 318 H680" class="line"/>
+      <rect x="392" y="306" width="158" height="22" rx="4" class="label-bg"/>
+      <text x="405" y="322" class="label">插件写入配置文件</text>
 
-            <rect x="330" y="250" width="220" height="132" rx="8" fill="#fefce8" stroke="#fde68a" filter="url(#cardShadow)"></rect>
-            <text x="354" y="286" font-size="18" font-weight="800" fill="#92400e">knowledge_base/</text>
-            <text x="354" y="320" font-size="14" fill="#475569">tree.md</text>
-            <text x="354" y="346" font-size="14" fill="#475569">docs.jsonl</text>
-            <text x="354" y="372" font-size="14" fill="#475569">notebooks.json / privacy cache</text>
+      <path d="M260 115 H350" class="line"/>
+      <rect x="270" y="103" width="70" height="22" rx="4" class="label-bg"/>
+      <text x="282" y="119" class="label">用户复制</text>
 
-            <rect x="330" y="414" width="220" height="122" rx="8" fill="#f5f3ff" stroke="#ddd6fe" filter="url(#cardShadow)"></rect>
-            <text x="354" y="450" font-size="18" font-weight="800" fill="#5b21b6">ai_workspace/</text>
-            <text x="354" y="482" font-size="14" fill="#475569">attachments/</text>
-            <text x="354" y="508" font-size="14" fill="#475569">exports/ / README.md</text>
+      <path d="M580 130 H680" class="line"/>
+      <rect x="590" y="118" width="80" height="22" rx="4" class="label-bg"/>
+      <text x="602" y="134" class="label">启动 MCP</text>
 
-            <rect x="50" y="250" width="210" height="286" rx="8" fill="#ffffff" stroke="#cbd5e1" filter="url(#cardShadow)"></rect>
-            <text x="74" y="286" font-size="18" font-weight="800" fill="#334155">8 个 MCP 工具</text>
-            <text x="74" y="322" font-size="14" fill="#475569">siyuan_start</text>
-            <text x="74" y="348" font-size="14" fill="#475569">siyuan_refresh_index</text>
-            <text x="74" y="374" font-size="14" fill="#475569">siyuan_list / find / read</text>
-            <text x="74" y="400" font-size="14" fill="#475569">siyuan_create / edit</text>
-            <text x="74" y="426" font-size="14" fill="#475569">siyuan_doc_manage</text>
-            <text x="74" y="468" font-size="14" font-weight="700" fill="#b45309">写入前：</text>
-            <text x="74" y="494" font-size="14" fill="#475569">confirmed=true + 快照</text>
-            <text x="74" y="520" font-size="14" fill="#475569">权限必须允许</text>
+      <path d="M465 280 V190" class="line"/>
+      <rect x="387" y="224" width="158" height="22" rx="4" class="label-bg"/>
+      <text x="398" y="240" class="label">主动导入/使用 Skill</text>
 
-            <path d="M610 318 C585 318 585 318 550 318" stroke="#64748b" stroke-width="2" marker-end="url(#arrowGray)"></path>
-            <path d="M610 474 C585 474 585 474 550 474" stroke="#64748b" stroke-width="2" marker-end="url(#arrowGray)"></path>
-            <path d="M840 318 H895" stroke="#15803d" stroke-width="2" marker-end="url(#arrowGreen)"></path>
-            <path d="M840 450 H895" stroke="#b91c1c" stroke-width="2" stroke-dasharray="8 7" marker-end="url(#arrowGray)"></path>
-            <path d="M260 394 H610" stroke="#2563eb" stroke-width="2" marker-end="url(#arrowBlue)"></path>
+      <path d="M930 110 H1000" class="line"/>
+      <rect x="930" y="98" width="70" height="22" rx="4" class="label-bg"/>
+      <text x="942" y="114" class="label">调用 API</text>
 
-            <line x1="880" y1="232" x2="880" y2="562" stroke="#b91c1c" stroke-width="2" stroke-dasharray="7 7"></line>
-            <text x="900" y="568" font-size="13" font-weight="700" fill="#b91c1c">隐私硬边界</text>
-          </svg>
-        </div>
-        <div class="legend">
-          <span class="tag blue">AI / MCP 调用</span>
-          <span class="tag green">思源 API 交互</span>
-          <span class="tag amber">本地运行时缓存</span>
-          <span class="tag violet">AI 临时工作区</span>
-          <span class="tag red">隐私隔离</span>
-        </div>
-      </div>
-    </section>
+      <path d="M1075 165 V225" class="line"/>
+      <rect x="1016" y="187" width="118" height="22" rx="4" class="label-bg"/>
+      <text x="1028" y="203" class="label">保存系统文档</text>
 
-    <section class="section" id="repo-map">
-      <div class="section-head">
-        <h2>目录地图</h2>
-        <p class="section-note">仓库里真正需要记住的不是每个文件，而是它们分别承担哪种边界。</p>
-      </div>
-      <div class="grid cols-3">
-        <article class="card">
-          <div class="card-top"><h3>Python 适配层</h3><span class="pill blue">source_code/</span></div>
-          <p><span class="file">mcp_server.py</span> 是工具面和业务编排中心；<span class="file">client.py</span> 封装思源 API；<span class="file">indexer.py</span> 生成安全索引；<span class="file">ignore.py</span> 解析隐私规则；<span class="file">agent_notebook.py</span> 维护系统笔记本。</p>
-        </article>
-        <article class="card">
-          <div class="card-top"><h3>AI 插件层</h3><span class="pill teal">plugins/</span></div>
-          <p><span class="file">scripts/run_mcp.py</span> 是 MCP stdio 启动脚本；两个 Skill 分别负责普通思源访问和 Workspace Index 构建。</p>
-        </article>
-        <article class="card">
-          <div class="card-top"><h3>运行时缓存</h3><span class="pill amber">knowledge_base/</span></div>
-          <p>由刷新流程生成，包含客观文档树、结构化文档元数据、可见笔记本索引和隐私规则解析缓存。每次 refresh 可能覆盖。</p>
-        </article>
-        <article class="card">
-          <div class="card-top"><h3>AI 工作区</h3><span class="pill violet">ai_workspace/</span></div>
-          <p>放附件提取、导出 Markdown、临时草稿和分析材料。只有 <span class="file">siyuan_start</span> 会清理 README 外的内容。</p>
-        </article>
-        <article class="card">
-          <div class="card-top"><h3>工程文档</h3><span class="pill">docs/</span></div>
-          <p><span class="file">ARCHITECTURE.md</span> 是真实架构和工具契约；<span class="file">DEVELOPMENT_GUIDE.md</span> 是开发流程和验证规则；<span class="file">devlog.md</span> 只放工程日志。</p>
-        </article>
-        <article class="card">
-          <div class="card-top"><h3>发布与配置</h3><span class="pill green">release</span></div>
-          <p><span class="file">pack_skill.py</span>、<span class="file">pack_release.py</span> 打包发布；<span class="file">mcp_configs/</span> 放不同 AI 客户端的 MCP 配置模板。</p>
-        </article>
-      </div>
-    </section>
+      <path d="M1075 355 V425" class="privacy"/>
+      <rect x="1005" y="382" width="140" height="22" rx="4" class="label-bg"/>
+      <text x="1018" y="398" class="label">MCP 内部解析规则</text>
 
-    <section class="section" id="flows">
-      <div class="section-head">
-        <h2>关键流程</h2>
-        <p class="section-note">把最容易混淆的“启动、阅读、写入、搜索”拆成泳道。看流程时先看谁负责边界，再看数据去哪。</p>
-      </div>
-      <div class="panel">
-        <div class="lane">
-          <div class="lane-title">会话启动</div>
-          <div class="lane-flow">
-            <span class="pill blue">siyuan_start</span><span class="arrow">→</span>
-            <span class="pill">detect profile</span><span class="arrow">→</span>
-            <span class="pill teal">ensure system notebook</span><span class="arrow">→</span>
-            <span class="pill red">parse Privacy Rules</span><span class="arrow">→</span>
-            <span class="pill amber">refresh safe index</span><span class="arrow">→</span>
-            <span class="pill green">startup packet</span>
-          </div>
-        </div>
-        <div class="lane">
-          <div class="lane-title">搜索</div>
-          <div class="lane-flow">
-            <span class="pill blue">siyuan_find</span><span class="arrow">→</span>
-            <span class="pill teal">open closed notebooks temporarily</span><span class="arrow">→</span>
-            <span class="pill green">SiYuan search / SQL</span><span class="arrow">→</span>
-            <span class="pill red">privacy filter</span><span class="arrow">→</span>
-            <span class="pill">group snippets by doc</span>
-          </div>
-        </div>
-        <div class="lane">
-          <div class="lane-title">阅读</div>
-          <div class="lane-flow">
-            <span class="pill blue">siyuan_read</span><span class="arrow">→</span>
-            <span class="pill">resolve visible doc</span><span class="arrow">→</span>
-            <span class="pill green">getChildBlocks</span><span class="arrow">→</span>
-            <span class="pill">outline + block window</span><span class="arrow">→</span>
-            <span class="pill violet">extract attachments</span>
-          </div>
-        </div>
-        <div class="lane">
-          <div class="lane-title">写入</div>
-          <div class="lane-flow">
-            <span class="pill blue">create / edit / doc_manage</span><span class="arrow">→</span>
-            <span class="pill red">confirmed=true + permission</span><span class="arrow">→</span>
-            <span class="pill amber">create snapshot</span><span class="arrow">→</span>
-            <span class="pill green">write SiYuan</span><span class="arrow">→</span>
-            <span class="pill">wait path sync</span><span class="arrow">→</span>
-            <span class="pill amber">safe refresh</span>
-          </div>
-        </div>
-      </div>
+      <path d="M805 210 V285" class="line"/>
+      <rect x="725" y="238" width="160" height="22" rx="4" class="label-bg"/>
+      <text x="738" y="254" class="label">读写索引/附件/配置</text>
 
-      <div class="grid cols-2" style="margin-top:14px">
-        <div class="panel timeline">
-          <div class="step">
-            <div>
-              <h3>系统笔记本生命周期</h3>
-              <p>AI Guide 不存在时创建但不覆盖；Workspace Index 不自动创建；About 模板升级时覆盖；Privacy Rules 不覆盖且 AI 不可见。</p>
-            </div>
-          </div>
-          <div class="step">
-            <div>
-              <h3>客观索引与语义索引分工</h3>
-              <p>程序生成 tree/docs/notebooks；AI 维护 Workspace Index；人维护 AI Guide 和 Privacy Rules。</p>
-            </div>
-          </div>
-          <div class="step">
-            <div>
-              <h3>关闭笔记本透明打开</h3>
-              <p>索引、搜索和写入前可以临时打开关闭的笔记本，完成后恢复，不要求用户手动整理状态。</p>
-            </div>
-          </div>
-        </div>
-        <div class="callout">
-          <h3>最重要的产品边界</h3>
-          <p style="margin-top:8px">这是 MCP-first 的 AI 适配层，不是思源插件，也不是通用 SDK。高风险思源 API 不直接暴露；写入必须经过明确用户意图、<span class="file">confirmed=true</span>、权限检查和快照。</p>
-        </div>
-      </div>
-    </section>
+      <path d="M805 210 V515" class="line"/>
+      <rect x="826" y="448" width="92" height="22" rx="4" class="label-bg"/>
+      <text x="838" y="464" class="label">反馈/遥测</text>
+    </svg>
+  </section>
 
-    <section class="section" id="tools">
-      <div class="section-head">
-        <h2>8 个 MCP 工具</h2>
-        <p class="section-note">工具面刻意压缩成 AI 容易选择的几个动作：启动、刷新、列出、搜索、阅读、创建、编辑、管理。</p>
-      </div>
-      <div class="tool-grid">
-        <article class="tool">
-          <h3>siyuan_start</h3>
-          <p>会话入口：确保系统笔记本，解析隐私规则，刷新安全索引，返回启动包。</p>
-          <div class="badges"><span class="badge safe">系统维护</span><span class="badge">先调用</span></div>
-        </article>
-        <article class="tool">
-          <h3>siyuan_refresh_index</h3>
-          <p>显式刷新安全索引。会话中途 refresh 不清理 ai_workspace。</p>
-          <div class="badges"><span class="badge safe">索引</span><span class="badge">不清理 workspace</span></div>
-        </article>
-        <article class="tool">
-          <h3>siyuan_list</h3>
-          <p>列出可见笔记本或某路径下一层文档，依赖本地安全索引。</p>
-          <div class="badges"><span class="badge safe">只读</span><span class="badge">分页</span></div>
-        </article>
-        <article class="tool">
-          <h3>siyuan_find</h3>
-          <p>通过思源搜索 API 或 SQL 搜索，返回前统一做隐私过滤。</p>
-          <div class="badges"><span class="badge safe">只读</span><span class="badge">API-only 搜索</span></div>
-        </article>
-        <article class="tool">
-          <h3>siyuan_read</h3>
-          <p>按展示块窗口阅读文档；编辑前开启 include_block_ids 获取坐标。</p>
-          <div class="badges"><span class="badge safe">只读</span><span class="badge">block window</span></div>
-        </article>
-        <article class="tool">
-          <h3>siyuan_create</h3>
-          <p>创建或重写文档。优先完整可读路径，写入后等待路径同步并刷新索引。</p>
-          <div class="badges"><span class="badge write">写思源</span><span class="badge stop">confirmed</span><span class="badge">快照</span></div>
-        </article>
-        <article class="tool">
-          <h3>siyuan_edit</h3>
-          <p>基于引用阅读坐标编辑块、范围或普通 Markdown 表格。</p>
-          <div class="badges"><span class="badge write">写思源</span><span class="badge stop">坐标校验</span><span class="badge">快照</span></div>
-        </article>
-        <article class="tool">
-          <h3>siyuan_doc_manage</h3>
-          <p>rename / move / delete / copy / export。正文编辑不走这个工具。</p>
-          <div class="badges"><span class="badge write">部分写入</span><span class="badge">路径同步</span><span class="badge safe">export 本地</span></div>
-        </article>
-      </div>
+  <h2>开发者模块关系图</h2>
+  <section class="panel">
+    <svg viewBox="0 0 1180 720" role="img" aria-label="SiYuan Bridge 开发者模块关系图">
+      <text x="55" y="45" class="title">入口</text>
+      <text x="325" y="45" class="title">MCP server</text>
+      <text x="645" y="45" class="title">支撑模块</text>
+      <text x="940" y="45" class="title">外部系统 / 文件</text>
 
-      <div class="panel" style="margin-top:14px; overflow-x:auto">
-        <table class="matrix">
-          <thead>
-            <tr>
-              <th>工具 / 动作</th>
-              <th>写思源</th>
-              <th>confirmed</th>
-              <th>快照</th>
-              <th>主要权限</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>siyuan_start</td><td>可能创建/更新系统文档</td><td>否</td><td>否</td><td>内部系统操作</td></tr>
-            <tr><td>siyuan_refresh_index</td><td>可能创建/更新系统文档</td><td>否</td><td>否</td><td>内部系统操作</td></tr>
-            <tr><td>siyuan_list / find / read</td><td>否</td><td>否</td><td>否</td><td>hidden 不可见 / 不可读</td></tr>
-            <tr><td>siyuan_create</td><td>是</td><td>是</td><td>是</td><td>目标路径 read_write</td></tr>
-            <tr><td>siyuan_edit</td><td>是</td><td>是</td><td>是</td><td>文档 read_write</td></tr>
-            <tr><td>doc_manage rename/move/delete</td><td>是</td><td>是</td><td>是</td><td>文档 read_write</td></tr>
-            <tr><td>doc_manage copy</td><td>是</td><td>是</td><td>是</td><td>源可读，目标 read_write</td></tr>
-            <tr><td>doc_manage export</td><td>否，只写本地导出</td><td>否</td><td>否</td><td>源可读</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+      <rect x="45" y="80" width="210" height="95" rx="8" class="node blue"/>
+      <text x="68" y="116" class="title">AI 客户端</text>
+      <text x="68" y="144" class="text">JSON-RPC over stdio</text>
+      <text x="68" y="168" class="text">tools/list / tools/call</text>
 
-    <section class="section" id="safety">
-      <div class="section-head">
-        <h2>安全边界</h2>
-        <p class="section-note">这部分决定 AI 什么都看不到、什么时候只能读、什么时候能写。</p>
-      </div>
-      <div class="grid cols-3">
-        <article class="card">
-          <div class="card-top"><h3>默认只读</h3><span class="pill green">read first</span></div>
-          <p>list/search/read 都必须应用 Privacy Rules；SQL 模式也不能绕过隐私过滤。</p>
-        </article>
-        <article class="card">
-          <div class="card-top"><h3>写入闸门</h3><span class="pill amber">snapshot</span></div>
-          <p>写入前必须有明确用户意图、<span class="file">confirmed=true</span>、权限为 read_write，并成功创建思源快照。</p>
-        </article>
-        <article class="card">
-          <div class="card-top"><h3>Privacy Rules 硬隔离</h3><span class="pill red">不可见</span></div>
-          <p>隐私规则文档只能由 MCP server 内部读取解析，AI 不可读取、搜索、总结或编辑。</p>
-        </article>
-      </div>
-      <div class="panel" style="margin-top:14px">
-        <details open>
-          <summary>Permission = hidden</summary>
-          <p>不进入索引、列表、搜索、阅读和写入。copy/export 也不允许。</p>
-        </details>
-        <details>
-          <summary>Permission = read_only</summary>
-          <p>可以 list/search/read，也可以 copy/export；不能 create/edit/rename/move/delete。</p>
-        </details>
-        <details>
-          <summary>Permission = read_write</summary>
-          <p>可读可写，但写入仍然必须经过 <span class="file">confirmed=true</span> 和快照。</p>
-        </details>
-      </div>
-    </section>
+      <rect x="45" y="245" width="210" height="95" rx="8" class="node purple"/>
+      <text x="68" y="281" class="title">run_mcp.py</text>
+      <text x="68" y="309" class="text">启动 MCP server</text>
+      <text x="68" y="333" class="text">定位项目根目录</text>
 
-    <section class="section" id="runtime">
-      <div class="section-head">
-        <h2>运行时文件</h2>
-        <p class="section-note">这几个目录最容易被误认为源代码。实际上它们多数是会话产物或缓存。</p>
-      </div>
-      <div class="grid cols-2">
-        <article class="card">
-          <h3>knowledge_base/</h3>
-          <p><span class="file">tree.md</span> 给人和 AI 看客观树；<span class="file">docs.jsonl</span> 给工具解析路径和元数据；<span class="file">notebooks.json</span> 存可见笔记本；<span class="file">privacy_rules.json</span> 是解析缓存。</p>
-        </article>
-        <article class="card">
-          <h3>ai_workspace/</h3>
-          <p><span class="file">README.md</span> 确保存在；<span class="file">attachments/&lt;doc-id&gt;/assets/</span> 存阅读时提取的附件；<span class="file">exports/</span> 存导出的 Markdown。</p>
-        </article>
-      </div>
-    </section>
+      <rect x="315" y="80" width="250" height="105" rx="8" class="node green"/>
+      <text x="338" y="116" class="title">McpServer.handle()</text>
+      <text x="338" y="144" class="text">initialize / tools/list</text>
+      <text x="338" y="168" class="text">tools/call 分发</text>
 
-    <section class="section" id="debt">
-      <div class="section-head">
-        <h2>已知债务</h2>
-        <p class="section-note">这些是架构文档中已经确认的现状，不是猜测。开发时优先对齐这些风险。</p>
-      </div>
-      <div class="grid cols-2">
-        <article class="card">
-          <h3>安全一致性</h3>
-          <p>系统笔记本不能隐藏的承诺尚未完全由代码强制；Privacy Rules 目前按 hpath 名称硬隔离，可能误挡非系统同名文档；写入后的部分自动 refresh 路径曾存在系统上下文参数遗漏风险。</p>
-        </article>
-        <article class="card">
-          <h3>模块体积</h3>
-          <p><span class="file">mcp_server.py</span> 约 2808 行，承担协议、schema、搜索、阅读、写入、表格、附件和文档管理。长期应按领域拆分，测试也要同步模块化。</p>
-        </article>
-        <article class="card">
-          <h3>旧入口漂移</h3>
-          <p><span class="file">cli.py start</span> 仍引用旧启动包文件；部分旧文档可能保留 refresh 清理 workspace 或旧编辑模型的表述。</p>
-        </article>
-        <article class="card">
-          <h3>发布材料</h3>
-          <p>安装指南和插件 manifest 存在版本、链接和描述漂移；发布相关变更必须跑打包检查，并按规则做外部 Agent 验证。</p>
-        </article>
-      </div>
-    </section>
+      <rect x="315" y="230" width="250" height="115" rx="8" class="node green"/>
+      <text x="338" y="266" class="title">tool_specs()</text>
+      <text x="338" y="294" class="text">AI 客户端看到的 schema</text>
+      <text x="338" y="318" class="text">改工具面必须同步文档/Skill/测试</text>
 
-    <section class="section" id="formats">
-      <div class="section-head">
-        <h2>格式选择</h2>
-        <p class="section-note">比 HTML 更简洁的方案有，但“人类友好 + 信息完整 + 双击可看”这三项很难同时超过单文件 HTML。</p>
-      </div>
-      <div class="grid cols-3">
-        <article class="card">
-          <div class="card-top"><h3>Mermaid</h3><span class="pill">最简洁</span></div>
-          <p>适合放进 Markdown 或思源文档，但一张图放不下工具矩阵、债务清单和目录说明。</p>
-        </article>
-        <article class="card">
-          <div class="card-top"><h3>SVG</h3><span class="pill">最轻</span></div>
-          <p>单图最干净，适合嵌入 README；缺点是维护文字和响应式布局比较痛。</p>
-        </article>
-        <article class="card">
-          <div class="card-top"><h3>HTML</h3><span class="pill green">推荐</span></div>
-          <p>可以同时放图、卡片、表格、折叠说明和导航，不需要构建，也不依赖网络。</p>
-        </article>
-      </div>
-    </section>
+      <rect x="315" y="395" width="250" height="160" rx="8" class="node green"/>
+      <text x="338" y="431" class="title">工具实现</text>
+      <text x="338" y="459" class="text">start / refresh_index</text>
+      <text x="338" y="483" class="text">list / find / read</text>
+      <text x="338" y="507" class="text">create / edit / doc_manage</text>
+      <text x="338" y="531" class="text">bridge_feedback</text>
 
-    <footer class="footer">
-      来源：AGENTS.md、docs/ARCHITECTURE.md、docs/DEVELOPMENT_GUIDE.md、README.md、Skill 指令和当前 source_code 结构。这个页面是人类导航层，不替代工具契约文档。
-    </footer>
-  </main>
+      <rect x="315" y="600" width="250" height="80" rx="8" class="node red"/>
+      <text x="338" y="636" class="title">写入闸门</text>
+      <text x="338" y="664" class="text">confirmed + 权限 + 快照</text>
+
+      <rect x="640" y="65" width="210" height="82" rx="8" class="node green"/>
+      <text x="663" y="101" class="title">client.py</text>
+      <text x="663" y="129" class="text">思源 HTTP API 封装</text>
+
+      <rect x="640" y="180" width="210" height="90" rx="8" class="node yellow"/>
+      <text x="663" y="216" class="title">config.py</text>
+      <text x="663" y="244" class="text">load_config / profile 探测</text>
+
+      <rect x="640" y="305" width="210" height="105" rx="8" class="node yellow"/>
+      <text x="663" y="341" class="title">indexer.py + ignore.py</text>
+      <text x="663" y="369" class="text">刷新安全索引</text>
+      <text x="663" y="393" class="text">解析 Privacy Rules</text>
+
+      <rect x="640" y="445" width="210" height="105" rx="8" class="node purple"/>
+      <text x="663" y="481" class="title">agent_notebook.py</text>
+      <text x="663" y="509" class="text">系统笔记本服务层</text>
+      <text x="663" y="533" class="text">AI Guide / Index / About</text>
+
+      <rect x="640" y="585" width="210" height="82" rx="8" class="node blue"/>
+      <text x="663" y="621" class="title">telemetry.py</text>
+      <text x="663" y="649" class="text">事件记录 / 反馈提交</text>
+
+      <rect x="930" y="65" width="200" height="105" rx="8" class="node green"/>
+      <text x="953" y="101" class="title">思源 HTTP API</text>
+      <text x="953" y="129" class="text">blocks / search / sql</text>
+      <text x="953" y="153" class="text">snapshot / export</text>
+
+      <rect x="930" y="220" width="200" height="110" rx="8" class="node yellow"/>
+      <text x="953" y="256" class="title">本地文件</text>
+      <text x="953" y="284" class="text">config.local.json</text>
+      <text x="953" y="308" class="text">knowledge_base/ / ai_workspace/</text>
+
+      <rect x="930" y="380" width="200" height="120" rx="8" class="node purple"/>
+      <text x="953" y="416" class="title">系统笔记本</text>
+      <text x="953" y="444" class="text">AI Guide / Workspace Index</text>
+      <text x="953" y="468" class="text">About / Privacy Rules</text>
+
+      <rect x="930" y="565" width="200" height="82" rx="8" class="node blue"/>
+      <text x="953" y="601" class="title">Worker + D1</text>
+      <text x="953" y="629" class="text">反馈 / 遥测 / 通知</text>
+
+      <path d="M255 128 H315" class="line"/>
+      <rect x="260" y="116" width="50" height="22" rx="4" class="label-bg"/>
+      <text x="270" y="132" class="label">请求</text>
+
+      <path d="M255 293 H315" class="line"/>
+      <rect x="260" y="281" width="50" height="22" rx="4" class="label-bg"/>
+      <text x="270" y="297" class="label">启动</text>
+
+      <path d="M440 185 V230" class="line"/>
+      <rect x="398" y="196" width="84" height="22" rx="4" class="label-bg"/>
+      <text x="410" y="212" class="label">返回 schema</text>
+
+      <path d="M440 345 V395" class="line"/>
+      <rect x="395" y="360" width="90" height="22" rx="4" class="label-bg"/>
+      <text x="407" y="376" class="label">分发到工具</text>
+
+      <path d="M440 555 V600" class="privacy"/>
+      <rect x="382" y="566" width="116" height="22" rx="4" class="label-bg"/>
+      <text x="394" y="582" class="label">写入前统一校验</text>
+
+      <path d="M565 106 H640" class="line"/>
+      <rect x="575" y="94" width="55" height="22" rx="4" class="label-bg"/>
+      <text x="586" y="110" class="label">调用</text>
+
+      <path d="M565 235 H640" class="line"/>
+      <rect x="575" y="223" width="55" height="22" rx="4" class="label-bg"/>
+      <text x="586" y="239" class="label">读配置</text>
+
+      <path d="M565 360 H640" class="line"/>
+      <rect x="575" y="348" width="55" height="22" rx="4" class="label-bg"/>
+      <text x="586" y="364" class="label">刷新</text>
+
+      <path d="M565 500 H640" class="line"/>
+      <rect x="575" y="488" width="55" height="22" rx="4" class="label-bg"/>
+      <text x="586" y="504" class="label">确保</text>
+
+      <path d="M565 626 H640" class="line"/>
+      <rect x="575" y="614" width="55" height="22" rx="4" class="label-bg"/>
+      <text x="586" y="630" class="label">记录</text>
+
+      <path d="M850 106 H930" class="line"/>
+      <rect x="862" y="94" width="55" height="22" rx="4" class="label-bg"/>
+      <text x="873" y="110" class="label">HTTP</text>
+
+      <path d="M850 250 H930" class="line"/>
+      <rect x="862" y="238" width="55" height="22" rx="4" class="label-bg"/>
+      <text x="873" y="254" class="label">读写</text>
+
+      <path d="M850 497 H930" class="line"/>
+      <rect x="862" y="485" width="55" height="22" rx="4" class="label-bg"/>
+      <text x="873" y="501" class="label">维护</text>
+
+      <path d="M850 626 H930" class="line"/>
+      <rect x="862" y="614" width="55" height="22" rx="4" class="label-bg"/>
+      <text x="873" y="630" class="label">上传</text>
+
+      <path d="M1030 500 V565" class="privacy"/>
+      <rect x="954" y="523" width="154" height="22" rx="4" class="label-bg"/>
+      <text x="966" y="539" class="label">Privacy Rules 只进 MCP</text>
+    </svg>
+  </section>
+
+  <h2>单工具调用图：siyuan_start</h2>
+  <section class="panel">
+    <div class="mermaid">
+flowchart TD
+  A["AI agent<br/>tools/call siyuan_start"]
+  B["call_tool()<br/>匹配工具名<br/>action = None"]
+  C["外层连接探测<br/>load_config()<br/>detect_active_profile()"]
+  D["_with_telemetry()<br/>telemetry off：直接执行<br/>upload：计时，最后记录/上传"]
+  E["siyuan_start 再次探测<br/>load_config()<br/>detect_active_profile()"]
+  F["读取思源版本<br/>client.version()"]
+  G["初始化遥测会话<br/>set_siyuan_version()<br/>load_anonymous_id()<br/>ensure_session_id()"]
+  H["确保系统笔记本<br/>ensure_agent_notebook()<br/>AI Guide / About / Privacy Rules<br/>Workspace Index 只查找，不自动创建"]
+  I["缓存隐私规则<br/>write_privacy_rules_cache()<br/>不向 AI 暴露规则内容"]
+  J["清理并刷新索引<br/>清理 ai_workspace/ 非 README<br/>refresh_index(system ids)"]
+  K["组装启动包<br/>build_language_config()<br/>build_notebook_overview()<br/>Workspace Index + AI Guide"]
+  L["返回 MCP content<br/>启动包 Markdown<br/>isError = false"]
+  M["返回错误 content<br/>连接/API/参数错误<br/>isError = true"]
+  N["遥测收尾（仅 upload）<br/>record_event()<br/>_fire_upload()<br/>失败静默，不影响结果"]
+
+  A -->|"调用工具"| B
+  B -->|"普通工具先确认思源可连"| C
+  C -->|"连接正常"| D
+  C -.->|"连接失败，call_tool 捕获"| M
+  D -->|"执行 fn"| E
+  E -->|"得到 active profile/client"| F
+  F -->|"version 成功"| G
+  G -->|"初始化完成"| H
+  H -->|"返回 AgentNotebookState"| I
+  I -->|"只缓存规则状态"| J
+  J -->|"索引刷新完成"| K
+  K -->|"拼接 Markdown"| L
+  L -->|"若开启 upload"| N
+  M -->|"若开启 upload"| N
+
+  classDef entry fill:#eaf4ff,stroke:#86bfff,color:#17202a;
+  classDef runtime fill:#eafaf0,stroke:#74d99a,color:#17202a;
+  classDef local fill:#fff9df,stroke:#ecc94b,color:#17202a;
+  classDef privacy fill:#fff0f2,stroke:#ff9ca8,color:#17202a;
+  classDef output fill:#f2edff,stroke:#b8a7ff,color:#17202a;
+  class A,D,N entry;
+  class B,F,L runtime;
+  class C,E,J local;
+  class I,M privacy;
+  class G,H,K output;
+    </div>
+  </section>
+
+  <h2>主要调用链</h2>
+  <table>
+    <thead><tr><th>场景</th><th>调用关系</th></tr></thead>
+    <tbody>
+      <tr><td>首次使用</td><td>思源插件读取工作空间 Token → 写入 <code>bridge/config.local.json</code> → 用户复制 MCP JSON 到 AI 客户端。</td></tr>
+      <tr><td>Skill 生效</td><td>仓库提供 Skill 副本 → 用户或 AI 客户端主动导入 → AI 才会按 Skill 约束调用工具。</td></tr>
+      <tr><td>会话启动</td><td><code>siyuan_start</code> → 探测 profile → 确保系统笔记本 → 解析 Privacy Rules → 刷新安全索引 → 返回启动包。</td></tr>
+      <tr><td>搜索</td><td><code>siyuan_find</code> → 临时打开笔记本 → 思源搜索/SQL → 隐私过滤 → 按文档聚合。</td></tr>
+      <tr><td>阅读</td><td><code>siyuan_read</code> → 解析可见文档 → <code>getChildBlocks</code> → 块窗口 + 大纲 → 提取附件。</td></tr>
+      <tr><td>写入</td><td><code>siyuan_create/edit/doc_manage</code> → <code>confirmed=true</code> + 权限检查 → 快照 → 写思源 → 路径同步 → 安全刷新索引。</td></tr>
+    </tbody>
+  </table>
+</main>
 </body>
 </html>
